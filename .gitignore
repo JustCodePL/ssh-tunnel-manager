@@ -1,0 +1,32 @@
+# Wails
+build/bin/
+frontend/dist/
+frontend/node_modules/
+frontend/wailsjs/wailsjs/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local (nie commituj)
+.claude/settings.local.json
+
+# App config
+config.json
