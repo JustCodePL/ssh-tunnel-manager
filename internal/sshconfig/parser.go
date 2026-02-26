@@ -1,0 +1,351 @@
+package sshconfig
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+// PortForwardEntry defines a single local-to-remote port mapping parsed from
+// a LocalForward directive.
+type PortForwardEntry struct {
+	LocalPort   int
+	RemoteHost  string
+	RemotePort  int
+	Description string
+}
+
+// HostEntry holds the parsed fields of a single Host block in an SSH config
+// file, including app-specific stm metadata.
+type HostEntry struct {
+	Alias        string
+	HostName     string
+	Port         int
+	User         string
+	IdentityFile string
+	PortForwards []PortForwardEntry
+	ProxyCommand string
+	ProxyJump    string
+	Color        string
+	Group        string
+	AutoConnect  bool
+}
+
+// ParseFile reads an SSH config file and returns host entries for all
+// non-wildcard, non-Match Host entries. Wildcard hosts (containing * or ?)
+// and Match blocks are skipped. Returns nil, nil for a missing file.
+func ParseFile(path string) ([]HostEntry, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("opening ssh config %s: %w", path, err)
+	}
+	defer f.Close()
+
+	return Parse(bufio.NewScanner(f))
+}
+
+// Parse reads SSH config lines from a scanner and returns host entries.
+func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
+	var entries []HostEntry
+	var current *HostEntry
+	var metaGroup string
+	var metaColor string
+	var metaAutoConnect bool
+	inMatch := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		// Collect stm metadata comments
+		if strings.HasPrefix(trimmed, "# stm:") {
+			key, val := parseMetaComment(trimmed)
+			switch key {
+			case "group":
+				metaGroup = val
+			case "color":
+				metaColor = val
+			case "autoconnect":
+				metaAutoConnect = val == "true"
+			}
+			continue
+		}
+
+		// Match block — skip until next Host or Match
+		if isMatchDirective(trimmed) {
+			if current != nil {
+				entries = appendIfValid(entries, current)
+				current = nil
+			}
+			inMatch = true
+			metaGroup = ""
+			metaColor = ""
+			metaAutoConnect = false
+			continue
+		}
+
+		// Host directive
+		if isHostDirective(trimmed) {
+			if current != nil {
+				entries = appendIfValid(entries, current)
+			}
+			inMatch = false
+			alias := extractHostAlias(trimmed)
+
+			if isWildcard(alias) {
+				current = nil
+				metaGroup = ""
+				metaColor = ""
+				metaAutoConnect = false
+				continue
+			}
+
+			current = &HostEntry{
+				Alias:       alias,
+				Port:        22,
+				Color:       metaColor,
+				Group:       metaGroup,
+				AutoConnect: metaAutoConnect,
+			}
+			metaGroup = ""
+			metaColor = ""
+			metaAutoConnect = false
+			continue
+		}
+
+		if inMatch || current == nil {
+			// Reset pending metadata if we see a non-comment, non-Host line
+			// while not in a Host block
+			if current == nil && !strings.HasPrefix(trimmed, "#") && trimmed != "" {
+				metaGroup = ""
+				metaColor = ""
+				metaAutoConnect = false
+			}
+			continue
+		}
+
+		// Parse directives within a Host block
+		key, val := parseDirective(trimmed)
+		if key == "" {
+			continue
+		}
+
+		switch strings.ToLower(key) {
+		case "hostname":
+			current.HostName = val
+		case "port":
+			if p, err := strconv.Atoi(val); err == nil {
+				current.Port = p
+			}
+		case "user":
+			current.User = val
+		case "identityfile":
+			current.IdentityFile = expandTilde(val)
+		case "localforward":
+			if pf, err := parseLocalForward(val); err == nil {
+				current.PortForwards = append(current.PortForwards, pf)
+			}
+		case "proxycommand":
+			current.ProxyCommand = val
+		case "proxyjump":
+			current.ProxyJump = val
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scanning ssh config: %w", err)
+	}
+
+	if current != nil {
+		entries = appendIfValid(entries, current)
+	}
+
+	// If HostName is absent, default to the alias
+	for i := range entries {
+		if entries[i].HostName == "" {
+			entries[i].HostName = entries[i].Alias
+		}
+	}
+
+	return entries, nil
+}
+
+// RenderHostBlock produces SSH config text for a single HostEntry,
+// including stm metadata comments. The block is ready to append to a file.
+func RenderHostBlock(e HostEntry) string {
+	var b strings.Builder
+
+	if e.Group != "" {
+		fmt.Fprintf(&b, "# stm:group=%s\n", e.Group)
+	}
+	if e.Color != "" {
+		fmt.Fprintf(&b, "# stm:color=%s\n", e.Color)
+	}
+	if e.AutoConnect {
+		b.WriteString("# stm:autoconnect=true\n")
+	}
+
+	fmt.Fprintf(&b, "Host %s\n", e.Alias)
+
+	if e.HostName != "" && e.HostName != e.Alias {
+		fmt.Fprintf(&b, "    HostName %s\n", e.HostName)
+	}
+	if e.User != "" {
+		fmt.Fprintf(&b, "    User %s\n", e.User)
+	}
+	if e.Port != 0 && e.Port != 22 {
+		fmt.Fprintf(&b, "    Port %d\n", e.Port)
+	}
+	if e.IdentityFile != "" {
+		fmt.Fprintf(&b, "    IdentityFile %s\n", collapseTilde(e.IdentityFile))
+	}
+	if e.ProxyCommand != "" {
+		fmt.Fprintf(&b, "    ProxyCommand %s\n", e.ProxyCommand)
+	}
+	if e.ProxyJump != "" {
+		fmt.Fprintf(&b, "    ProxyJump %s\n", e.ProxyJump)
+	}
+	for _, pf := range e.PortForwards {
+		if pf.Description != "" {
+			fmt.Fprintf(&b, "    LocalForward %d %s:%d # %s\n", pf.LocalPort, pf.RemoteHost, pf.RemotePort, pf.Description)
+		} else {
+			fmt.Fprintf(&b, "    LocalForward %d %s:%d\n", pf.LocalPort, pf.RemoteHost, pf.RemotePort)
+		}
+	}
+
+	return b.String()
+}
+
+func appendIfValid(entries []HostEntry, e *HostEntry) []HostEntry {
+	if e != nil && e.Alias != "" {
+		return append(entries, *e)
+	}
+	return entries
+}
+
+func parseMetaComment(line string) (key, val string) {
+	// "# stm:key=value"
+	after := strings.TrimPrefix(line, "# stm:")
+	parts := strings.SplitN(after, "=", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+}
+
+func isHostDirective(line string) bool {
+	lower := strings.ToLower(line)
+	return strings.HasPrefix(lower, "host ") || strings.HasPrefix(lower, "host\t")
+}
+
+func isMatchDirective(line string) bool {
+	lower := strings.ToLower(line)
+	return strings.HasPrefix(lower, "match ") || strings.HasPrefix(lower, "match\t")
+}
+
+func extractHostAlias(line string) string {
+	// "Host alias" or "Host  alias"
+	fields := strings.Fields(line)
+	if len(fields) >= 2 {
+		return fields[1]
+	}
+	return ""
+}
+
+func isWildcard(alias string) bool {
+	return strings.ContainsAny(alias, "*?")
+}
+
+func parseDirective(line string) (key, val string) {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+		return "", ""
+	}
+
+	// Handle "Key=Value" syntax
+	if idx := strings.Index(trimmed, "="); idx > 0 {
+		k := strings.TrimSpace(trimmed[:idx])
+		v := strings.TrimSpace(trimmed[idx+1:])
+		if !strings.ContainsAny(k, " \t") {
+			return k, v
+		}
+	}
+
+	// Handle "Key Value" syntax
+	fields := strings.SplitN(trimmed, " ", 2)
+	if len(fields) == 1 {
+		fields = strings.SplitN(trimmed, "\t", 2)
+	}
+	if len(fields) != 2 {
+		return "", ""
+	}
+	return strings.TrimSpace(fields[0]), strings.TrimSpace(fields[1])
+}
+
+// parseLocalForward parses "localPort remoteHost:remotePort" with an optional
+// inline comment used as description: "localPort remoteHost:remotePort # desc".
+func parseLocalForward(val string) (PortForwardEntry, error) {
+	// Extract inline comment as description
+	var description string
+	if idx := strings.Index(val, "#"); idx >= 0 {
+		description = strings.TrimSpace(val[idx+1:])
+		val = strings.TrimSpace(val[:idx])
+	}
+
+	fields := strings.Fields(val)
+	if len(fields) < 2 {
+		return PortForwardEntry{}, fmt.Errorf("invalid LocalForward: %q", val)
+	}
+
+	localPort, err := strconv.Atoi(fields[0])
+	if err != nil {
+		return PortForwardEntry{}, fmt.Errorf("invalid local port in LocalForward %q: %w", val, err)
+	}
+
+	remote := fields[1]
+	lastColon := strings.LastIndex(remote, ":")
+	if lastColon < 0 {
+		return PortForwardEntry{}, fmt.Errorf("invalid remote in LocalForward %q: missing colon", val)
+	}
+
+	remoteHost := remote[:lastColon]
+	remotePort, err := strconv.Atoi(remote[lastColon+1:])
+	if err != nil {
+		return PortForwardEntry{}, fmt.Errorf("invalid remote port in LocalForward %q: %w", val, err)
+	}
+
+	return PortForwardEntry{
+		LocalPort:   localPort,
+		RemoteHost:  remoteHost,
+		RemotePort:  remotePort,
+		Description: description,
+	}, nil
+}
+
+func expandTilde(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
+	}
+	return path
+}
+
+func collapseTilde(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	if strings.HasPrefix(path, home+"/") {
+		return "~/" + path[len(home)+1:]
+	}
+	return path
+}

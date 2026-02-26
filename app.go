@@ -1,0 +1,362 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"sync"
+
+	"ssh-tunnel-manager/internal/autostart"
+	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/keychain"
+	"ssh-tunnel-manager/internal/sshconfig"
+	"ssh-tunnel-manager/internal/ssh"
+	"ssh-tunnel-manager/internal/tray"
+)
+
+// App is the Wails application struct, bridging Go backend and frontend.
+type App struct {
+	ctx     context.Context
+	store   *config.Store
+	manager *ssh.Manager
+	tray    *tray.Tray
+
+	// Passphrase prompt coordination
+	passphraseMu   sync.Mutex
+	passphraseChan chan string
+}
+
+// NewApp creates a new App instance.
+func NewApp(store *config.Store) *App {
+	app := &App{store: store}
+	app.manager = ssh.NewManager(func(event ssh.StatusEvent) {
+		app.emitStatus(event)
+		app.tray.HandleStatusEvent(event)
+	}, app.getPassphrase)
+	app.tray = tray.New(tray.Callbacks{
+		ShowWindow: func() { app.showWindow() },
+		Quit:       func() { app.quit() },
+		Connect:    func(id string) error { return app.ConnectTunnel(id) },
+		Disconnect: func(id string) error { return app.DisconnectTunnel(id) },
+		CopyToClip: func(text string) error { return app.copyToClipboard(text) },
+		GetTunnels: func() []config.TunnelConfig { return store.GetTunnels() },
+	})
+	return app
+}
+
+// startup is called by Wails when the application starts.
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	a.tray.Start()
+}
+
+// shutdown is called by Wails when the application is closing.
+func (a *App) shutdown(ctx context.Context) {
+	slog.Info("shutting down, disconnecting all tunnels")
+	a.tray.Stop()
+	a.manager.DisconnectAll()
+}
+
+// GetTunnels returns all configured tunnels.
+func (a *App) GetTunnels() []config.TunnelConfig {
+	return a.store.GetTunnels()
+}
+
+// AddTunnel persists a new tunnel configuration. ID is set to Name.
+func (a *App) AddTunnel(t config.TunnelConfig) error {
+	t.ID = t.Name
+	if err := a.store.AddTunnel(t); err != nil {
+		return err
+	}
+	a.tray.RefreshMenu()
+	return nil
+}
+
+// UpdateTunnel updates an existing tunnel configuration.
+// If the name changed, the tunnel is disconnected under the old ID first.
+func (a *App) UpdateTunnel(t config.TunnelConfig) error {
+	old, ok := a.store.GetTunnel(t.ID)
+	if ok && old.Name != t.Name {
+		_ = a.manager.Disconnect(t.ID)
+	}
+	if err := a.store.UpdateTunnel(t); err != nil {
+		return err
+	}
+	a.tray.RefreshMenu()
+	return nil
+}
+
+// DeleteTunnel removes a tunnel by ID. Disconnects it first if running.
+func (a *App) DeleteTunnel(id string) error {
+	_ = a.manager.Disconnect(id) // ignore error if not connected
+	if err := a.store.DeleteTunnel(id); err != nil {
+		return err
+	}
+	a.tray.RefreshMenu()
+	return nil
+}
+
+// ConnectTunnel starts an SSH connection for the given tunnel ID.
+func (a *App) ConnectTunnel(id string) error {
+	cfg, ok := a.store.GetTunnel(id)
+	if !ok {
+		return &tunnelNotFoundError{id}
+	}
+	return a.manager.Connect(cfg)
+}
+
+// DisconnectTunnel stops the SSH connection for the given tunnel ID.
+func (a *App) DisconnectTunnel(id string) error {
+	return a.manager.Disconnect(id)
+}
+
+// GetTunnelStatuses returns the current status of all tunnels.
+func (a *App) GetTunnelStatuses() map[string]ssh.StatusEvent {
+	return a.manager.GetStatuses()
+}
+
+func (a *App) showWindow() {
+	if a.ctx != nil {
+		runtime.WindowShow(a.ctx)
+	}
+}
+
+func (a *App) quit() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+	}
+}
+
+func (a *App) copyToClipboard(text string) error {
+	if a.ctx == nil {
+		return nil
+	}
+	return runtime.ClipboardSetText(a.ctx, text)
+}
+
+func (a *App) emitStatus(event ssh.StatusEvent) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "tunnel:status-changed", event)
+	if event.Error != "" {
+		runtime.EventsEmit(a.ctx, "tunnel:error", event)
+	}
+}
+
+// getPassphrase is called by the SSH manager when an encrypted key needs
+// a passphrase. It first checks the OS keychain, then prompts the user
+// via the frontend.
+func (a *App) getPassphrase(keyPath string) (string, error) {
+	// Try keychain first
+	stored, err := keychain.GetPassphrase(keyPath)
+	if err != nil {
+		slog.Warn("keychain lookup failed", "keyPath", keyPath, "error", err)
+	}
+	if stored != "" {
+		return stored, nil
+	}
+
+	// Ask frontend for passphrase
+	a.passphraseMu.Lock()
+	a.passphraseChan = make(chan string, 1)
+	a.passphraseMu.Unlock()
+
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "passphrase:request", keyPath)
+	}
+
+	// Wait for the frontend to call SubmitPassphrase
+	passphrase := <-a.passphraseChan
+
+	a.passphraseMu.Lock()
+	a.passphraseChan = nil
+	a.passphraseMu.Unlock()
+
+	if passphrase == "" {
+		return "", fmt.Errorf("passphrase entry cancelled")
+	}
+
+	// Store in keychain for next time
+	if err := keychain.SetPassphrase(keyPath, passphrase); err != nil {
+		slog.Warn("failed to store passphrase in keychain", "keyPath", keyPath, "error", err)
+	}
+
+	return passphrase, nil
+}
+
+// SubmitPassphrase is called by the frontend to provide a passphrase
+// for an encrypted SSH key.
+func (a *App) SubmitPassphrase(passphrase string) {
+	a.passphraseMu.Lock()
+	ch := a.passphraseChan
+	a.passphraseMu.Unlock()
+
+	if ch != nil {
+		ch <- passphrase
+	}
+}
+
+// GetAutostart returns whether the app is set to start on login.
+func (a *App) GetAutostart() bool {
+	enabled, _ := autostart.IsEnabled()
+	return enabled
+}
+
+// SetAutostart enables or disables starting the app on login.
+func (a *App) SetAutostart(enabled bool) error {
+	if enabled {
+		return autostart.Enable()
+	}
+	return autostart.Disable()
+}
+
+// SelectFile opens a native file dialog for picking an SSH config file.
+func (a *App) SelectFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select SSH Config File",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "All Files", Pattern: "*"},
+		},
+	})
+}
+
+// SelectSaveFile opens a native save dialog.
+func (a *App) SelectSaveFile(defaultName string) (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Tunnels",
+		DefaultFilename: defaultName,
+	})
+}
+
+// ImportPreview parses an SSH config file and returns the host entries found
+// without importing them. The frontend uses this to show a preview.
+func (a *App) ImportPreview(path string) ([]config.TunnelConfig, error) {
+	entries, err := sshconfig.ParseFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	var tunnels []config.TunnelConfig
+	for _, e := range entries {
+		tunnels = append(tunnels, entryToTunnel(e))
+	}
+	return tunnels, nil
+}
+
+// ImportTunnels imports the selected tunnels (by name) from the given file.
+func (a *App) ImportTunnels(path string, names []string) (int, error) {
+	entries, err := sshconfig.ParseFile(path)
+	if err != nil {
+		return 0, fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	nameSet := make(map[string]bool, len(names))
+	for _, n := range names {
+		nameSet[n] = true
+	}
+
+	var imported int
+	for _, e := range entries {
+		if !nameSet[e.Alias] {
+			continue
+		}
+		tc := entryToTunnel(e)
+		tc.ID = tc.Name
+		if err := a.store.AddTunnel(tc); err != nil {
+			slog.Warn("import: skipping duplicate tunnel", "name", tc.Name, "error", err)
+			continue
+		}
+		imported++
+	}
+
+	if imported > 0 {
+		runtime.EventsEmit(a.ctx, "tunnels:changed")
+		a.tray.RefreshMenu()
+	}
+	return imported, nil
+}
+
+// ExportTunnels writes selected tunnels (by ID) to an SSH config file.
+func (a *App) ExportTunnels(path string, ids []string) error {
+	idSet := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		idSet[id] = true
+	}
+
+	tunnels := a.store.GetTunnels()
+	var blocks []string
+	for _, t := range tunnels {
+		if !idSet[t.ID] {
+			continue
+		}
+		blocks = append(blocks, sshconfig.RenderHostBlock(tunnelToEntry(t)))
+	}
+
+	content := strings.Join(blocks, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("writing export file: %w", err)
+	}
+	return nil
+}
+
+func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
+	t := config.TunnelConfig{
+		ID:           e.Alias,
+		Name:         e.Alias,
+		Host:         e.HostName,
+		Port:         e.Port,
+		User:         e.User,
+		KeyPath:      e.IdentityFile,
+		ProxyCommand: e.ProxyCommand,
+		ProxyJump:    e.ProxyJump,
+		Color:        e.Color,
+		Group:        e.Group,
+		AutoConnect:  e.AutoConnect,
+	}
+	for _, pf := range e.PortForwards {
+		t.PortForwards = append(t.PortForwards, config.PortForward{
+			LocalPort:   pf.LocalPort,
+			RemoteHost:  pf.RemoteHost,
+			RemotePort:  pf.RemotePort,
+			Description: pf.Description,
+		})
+	}
+	return t
+}
+
+func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
+	e := sshconfig.HostEntry{
+		Alias:        t.Name,
+		HostName:     t.Host,
+		Port:         t.Port,
+		User:         t.User,
+		IdentityFile: t.KeyPath,
+		ProxyCommand: t.ProxyCommand,
+		ProxyJump:    t.ProxyJump,
+		Color:        t.Color,
+		Group:        t.Group,
+		AutoConnect:  t.AutoConnect,
+	}
+	for _, pf := range t.PortForwards {
+		e.PortForwards = append(e.PortForwards, sshconfig.PortForwardEntry{
+			LocalPort:   pf.LocalPort,
+			RemoteHost:  pf.RemoteHost,
+			RemotePort:  pf.RemotePort,
+			Description: pf.Description,
+		})
+	}
+	return e
+}
+
+type tunnelNotFoundError struct {
+	id string
+}
+
+func (e *tunnelNotFoundError) Error() string {
+	return "tunnel not found: " + e.id
+}
