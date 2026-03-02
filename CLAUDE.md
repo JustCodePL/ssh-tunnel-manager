@@ -14,7 +14,7 @@ Go backend + Wails v2 + Svelte frontend. Single binary, no Electron.
 
 - `app.go` — Wails-exposed methods (bridge Go ↔ frontend)
 - `internal/ssh/` — SSH connections via golang.org/x/crypto/ssh
-- `internal/config/` — JSON persistence, data models
+- `internal/config/` — ~/.ssh/config persistence (read/write Host blocks), data models
 - `internal/tray/` — System tray: icon, badge, colored dots, context menu
 - `internal/autostart/` — Platform autostart (registry / launch agent / .desktop)
 - `internal/keychain/` — OS keychain for passphrases
@@ -24,7 +24,7 @@ Go backend + Wails v2 + Svelte frontend. Single binary, no Electron.
 
 - Pure Go SSH (golang.org/x/crypto/ssh) — no dependency on system `ssh` binary
 - One goroutine per tunnel, managed via context.Context + sync.WaitGroup
-- Config at os.UserConfigDir()/ssh-tunnel-manager/config.json — no secrets, only key paths
+- Config stored in ~/.ssh/config as standard Host blocks; app metadata (port forwards, groups, colour, auto-connect) stored as comments that round-trip cleanly
 - Passphrases stored in OS keychain (macOS Keychain / Windows Credential Manager / Linux Secret Service)
 - System tray is the PRIMARY interface; manager window is secondary
 - Use `127.0.0.1` not `localhost` for port forwarding (avoids IPv6 issues)
