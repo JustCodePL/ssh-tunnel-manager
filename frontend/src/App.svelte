@@ -88,14 +88,25 @@
     </div>
   </header>
   <main class="flex-1 overflow-y-auto p-5">
-    {#if showSettings}
-      <SettingsPanel on:close={() => (showSettings = false)} />
-    {:else if showImport}
+    {#if showImport}
       <ImportDialog on:close={() => (showImport = false)} />
     {:else}
       <TunnelList />
     {/if}
   </main>
+
+  {#if showSettings}
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        class="absolute inset-0 bg-black/50"
+        role="presentation"
+        on:click={() => (showSettings = false)}
+      ></div>
+      <div class="relative z-10 w-full max-w-md mx-4">
+        <SettingsPanel on:close={() => (showSettings = false)} />
+      </div>
+    </div>
+  {/if}
 
   {#if passphraseKeyPath}
     <PassphraseDialog

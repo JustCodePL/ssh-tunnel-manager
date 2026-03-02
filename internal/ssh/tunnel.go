@@ -175,6 +175,7 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr)
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	applySysProcAttr(cmd)
 	cmd.Stderr = os.Stderr
 
 	stdin, err := cmd.StdinPipe()

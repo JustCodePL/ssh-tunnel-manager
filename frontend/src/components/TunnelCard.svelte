@@ -45,14 +45,14 @@
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
 </script>
 
-<div class="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors">
+<div class="group bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-white dark:hover:bg-zinc-750 hover:shadow-sm transition-all">
   <div class="flex items-start justify-between gap-3">
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2 mb-1">
         <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{tunnel.name}</h3>
         <StatusBadge {status} />
       </div>
-      <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 truncate font-mono transition-colors">
         {tunnel.user}@{tunnel.host}:{tunnel.port}
       </p>
       {#if tunnel.portForwards && tunnel.portForwards.length > 0}
