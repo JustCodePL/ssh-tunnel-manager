@@ -20,15 +20,17 @@ type Callbacks struct {
 	Disconnect func(id string) error
 	CopyToClip func(text string) error
 	GetTunnels func() []config.TunnelConfig
+	OnUpdate   func()
 }
 
 // Tray manages the system tray icon and context menu.
 type Tray struct {
 	cb Callbacks
 
-	mu       sync.Mutex
-	statuses map[string]ssh.StatusEvent
-	endFunc  func() // called to tear down systray
+	mu            sync.Mutex
+	statuses      map[string]ssh.StatusEvent
+	updateVersion string // set when an update is available
+	endFunc       func() // called to tear down systray
 
 	// Pre-rendered status dot icons (cached)
 	dotGreen  []byte
@@ -111,6 +113,14 @@ func (t *Tray) HandleStatusEvent(event ssh.StatusEvent) {
 			notify("Disconnected", fmt.Sprintf("Tunnel %q disconnected", event.TunnelID))
 		}
 	}
+}
+
+// SetUpdateAvailable stores the version and rebuilds the menu to show an update item.
+func (t *Tray) SetUpdateAvailable(version string) {
+	t.mu.Lock()
+	t.updateVersion = version
+	t.mu.Unlock()
+	t.rebuildMenu()
 }
 
 func (t *Tray) onReady() {
@@ -343,6 +353,21 @@ func (t *Tray) rebuildMenu() {
 	}
 
 	systray.AddSeparator()
+
+	t.mu.Lock()
+	updateVer := t.updateVersion
+	t.mu.Unlock()
+
+	if updateVer != "" {
+		updateItem := systray.AddMenuItem("⬆ Update to v"+updateVer, "Download and install the latest version")
+		updateItem.Click(func() {
+			slog.Info("tray: user triggered update", "version", updateVer)
+			if t.cb.OnUpdate != nil {
+				t.cb.OnUpdate()
+			}
+		})
+		systray.AddSeparator()
+	}
 
 	// Show Window
 	showItem := systray.AddMenuItem("Show Window", "Open the manager window")

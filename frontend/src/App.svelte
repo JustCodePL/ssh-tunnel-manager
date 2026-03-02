@@ -11,6 +11,7 @@
   let showImport = false;
   let showSettings = false;
   let passphraseKeyPath: string | null = null;
+  let updateAvailable = false;
 
   onMount(() => {
     initEventListeners();
@@ -18,6 +19,10 @@
 
     EventsOn("passphrase:request", (keyPath: string) => {
       passphraseKeyPath = keyPath;
+    });
+
+    EventsOn("updater:update-available", () => {
+      updateAvailable = true;
     });
   });
 
@@ -71,11 +76,14 @@
         {themeIcons[$theme] || themeIcons.dark}
       </button>
       <button
-        class="px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300"
+        class="relative px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300"
         on:click={() => (showSettings = !showSettings)}
         title="Settings"
       >
         &#x2699;
+        {#if updateAvailable}
+          <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full"></span>
+        {/if}
       </button>
     </div>
   </header>
