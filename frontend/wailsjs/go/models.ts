@@ -1,3 +1,26 @@
+export namespace updater {
+
+	export class UpdateInfo {
+	    latestVersion: string;
+	    releaseUrl: string;
+	    assetUrl: string;
+	    releaseNotes: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.latestVersion = source["latestVersion"];
+	        this.releaseUrl = source["releaseUrl"];
+	        this.assetUrl = source["assetUrl"];
+	        this.releaseNotes = source["releaseNotes"];
+	    }
+	}
+
+}
+
 export namespace config {
 	
 	export class PortForward {

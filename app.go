@@ -6,17 +6,17 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-
-	"sync"
 
 	"ssh-tunnel-manager/internal/autostart"
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/keychain"
-	"ssh-tunnel-manager/internal/sshconfig"
 	"ssh-tunnel-manager/internal/ssh"
+	"ssh-tunnel-manager/internal/sshconfig"
 	"ssh-tunnel-manager/internal/tray"
+	"ssh-tunnel-manager/internal/updater"
 )
 
 // App is the Wails application struct, bridging Go backend and frontend.
@@ -29,6 +29,10 @@ type App struct {
 	// Passphrase prompt coordination
 	passphraseMu   sync.Mutex
 	passphraseChan chan string
+
+	// Pending update info (nil if no update available)
+	updateMu      sync.Mutex
+	pendingUpdate *updater.UpdateInfo
 }
 
 // NewApp creates a new App instance.
@@ -45,6 +49,7 @@ func NewApp(store *config.Store) *App {
 		Disconnect: func(id string) error { return app.DisconnectTunnel(id) },
 		CopyToClip: func(text string) error { return app.copyToClipboard(text) },
 		GetTunnels: func() []config.TunnelConfig { return store.GetTunnels() },
+		OnUpdate:   func() { app.installUpdateFromTray() },
 	})
 	return app
 }
@@ -53,6 +58,23 @@ func NewApp(store *config.Store) *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.tray.Start()
+
+	go func() {
+		info, err := updater.Check(ctx, Version, "JustCode/ssh-tunnel-manager")
+		if err != nil {
+			slog.Warn("update check failed", "error", err)
+			return
+		}
+		if info == nil {
+			return
+		}
+		slog.Info("update available", "version", info.LatestVersion)
+		a.updateMu.Lock()
+		a.pendingUpdate = info
+		a.updateMu.Unlock()
+		runtime.EventsEmit(a.ctx, "updater:update-available", info)
+		a.tray.SetUpdateAvailable(info.LatestVersion)
+	}()
 }
 
 // shutdown is called by Wails when the application is closing.
@@ -214,6 +236,52 @@ func (a *App) SetAutostart(enabled bool) error {
 		return autostart.Enable()
 	}
 	return autostart.Disable()
+}
+
+// GetCurrentVersion returns the compiled-in application version.
+func (a *App) GetCurrentVersion() string {
+	return Version
+}
+
+// CheckForUpdate contacts GitHub for a newer release. Returns nil if already
+// up to date. Stores result in pendingUpdate and emits the update-available event.
+func (a *App) CheckForUpdate() (*updater.UpdateInfo, error) {
+	info, err := updater.Check(a.ctx, Version, "JustCode/ssh-tunnel-manager")
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, nil
+	}
+	a.updateMu.Lock()
+	a.pendingUpdate = info
+	a.updateMu.Unlock()
+	runtime.EventsEmit(a.ctx, "updater:update-available", info)
+	a.tray.SetUpdateAvailable(info.LatestVersion)
+	return info, nil
+}
+
+// InstallUpdate downloads and runs the pending installer, then quits the app.
+func (a *App) InstallUpdate() error {
+	a.updateMu.Lock()
+	info := a.pendingUpdate
+	a.updateMu.Unlock()
+
+	if info == nil {
+		return fmt.Errorf("no pending update")
+	}
+
+	if err := updater.Install(a.ctx, info); err != nil {
+		return err
+	}
+	a.quit()
+	return nil
+}
+
+func (a *App) installUpdateFromTray() {
+	if err := a.InstallUpdate(); err != nil {
+		slog.Error("tray: install update failed", "error", err)
+	}
 }
 
 // SelectFile opens a native file dialog for picking an SSH config file.
