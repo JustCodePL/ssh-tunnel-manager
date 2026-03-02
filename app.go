@@ -60,7 +60,7 @@ func (a *App) startup(ctx context.Context) {
 	a.tray.Start()
 
 	go func() {
-		info, err := updater.Check(ctx, Version, "JustCode/ssh-tunnel-manager")
+		info, err := updater.Check(ctx, Version, "JustCodePL/ssh-tunnel-manager")
 		if err != nil {
 			slog.Warn("update check failed", "error", err)
 			return
@@ -246,7 +246,7 @@ func (a *App) GetCurrentVersion() string {
 // CheckForUpdate contacts GitHub for a newer release. Returns nil if already
 // up to date. Stores result in pendingUpdate and emits the update-available event.
 func (a *App) CheckForUpdate() (*updater.UpdateInfo, error) {
-	info, err := updater.Check(a.ctx, Version, "JustCode/ssh-tunnel-manager")
+	info, err := updater.Check(a.ctx, Version, "JustCodePL/ssh-tunnel-manager")
 	if err != nil {
 		return nil, err
 	}

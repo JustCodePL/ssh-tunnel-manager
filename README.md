@@ -21,7 +21,7 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 
 ## Download
 
-Get the latest release from the [Releases page](https://github.com/JustCode/ssh-tunnel-manager/releases).
+Get the latest release from the [Releases page](https://github.com/JustCodePL/ssh-tunnel-manager/releases).
 
 | Platform | File | Notes |
 |----------|------|-------|
@@ -121,7 +121,7 @@ Passphrases are **never** written to disk; they go to the OS keychain (Windows C
 ### Running in dev mode
 
 ```bash
-git clone https://github.com/JustCode/ssh-tunnel-manager
+git clone https://github.com/JustCodePL/ssh-tunnel-manager
 cd ssh-tunnel-manager
 wails dev
 ```
