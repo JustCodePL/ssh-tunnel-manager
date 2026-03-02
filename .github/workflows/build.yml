@@ -56,15 +56,23 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
-      # Linux dependencies
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
+      - name: Install NSIS
+        if: matrix.platform == 'windows'
+        uses: negrutiu/nsis-install@v2
+
       - name: Build
+        if: matrix.platform != 'windows'
         run: wails build -skipbindings
+
+      - name: Build with installer
+        if: matrix.platform == 'windows'
+        run: wails build -skipbindings -nsis
 
       - name: Upload Linux artifact
         if: matrix.platform == 'linux'
@@ -80,12 +88,19 @@ jobs:
           name: ssh-tunnel-manager-darwin-arm64
           path: build/bin/ssh-tunnel-manager.app
 
-      - name: Upload Windows artifact
+      - name: Upload Windows portable artifact
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: ssh-tunnel-manager-windows-amd64
           path: build/bin/ssh-tunnel-manager.exe
+
+      - name: Upload Windows installer artifact
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-tunnel-manager-windows-amd64-installer
+          path: build/bin/ssh-tunnel-manager-amd64-installer.exe
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -102,8 +117,10 @@ jobs:
         run: |
           cd artifacts
           tar czf ssh-tunnel-manager-linux-amd64.tar.gz -C ssh-tunnel-manager-linux-amd64 .
-          zip -r ssh-tunnel-manager-windows-amd64.zip ssh-tunnel-manager-windows-amd64/
           zip -r ssh-tunnel-manager-darwin-arm64.zip ssh-tunnel-manager-darwin-arm64/
+          zip -r ssh-tunnel-manager-windows-amd64.zip ssh-tunnel-manager-windows-amd64/
+          # Installer is a standalone exe — no extra packaging needed
+          cp ssh-tunnel-manager-windows-amd64-installer/ssh-tunnel-manager-amd64-installer.exe ./
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -113,3 +130,4 @@ jobs:
             artifacts/ssh-tunnel-manager-linux-amd64.tar.gz
             artifacts/ssh-tunnel-manager-darwin-arm64.zip
             artifacts/ssh-tunnel-manager-windows-amd64.zip
+            artifacts/ssh-tunnel-manager-amd64-installer.exe

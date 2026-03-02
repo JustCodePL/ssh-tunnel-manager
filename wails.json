@@ -8,6 +8,13 @@
   "frontend:dev:serverUrl": "auto",
   "wailsjsdir": "./frontend/wailsjs",
   "build:tags": "webkit2_41",
+  "info": {
+    "companyName": "JustCode",
+    "productName": "SSH Tunnel Manager",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026 JustCode",
+    "comments": "SSH tunnel manager built with Wails"
+  },
   "author": {
     "name": "Artur Czuba",
     "email": "kontakt.justcode@gmail.com"
