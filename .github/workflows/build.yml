@@ -32,10 +32,12 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: arm64
+            wails_platform: darwin/arm64
             artifact: ssh-tunnel-manager.app
-          - os: macos-13
+          - os: macos-latest
             platform: darwin
             arch: amd64
+            wails_platform: darwin/amd64
             artifact: ssh-tunnel-manager.app
           - os: windows-latest
             platform: windows
@@ -86,7 +88,7 @@ jobs:
 
       - name: Build
         if: matrix.platform != 'windows'
-        run: wails build -skipbindings
+        run: wails build -skipbindings -platform ${{ matrix.wails_platform || matrix.platform }}
 
       - name: Build with installer
         if: matrix.platform == 'windows'
