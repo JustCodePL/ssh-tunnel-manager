@@ -7,7 +7,7 @@
   export let tunnel: TunnelConfig;
   export let status: TunnelStatus = "disconnected";
 
-  const dispatch = createEventDispatcher<{ edit: TunnelConfig }>();
+  const dispatch = createEventDispatcher<{ edit: TunnelConfig; logs: TunnelConfig }>();
 
   let actionLoading = false;
 
@@ -40,6 +40,10 @@
 
   function handleEdit() {
     dispatch("edit", tunnel);
+  }
+
+  function handleLogs() {
+    dispatch("logs", tunnel);
   }
 
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
@@ -84,6 +88,13 @@
           Connect
         </button>
       {/if}
+      <button
+        class="px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-600 dark:text-zinc-300"
+        on:click={handleLogs}
+        title="View connection logs"
+      >
+        Logs
+      </button>
       <button
         class="px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-600 dark:text-zinc-300"
         on:click={handleEdit}

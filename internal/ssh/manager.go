@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +35,28 @@ type Manager struct {
 	tunnels       map[string]*runningTunnel
 	emitter       EventEmitter
 	getPassphrase PassphraseFunc
+	logEmitter    func(tunnelID, level, msg string)
+}
+
+// WithLogEmitter sets a callback that receives per-tunnel log entries.
+func (m *Manager) WithLogEmitter(fn func(tunnelID, level, msg string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.logEmitter = fn
+}
+
+// isAuthError returns true if the error looks like an SSH authentication failure.
+func isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unable to authenticate") ||
+		strings.Contains(msg, "no supported methods remain") ||
+		strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "publickey") ||
+		strings.Contains(msg, "authentication failed") ||
+		strings.Contains(msg, "handshake failed")
 }
 
 type runningTunnel struct {
@@ -76,6 +99,7 @@ func (m *Manager) Connect(cfg config.TunnelConfig) error {
 func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFunc, cfg config.TunnelConfig, rt *runningTunnel) {
 	backoff := initialBackoff
 	firstAttempt := true
+	attempt := 0
 
 	for {
 		if ctx.Err() != nil {
@@ -86,10 +110,12 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 			m.mu.Lock()
 			rt.status = config.StatusReconnecting
 			m.mu.Unlock()
+			reconnMsg := fmt.Sprintf("reconnecting in %s", backoff.Truncate(time.Second))
+			m.emitLog(cfg.ID, "warn", fmt.Sprintf("Reconnecting in %s (attempt %d)", backoff.Truncate(time.Second), attempt))
 			m.emit(StatusEvent{
 				TunnelID: cfg.ID,
 				Status:   config.StatusReconnecting,
-				Error:    fmt.Sprintf("reconnecting in %s", backoff.Truncate(time.Second)),
+				Error:    reconnMsg,
 			})
 
 			select {
@@ -108,6 +134,12 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 			m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusConnecting})
 		}
 		firstAttempt = false
+		attempt++
+
+		tunnelID := cfg.ID
+		m.mu.Lock()
+		logEmitter := m.logEmitter
+		m.mu.Unlock()
 
 		tun := &Tunnel{
 			Config:        cfg,
@@ -120,6 +152,11 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusConnected})
 				backoff = initialBackoff // reset backoff on successful connection
 			},
+		}
+		if logEmitter != nil {
+			tun.LogFunc = func(level, msg string) {
+				logEmitter(tunnelID, level, msg)
+			}
 		}
 		err := tun.Connect(ctx)
 
@@ -136,6 +173,21 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 		if err != nil {
 			errMsg := err.Error()
 			slog.Error("tunnel connection failed", "tunnel", cfg.Name, "error", err, "backoff", backoff)
+
+			// Don't retry on authentication errors
+			if isAuthError(err) {
+				authMsg := "Authentication failed — check your SSH key. Not retrying."
+				m.emitLog(cfg.ID, "error", authMsg)
+				m.mu.Lock()
+				rt.status = config.StatusError
+				rt.errMsg = authMsg
+				m.mu.Unlock()
+				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: authMsg})
+				cancel()
+				return
+			}
+
+			m.emitLog(cfg.ID, "error", fmt.Sprintf("Connection failed: %s", errMsg))
 			m.mu.Lock()
 			rt.status = config.StatusError
 			rt.errMsg = errMsg
@@ -204,5 +256,14 @@ func (m *Manager) GetStatuses() map[string]StatusEvent {
 func (m *Manager) emit(event StatusEvent) {
 	if m.emitter != nil {
 		m.emitter(event)
+	}
+}
+
+func (m *Manager) emitLog(tunnelID, level, msg string) {
+	m.mu.Lock()
+	fn := m.logEmitter
+	m.mu.Unlock()
+	if fn != nil {
+		fn(tunnelID, level, msg)
 	}
 }

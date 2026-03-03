@@ -3,9 +3,11 @@
   import { tunnels, statuses, loading, getStatus } from "../stores/tunnels";
   import TunnelCard from "./TunnelCard.svelte";
   import TunnelForm from "./TunnelForm.svelte";
+  import TunnelLogs from "./TunnelLogs.svelte";
 
   let showForm = false;
   let editingTunnel: TunnelConfig | null = null;
+  let loggingTunnel: TunnelConfig | null = null;
   let collapsedGroups: Record<string, boolean> = {};
 
   function handleAdd() {
@@ -21,6 +23,14 @@
   function handleFormClose() {
     showForm = false;
     editingTunnel = null;
+  }
+
+  function handleLogs(event: CustomEvent<TunnelConfig>) {
+    loggingTunnel = event.detail;
+  }
+
+  function handleLogsClose() {
+    loggingTunnel = null;
   }
 
   function toggleGroup(group: string) {
@@ -55,6 +65,14 @@
     return result;
   })();
 </script>
+
+{#if loggingTunnel}
+  <TunnelLogs
+    tunnelName={loggingTunnel.name}
+    tunnelId={loggingTunnel.id}
+    on:close={handleLogsClose}
+  />
+{/if}
 
 <div class="space-y-3">
   {#if showForm}
@@ -92,6 +110,7 @@
           {tunnel}
           status={getStatus($statuses, tunnel.id)}
           on:edit={handleEdit}
+          on:logs={handleLogs}
         />
       {/each}
 
@@ -112,6 +131,7 @@
                   {tunnel}
                   status={getStatus($statuses, tunnel.id)}
                   on:edit={handleEdit}
+                  on:logs={handleLogs}
                 />
               {/each}
             </div>

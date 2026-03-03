@@ -27,3 +27,9 @@ export interface StatusEvent {
   status: TunnelStatus;
   error?: string;
 }
+
+export interface LogEntry {
+  timestamp: string;
+  level: "info" | "warn" | "error";
+  message: string;
+}

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const iconSize = 22
+var iconSize = 22
 
 // StatusColor represents the overall tray icon color based on tunnel states.
 type StatusColor int
