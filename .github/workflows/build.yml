@@ -85,6 +85,21 @@ jobs:
         if: matrix.platform == 'windows'
         run: wails build -skipbindings -nsis
 
+      - name: Create macOS DMG
+        if: matrix.platform == 'darwin'
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "SSH Tunnel Manager" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "ssh-tunnel-manager.app" 150 190 \
+            --hide-extension "ssh-tunnel-manager.app" \
+            --app-drop-link 450 190 \
+            "build/bin/ssh-tunnel-manager.dmg" \
+            "build/bin/"
+
       - name: Upload Linux artifact
         if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
@@ -97,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ssh-tunnel-manager-darwin-arm64
-          path: build/bin/ssh-tunnel-manager.app
+          path: build/bin/ssh-tunnel-manager.dmg
 
       - name: Upload Windows portable artifact
         if: matrix.platform == 'windows'
@@ -129,8 +144,7 @@ jobs:
           cd artifacts
           tar czf ssh-tunnel-manager-linux-amd64.tar.gz \
             -C ssh-tunnel-manager-linux-amd64 .
-          zip -r ssh-tunnel-manager-darwin-arm64.zip \
-            ssh-tunnel-manager-darwin-arm64/
+          cp ssh-tunnel-manager-darwin-arm64/ssh-tunnel-manager.dmg ./ssh-tunnel-manager-darwin-arm64.dmg
           zip -r ssh-tunnel-manager-windows-amd64.zip \
             ssh-tunnel-manager-windows-amd64/
           cp ssh-tunnel-manager-windows-amd64-installer/ssh-tunnel-manager-amd64-installer.exe ./
@@ -141,6 +155,6 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/ssh-tunnel-manager-linux-amd64.tar.gz
-            artifacts/ssh-tunnel-manager-darwin-arm64.zip
+            artifacts/ssh-tunnel-manager-darwin-arm64.dmg
             artifacts/ssh-tunnel-manager-windows-amd64.zip
             artifacts/ssh-tunnel-manager-amd64-installer.exe
