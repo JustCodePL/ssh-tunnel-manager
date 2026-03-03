@@ -73,3 +73,11 @@ export function SubmitPassphrase(arg1) {
 export function UpdateTunnel(arg1) {
   return window['go']['main']['App']['UpdateTunnel'](arg1);
 }
+
+export function GetTunnelLogs(arg1) {
+  return window['go']['main']['App']['GetTunnelLogs'](arg1);
+}
+
+export function ClearTunnelLogs(arg1) {
+  return window['go']['main']['App']['ClearTunnelLogs'](arg1);
+}

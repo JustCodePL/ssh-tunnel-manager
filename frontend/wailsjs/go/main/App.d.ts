@@ -39,3 +39,7 @@ export function SetAutostart(arg1:boolean):Promise<void>;
 export function SubmitPassphrase(arg1:string):Promise<void>;
 
 export function UpdateTunnel(arg1:config.TunnelConfig):Promise<void>;
+
+export function GetTunnelLogs(arg1:string):Promise<Array<config.LogEntry>>;
+
+export function ClearTunnelLogs(arg1:string):Promise<void>;

@@ -1,5 +1,14 @@
 package config
 
+import "time"
+
+// LogEntry holds a single log line for a tunnel connection.
+type LogEntry struct {
+	Timestamp time.Time `json:"timestamp"`
+	Level     string    `json:"level"` // "info", "warn", "error"
+	Message   string    `json:"message"`
+}
+
 // TunnelStatus represents the current state of a tunnel.
 type TunnelStatus string
 

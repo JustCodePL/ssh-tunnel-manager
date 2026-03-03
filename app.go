@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -33,15 +34,38 @@ type App struct {
 	// Pending update info (nil if no update available)
 	updateMu      sync.Mutex
 	pendingUpdate *updater.UpdateInfo
+
+	// Per-tunnel log buffer (ring buffer, max 300 entries per tunnel)
+	logMu  sync.Mutex
+	logBuf map[string][]config.LogEntry
 }
 
 // NewApp creates a new App instance.
 func NewApp(store *config.Store) *App {
-	app := &App{store: store}
+	app := &App{
+		store:  store,
+		logBuf: make(map[string][]config.LogEntry),
+	}
 	app.manager = ssh.NewManager(func(event ssh.StatusEvent) {
 		app.emitStatus(event)
 		app.tray.HandleStatusEvent(event)
 	}, app.getPassphrase)
+	app.manager.WithLogEmitter(func(tunnelID, level, msg string) {
+		entry := config.LogEntry{Timestamp: time.Now(), Level: level, Message: msg}
+		app.logMu.Lock()
+		buf := app.logBuf[tunnelID]
+		if len(buf) >= 300 {
+			buf = buf[1:]
+		}
+		app.logBuf[tunnelID] = append(buf, entry)
+		app.logMu.Unlock()
+		if app.ctx != nil {
+			runtime.EventsEmit(app.ctx, "tunnel:log", map[string]any{
+				"tunnelId": tunnelID,
+				"entry":    entry,
+			})
+		}
+	})
 	app.tray = tray.New(tray.Callbacks{
 		ShowWindow: func() { app.showWindow() },
 		Quit:       func() { app.quit() },
@@ -419,6 +443,26 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 		})
 	}
 	return e
+}
+
+// GetTunnelLogs returns the buffered log entries for a given tunnel ID.
+func (a *App) GetTunnelLogs(tunnelID string) []config.LogEntry {
+	a.logMu.Lock()
+	defer a.logMu.Unlock()
+	buf := a.logBuf[tunnelID]
+	if len(buf) == 0 {
+		return []config.LogEntry{}
+	}
+	out := make([]config.LogEntry, len(buf))
+	copy(out, buf)
+	return out
+}
+
+// ClearTunnelLogs removes all buffered log entries for a given tunnel ID.
+func (a *App) ClearTunnelLogs(tunnelID string) {
+	a.logMu.Lock()
+	defer a.logMu.Unlock()
+	delete(a.logBuf, tunnelID)
 }
 
 type tunnelNotFoundError struct {

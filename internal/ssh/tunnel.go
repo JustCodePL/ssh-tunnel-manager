@@ -32,9 +32,16 @@ type Tunnel struct {
 	Config        config.TunnelConfig
 	OnConnected   func() // called after SSH dial succeeds, before blocking
 	GetPassphrase PassphraseFunc
+	LogFunc       func(level, msg string) // optional: called for connection events
 
 	mu     sync.Mutex
 	client *ssh.Client
+}
+
+func (t *Tunnel) log(level, msg string) {
+	if t.LogFunc != nil {
+		t.LogFunc(level, msg)
+	}
 }
 
 // CheckPortConflicts tests whether all local ports for this tunnel are
@@ -71,6 +78,7 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 	t.client = client
 	t.mu.Unlock()
 
+	t.log("info", "Connected")
 	if t.OnConnected != nil {
 		t.OnConnected()
 	}
@@ -80,6 +88,7 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 		t.client = nil
 		t.mu.Unlock()
 		client.Close()
+		t.log("info", "Disconnected")
 		slog.Info("SSH connection closed", "tunnel", t.Config.Name)
 	}()
 
@@ -157,10 +166,13 @@ func (t *Tunnel) dial(ctx context.Context, sshConfig *ssh.ClientConfig) (*ssh.Cl
 
 	switch {
 	case t.Config.ProxyCommand != "":
+		t.log("info", fmt.Sprintf("Connecting to %s@%s:%d via ProxyCommand", t.Config.User, t.Config.Host, t.Config.Port))
 		return t.dialViaProxyCommand(ctx, addr, sshConfig)
 	case t.Config.ProxyJump != "":
+		t.log("info", fmt.Sprintf("Connecting to %s@%s:%d via ProxyJump", t.Config.User, t.Config.Host, t.Config.Port))
 		return t.dialViaProxyJump(ctx, addr, sshConfig)
 	default:
+		t.log("info", fmt.Sprintf("Connecting to %s@%s:%d", t.Config.User, t.Config.Host, t.Config.Port))
 		slog.Info("connecting to SSH server", "tunnel", t.Config.Name, "addr", addr)
 		client, err := ssh.Dial("tcp", addr, sshConfig)
 		if err != nil {
@@ -298,6 +310,8 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 			if ctx.Err() != nil {
 				return
 			}
+			errMsg := fmt.Sprintf("Port forward error: %v", err)
+			t.log("error", errMsg)
 			slog.Error("accept failed", "tunnel", t.Config.Name, "error", err)
 			return
 		}
@@ -349,6 +363,7 @@ func (t *Tunnel) keepAlive(ctx context.Context, client *ssh.Client) {
 		case <-ticker.C:
 			_, _, err := client.SendRequest("keepalive@openssh.com", true, nil)
 			if err != nil {
+				t.log("warn", fmt.Sprintf("Keep-alive failed: %v", err))
 				slog.Warn("keep-alive failed", "tunnel", t.Config.Name, "error", err)
 				return
 			}
