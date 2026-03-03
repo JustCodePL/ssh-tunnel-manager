@@ -27,12 +27,19 @@ jobs:
         include:
           - os: ubuntu-24.04
             platform: linux
+            arch: amd64
             artifact: ssh-tunnel-manager
           - os: macos-latest
             platform: darwin
+            arch: arm64
+            artifact: ssh-tunnel-manager.app
+          - os: macos-13
+            platform: darwin
+            arch: amd64
             artifact: ssh-tunnel-manager.app
           - os: windows-latest
             platform: windows
+            arch: amd64
             artifact: ssh-tunnel-manager.exe
 
     runs-on: ${{ matrix.os }}
@@ -111,7 +118,7 @@ jobs:
         if: matrix.platform == 'darwin'
         uses: actions/upload-artifact@v4
         with:
-          name: ssh-tunnel-manager-darwin-arm64
+          name: ssh-tunnel-manager-darwin-${{ matrix.arch }}
           path: build/bin/ssh-tunnel-manager.dmg
 
       - name: Upload Windows portable artifact
@@ -145,6 +152,7 @@ jobs:
           tar czf ssh-tunnel-manager-linux-amd64.tar.gz \
             -C ssh-tunnel-manager-linux-amd64 .
           cp ssh-tunnel-manager-darwin-arm64/ssh-tunnel-manager.dmg ./ssh-tunnel-manager-darwin-arm64.dmg
+          cp ssh-tunnel-manager-darwin-amd64/ssh-tunnel-manager.dmg ./ssh-tunnel-manager-darwin-amd64.dmg
           zip -r ssh-tunnel-manager-windows-amd64.zip \
             ssh-tunnel-manager-windows-amd64/
           cp ssh-tunnel-manager-windows-amd64-installer/ssh-tunnel-manager-amd64-installer.exe ./
@@ -156,5 +164,6 @@ jobs:
           files: |
             artifacts/ssh-tunnel-manager-linux-amd64.tar.gz
             artifacts/ssh-tunnel-manager-darwin-arm64.dmg
+            artifacts/ssh-tunnel-manager-darwin-amd64.dmg
             artifacts/ssh-tunnel-manager-windows-amd64.zip
             artifacts/ssh-tunnel-manager-amd64-installer.exe
