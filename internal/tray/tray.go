@@ -53,15 +53,15 @@ func New(cb Callbacks) *Tray {
 	}
 }
 
-// Start initializes the system tray. Must be called from the main OS thread
-// (i.e. from the Wails startup callback) — AppKit requires NSStatusBar
-// operations to run on the main thread.
+// Start initializes the system tray. Safe to call from any goroutine —
+// on macOS it dispatches the AppKit-touching start() call to the main OS
+// thread via GCD so that NSStatusBar is created on the correct thread.
 func (t *Tray) Start() {
 	start, end := systray.RunWithExternalLoop(t.onReady, t.onExit)
 	t.mu.Lock()
 	t.endFunc = end
 	t.mu.Unlock()
-	start()
+	dispatchOnMainThread(start)
 }
 
 // RefreshMenu rebuilds the tray menu from current tunnel config.
