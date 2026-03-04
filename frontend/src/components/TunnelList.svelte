@@ -5,6 +5,8 @@
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
 
+  export let filterGroup: string | null = null;
+
   let showForm = false;
   let editingTunnel: TunnelConfig | null = null;
   let loggingTunnel: TunnelConfig | null = null;
@@ -43,10 +45,16 @@
     groups: { name: string; tunnels: TunnelConfig[] }[];
   }
 
+  $: filteredTunnels = (() => {
+    if (filterGroup === null) return $tunnels;
+    if (filterGroup === "__ungrouped__") return $tunnels.filter(t => !t.group);
+    return $tunnels.filter(t => t.group === filterGroup);
+  })();
+
   $: grouped = (() => {
     const result: GroupedTunnels = { ungrouped: [], groups: [] };
     const groupMap = new Map<string, TunnelConfig[]>();
-    for (const t of $tunnels) {
+    for (const t of filteredTunnels) {
       if (t.group) {
         const list = groupMap.get(t.group);
         if (list) {
@@ -74,70 +82,177 @@
   />
 {/if}
 
-<div class="space-y-3">
+<div class="tunnel-list">
   {#if showForm}
     <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
   {:else}
-    <div class="flex items-center justify-between">
-      <h2 class="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-        {$tunnels.length} tunnel{$tunnels.length !== 1 ? "s" : ""}
-      </h2>
-      <button
-        class="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-500 text-white"
-        on:click={handleAdd}
-      >
-        + Add Tunnel
-      </button>
+    <div class="list-header">
+      <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
     </div>
   {/if}
 
   {#if $loading}
-    <p class="text-sm text-zinc-500 text-center py-8">Loading…</p>
+    <div class="loading-msg">// loading...</div>
   {:else if !showForm}
     {#if $tunnels.length === 0}
-      <div class="text-center py-12">
-        <p class="text-zinc-500 text-sm mb-3">No tunnels configured yet.</p>
-        <button
-          class="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-500 text-white"
-          on:click={handleAdd}
-        >
-          Add your first tunnel
-        </button>
+      <div class="empty-state">
+        <div class="empty-art">
+          <div>┌─────────────────────┐</div>
+          <div>│  no tunnels found   │</div>
+          <div>└─────────────────────┘</div>
+        </div>
+        <button class="add-btn" on:click={handleAdd}>+ add first tunnel</button>
+      </div>
+    {:else if filteredTunnels.length === 0}
+      <div class="empty-state">
+        <div class="empty-art">
+          <div>// no tunnels in this group</div>
+        </div>
       </div>
     {:else}
-      {#each grouped.ungrouped as tunnel (tunnel.id)}
-        <TunnelCard
-          {tunnel}
-          status={getStatus($statuses, tunnel.id)}
-          on:edit={handleEdit}
-          on:logs={handleLogs}
-        />
-      {/each}
+      <div class="cards">
+        {#each grouped.ungrouped as tunnel (tunnel.id)}
+          <TunnelCard
+            {tunnel}
+            status={getStatus($statuses, tunnel.id)}
+            on:edit={handleEdit}
+            on:logs={handleLogs}
+          />
+        {/each}
 
-      {#each grouped.groups as group (group.name)}
-        <div class="space-y-2">
-          <button
-            class="flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-wide"
-            on:click={() => toggleGroup(group.name)}
-          >
-            <span class="text-[10px]">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
-            {group.name}
-            <span class="text-zinc-500 font-normal normal-case">({group.tunnels.length})</span>
-          </button>
-          {#if !collapsedGroups[group.name]}
-            <div class="space-y-2 ml-3 border-l border-zinc-200 dark:border-zinc-700 pl-3">
-              {#each group.tunnels as tunnel (tunnel.id)}
-                <TunnelCard
-                  {tunnel}
-                  status={getStatus($statuses, tunnel.id)}
-                  on:edit={handleEdit}
-                  on:logs={handleLogs}
-                />
-              {/each}
-            </div>
-          {/if}
-        </div>
-      {/each}
+        {#each grouped.groups as group (group.name)}
+          <div class="group-section">
+            <button
+              class="group-header"
+              on:click={() => toggleGroup(group.name)}
+            >
+              <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
+              <span class="group-name">{group.name.toUpperCase()}</span>
+              <span class="group-count">({group.tunnels.length})</span>
+            </button>
+            {#if !collapsedGroups[group.name]}
+              <div class="group-tunnels">
+                {#each group.tunnels as tunnel (tunnel.id)}
+                  <TunnelCard
+                    {tunnel}
+                    status={getStatus($statuses, tunnel.id)}
+                    on:edit={handleEdit}
+                    on:logs={handleLogs}
+                  />
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
     {/if}
   {/if}
 </div>
+
+<style>
+  .tunnel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .list-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+  }
+
+  .add-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .add-btn:hover {
+    background: rgba(0, 255, 136, 0.1);
+  }
+
+  .loading-msg {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    padding: 24px 0;
+    text-align: center;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px 0;
+  }
+
+  .empty-art {
+    font-size: 11px;
+    color: var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .group-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px 0;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-align: left;
+  }
+
+  .group-arrow {
+    font-size: 8px;
+    color: var(--accent);
+  }
+
+  .group-name {
+    letter-spacing: 0.1em;
+    color: #444;
+  }
+
+  .group-header:hover .group-name {
+    color: var(--muted);
+  }
+
+  .group-count {
+    color: #333;
+  }
+
+  .group-tunnels {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
+    margin-left: 4px;
+  }
+</style>

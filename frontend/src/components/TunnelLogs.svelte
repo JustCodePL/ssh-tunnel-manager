@@ -22,12 +22,20 @@
     return `${hh}:${mm}:${ss}`;
   }
 
-  function levelClass(level: string): string {
+  function levelColor(level: string): string {
     switch (level) {
-      case "info":  return "bg-blue-500/20 text-blue-300 border border-blue-500/30";
-      case "warn":  return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
-      case "error": return "bg-red-500/20 text-red-300 border border-red-500/30";
-      default:      return "bg-zinc-500/20 text-zinc-300";
+      case "info":  return "#00d4ff";
+      case "warn":  return "#ffaa00";
+      case "error": return "#ff4444";
+      default:      return "#555555";
+    }
+  }
+
+  function msgColor(level: string): string {
+    switch (level) {
+      case "error": return "#ff4444";
+      case "warn":  return "#ffaa00";
+      default:      return "#aaaaaa";
     }
   }
 
@@ -76,74 +84,193 @@
   }
 </script>
 
-<!-- Backdrop -->
 <div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+  class="logs-backdrop"
   on:click|self={() => dispatch("close")}
   on:keydown={(e) => e.key === "Escape" && dispatch("close")}
   role="dialog"
   aria-modal="true"
   tabindex="-1"
 >
-  <!-- Panel -->
-  <div class="relative w-full max-w-2xl mx-4 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-700 shrink-0">
-      <div>
-        <h2 class="text-sm font-semibold text-zinc-100">Connection Logs</h2>
-        <p class="text-xs text-zinc-400">{tunnelName}</p>
+  <div class="logs-panel">
+    <div class="logs-header">
+      <div class="logs-title">
+        <span class="logs-label">// logs</span>
+        <span class="logs-tunnel-name">{tunnelName}</span>
       </div>
-      <div class="flex items-center gap-2">
-        <button
-          class="px-2.5 py-1 text-xs rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-300"
-          on:click={handleClear}
-        >
-          Clear
-        </button>
-        <button
-          class="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
-          on:click={() => dispatch("close")}
-          aria-label="Close"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-          </svg>
-        </button>
+      <div class="logs-actions">
+        <button class="log-btn" on:click={handleClear}>[ clear ]</button>
+        <button class="log-btn close" on:click={() => dispatch("close")}>[ × ]</button>
       </div>
     </div>
 
-    <!-- Log entries -->
     <div
+      class="logs-body"
       bind:this={logContainer}
       on:scroll={handleScroll}
-      class="flex-1 overflow-y-auto p-3 font-mono text-xs space-y-0.5 min-h-0"
     >
       {#if logs.length === 0}
-        <p class="text-zinc-500 text-center py-8">No log entries yet.</p>
+        <div class="logs-empty">// no log entries yet</div>
       {:else}
         {#each logs as entry (entry.timestamp + entry.message)}
-          <div class="flex items-start gap-2 py-0.5">
-            <span class="text-zinc-500 shrink-0 tabular-nums">[{formatTime(entry.timestamp)}]</span>
-            <span class="shrink-0 px-1 py-0.5 rounded text-[10px] uppercase font-semibold leading-none {levelClass(entry.level)}">
-              {entry.level}
-            </span>
-            <span class="text-zinc-300 break-all">{entry.message}</span>
+          <div class="log-line">
+            <span class="log-time">[{formatTime(entry.timestamp)}]</span>
+            <span class="log-level" style="color: {levelColor(entry.level)};">{entry.level.toUpperCase()}</span>
+            <span class="log-msg" style="color: {msgColor(entry.level)};">{entry.message}</span>
           </div>
         {/each}
       {/if}
     </div>
 
-    <!-- Footer -->
-    <div class="px-4 py-2 border-t border-zinc-700 shrink-0 flex items-center justify-between">
-      <span class="text-xs text-zinc-500">{logs.length} entr{logs.length !== 1 ? "ies" : "y"}</span>
+    <div class="logs-footer">
+      <span class="logs-count">{logs.length} entr{logs.length !== 1 ? "ies" : "y"}</span>
       {#if !autoScroll}
         <button
-          class="text-xs text-blue-400 hover:text-blue-300"
+          class="log-btn"
           on:click={() => { autoScroll = true; scrollToBottom(); }}
         >
-          ↓ Scroll to bottom
+          ↓ scroll to bottom
         </button>
       {/if}
     </div>
   </div>
 </div>
+
+<style>
+  .logs-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+  }
+
+  .logs-panel {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 16px;
+    background: #050505;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    max-height: 75vh;
+  }
+
+  .logs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .logs-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logs-label {
+    font-size: 10px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .logs-tunnel-name {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .logs-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .log-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 2px 7px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .log-btn:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+
+  .log-btn.close:hover {
+    color: #ff4444;
+    border-color: #ff4444;
+  }
+
+  .logs-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    line-height: 1.7;
+    min-height: 0;
+  }
+
+  .logs-empty {
+    color: #333;
+    text-align: center;
+    padding: 32px 0;
+    font-size: 11px;
+  }
+
+  .log-line {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .log-time {
+    color: #333333;
+    flex-shrink: 0;
+    font-size: 9px;
+    tabular-nums: numeric;
+  }
+
+  .log-level {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 600;
+    width: 38px;
+    text-align: right;
+  }
+
+  .log-msg {
+    flex: 1;
+  }
+
+  .logs-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .logs-count {
+    font-size: 9px;
+    color: #333;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>

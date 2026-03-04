@@ -2,8 +2,6 @@
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
   import { GetAutostart, SetAutostart, GetCurrentVersion, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
   import { EventsOn } from "../../wailsjs/runtime/runtime";
-  import { theme } from "../stores/theme";
-  import type { Theme } from "../stores/theme";
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -59,10 +57,10 @@
       if (info) {
         updateInfo = info as any;
       } else {
-        updateError = "You are up to date.";
+        updateError = "// you are up to date";
       }
     } catch (e: any) {
-      updateError = e?.toString() ?? "Update check failed.";
+      updateError = e?.toString() ?? "update check failed";
     } finally {
       checkingUpdate = false;
     }
@@ -74,95 +72,256 @@
     try {
       await InstallUpdate();
     } catch (e: any) {
-      updateError = e?.toString() ?? "Install failed.";
+      updateError = e?.toString() ?? "install failed";
       installingUpdate = false;
     }
   }
-
-  function setTheme(t: Theme) {
-    theme.set(t);
-  }
 </script>
 
-<div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg p-5">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-base font-semibold">Settings</h2>
-    <button
-      class="text-xs text-zinc-500 hover:text-zinc-300"
-      on:click={() => dispatch("close")}
-    >
-      Close
-    </button>
+<div class="settings-panel">
+  <div class="settings-header">
+    <span class="settings-title">// config</span>
+    <button class="close-btn" on:click={() => dispatch("close")}>[ × ]</button>
   </div>
 
-  <div class="space-y-4">
-    <div>
-      <h3 class="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Theme</h3>
-      <div class="flex gap-2">
-        {#each [["dark", "Dark"], ["light", "Light"], ["system", "System"]] as [value, label]}
-          <button
-            class="px-3 py-1.5 text-xs rounded {$theme === value
-              ? 'bg-blue-600 text-white'
-              : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600'}"
-            on:click={() => setTheme(value)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
-    </div>
-
-    <div>
-      <h3 class="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Startup</h3>
+  <div class="settings-body">
+    <div class="settings-section">
+      <div class="section-label">startup</div>
       {#if autostartLoading}
-        <p class="text-xs text-zinc-500">Loading…</p>
+        <div class="loading-text">// loading...</div>
       {:else}
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autostartEnabled}
-            on:change={toggleAutostart}
-            class="rounded"
-          />
-          <span class="text-sm text-zinc-700 dark:text-zinc-300">Start on login</span>
+        <label class="checkbox-label" on:click|preventDefault={toggleAutostart}>
+          <span class="hacker-check" class:checked={autostartEnabled}>
+            {#if autostartEnabled}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+          </span>
+          <span class="checkbox-text" class:active={autostartEnabled}>start on login</span>
         </label>
       {/if}
     </div>
 
-    <div>
-      <h3 class="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Updates</h3>
+    <div class="settings-section">
+      <div class="section-label">updates</div>
       {#if currentVersion}
-        <p class="text-xs text-zinc-500 mb-2">
-          Version: <span class="font-mono">{currentVersion}</span>
-        </p>
+        <div class="version-line">
+          <span class="version-label">version</span>
+          <span class="version-value">{currentVersion}</span>
+        </div>
       {/if}
 
       {#if updateInfo}
-        <div class="rounded bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 p-3 mb-2">
-          <p class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-            Version {updateInfo.latestVersion} is available
-          </p>
+        <div class="update-available">
+          <span class="update-text">! v{updateInfo.latestVersion} available</span>
           <button
-            class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            class="action-btn accent"
             on:click={installUpdate}
             disabled={installingUpdate}
           >
-            {installingUpdate ? "Installing…" : "Install & Restart"}
+            {installingUpdate ? "// installing..." : "[ install & restart ]"}
           </button>
         </div>
       {:else}
         <button
-          class="px-3 py-1.5 text-xs rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600 disabled:opacity-50"
+          class="action-btn"
           on:click={checkForUpdate}
           disabled={checkingUpdate}
         >
-          {checkingUpdate ? "Checking…" : "Check for updates"}
+          {checkingUpdate ? "// checking..." : "[ check for updates ]"}
         </button>
       {/if}
 
       {#if updateError}
-        <p class="text-xs text-zinc-500 mt-1">{updateError}</p>
+        <div class="status-text">{updateError}</div>
       {/if}
     </div>
   </div>
 </div>
+
+<style>
+  .settings-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  .settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-title {
+    font-size: 11px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .close-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 6px;
+    transition: color 0.15s;
+  }
+
+  .close-btn:hover {
+    color: #ff4444;
+  }
+
+  .settings-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-label {
+    font-size: 9px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .loading-text {
+    font-size: 10px;
+    color: #333;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    user-select: none;
+    padding: 4px 0;
+  }
+
+  .hacker-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+
+  .check-empty {
+    color: var(--muted);
+  }
+
+  .check-mark {
+    color: var(--accent);
+    text-shadow: 0 0 6px var(--accent);
+  }
+
+  .checkbox-text {
+    color: var(--muted);
+    transition: color 0.15s;
+  }
+
+  .checkbox-text.active {
+    color: var(--accent);
+  }
+
+  .checkbox-label:hover .check-empty {
+    color: var(--text);
+  }
+
+  .checkbox-label:hover .checkbox-text:not(.active) {
+    color: var(--text);
+  }
+
+  .version-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+  }
+
+  .version-label {
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+
+  .version-value {
+    color: var(--text);
+  }
+
+  .update-available {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 2px;
+    background: rgba(0, 255, 136, 0.03);
+  }
+
+  .update-text {
+    font-size: 10px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    align-self: flex-start;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+
+  .action-btn.accent {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .action-btn.accent:hover:not(:disabled) {
+    background: rgba(0, 255, 136, 0.1);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .status-text {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
