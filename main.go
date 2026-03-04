@@ -29,13 +29,14 @@ func main() {
 	app := NewApp(store)
 
 	err = wails.Run(&options.App{
-		Title:  "SSH Tunnel Manager",
-		Width:  900,
-		Height: 600,
+		Title:     "SSH Tunnel Manager",
+		Width:     900,
+		Height:    600,
+		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour:  &options.RGBA{R: 24, G: 24, B: 27, A: 1},
+		BackgroundColour:  &options.RGBA{R: 10, G: 10, B: 10, A: 1},
 		HideWindowOnClose: true,
 		OnStartup:         app.startup,
 		OnShutdown:        app.shutdown,

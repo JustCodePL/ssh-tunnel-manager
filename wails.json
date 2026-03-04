@@ -18,5 +18,6 @@
   "author": {
     "name": "JustCode",
     "email": "kontakt.justcode@gmail.com"
-  }
+  },
+  "frameless": true
 }

@@ -38,75 +38,195 @@
     await deleteTunnel(tunnel.id);
   }
 
-  function handleEdit() {
-    dispatch("edit", tunnel);
-  }
-
-  function handleLogs() {
-    dispatch("logs", tunnel);
-  }
-
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
+  $: isConnected = status === "connected";
+  $: isError = status === "error";
 </script>
 
-<div class="group bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-white dark:hover:bg-zinc-750 hover:shadow-sm transition-all">
-  <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0 flex-1">
-      <div class="flex items-center gap-2 mb-1">
-        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{tunnel.name}</h3>
+<div
+  class="tunnel-card"
+  class:connected={isConnected}
+  class:error={isError}
+>
+  <div class="card-header">
+    <div class="card-info">
+      <div class="card-name-row">
+        {#if tunnel.color}
+          <span class="color-dot" style="color: {tunnel.color};">●</span>
+        {/if}
+        <span class="card-name">{tunnel.name}</span>
         <StatusBadge {status} />
       </div>
-      <p class="text-xs text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 truncate font-mono transition-colors">
-        {tunnel.user}@{tunnel.host}:{tunnel.port}
-      </p>
+      <div class="card-host">{tunnel.user}@{tunnel.host}:{tunnel.port}</div>
       {#if tunnel.portForwards && tunnel.portForwards.length > 0}
-        <div class="mt-2 flex flex-wrap gap-1.5">
+        <div class="card-forwards">
           {#each tunnel.portForwards as pf}
-            <span class="text-[11px] bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 px-1.5 py-0.5 rounded font-mono">
-              {pf.localPort} → {pf.remoteHost}:{pf.remotePort}
+            <span class="forward-tag">
+              {pf.localPort}→{pf.remoteHost}:{pf.remotePort}
             </span>
           {/each}
         </div>
       {/if}
     </div>
 
-    <div class="flex items-center gap-1.5 shrink-0">
+    <div class="card-actions">
       {#if isActive}
         <button
-          class="px-2.5 py-1 text-xs rounded bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
+          class="action-btn disconnect"
           on:click={handleDisconnect}
           disabled={actionLoading}
         >
-          Disconnect
+          disconnect
         </button>
       {:else}
         <button
-          class="px-2.5 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+          class="action-btn connect"
           on:click={handleConnect}
           disabled={actionLoading}
         >
-          Connect
+          connect
         </button>
       {/if}
-      <button
-        class="px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-600 dark:text-zinc-300"
-        on:click={handleLogs}
-        title="View connection logs"
-      >
-        Logs
-      </button>
-      <button
-        class="px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-600 dark:text-zinc-300"
-        on:click={handleEdit}
-      >
-        Edit
-      </button>
-      <button
-        class="px-2 py-1 text-xs rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400"
-        on:click={handleDelete}
-      >
-        Del
-      </button>
+      <button class="action-btn secondary" on:click={() => dispatch("logs", tunnel)}>logs</button>
+      <button class="action-btn secondary" on:click={() => dispatch("edit", tunnel)}>edit</button>
+      <button class="action-btn danger" on:click={handleDelete}>del</button>
     </div>
   </div>
 </div>
+
+<style>
+  .tunnel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 2px;
+    transition: border-color 0.15s;
+  }
+
+  .tunnel-card:hover {
+    border-color: #333333;
+    border-left-color: #333333;
+  }
+
+  .tunnel-card.connected {
+    border-left-color: #00ff88;
+    box-shadow: inset 0 0 0 0 transparent, -2px 0 6px rgba(0, 255, 136, 0.15);
+  }
+
+  .tunnel-card.error {
+    border-left-color: #ff4444;
+    box-shadow: -2px 0 6px rgba(255, 68, 68, 0.15);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .card-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .card-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+
+  .color-dot {
+    font-size: 8px;
+    flex-shrink: 0;
+  }
+
+  .card-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e0e0e0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-host {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 4px;
+  }
+
+  .card-forwards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .forward-tag {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 2px 7px;
+    cursor: pointer;
+    border-radius: 2px;
+    text-transform: lowercase;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .action-btn.connect {
+    color: #00ff88;
+    border-color: #00ff88;
+  }
+
+  .action-btn.connect:hover:not(:disabled) {
+    background: rgba(0, 255, 136, 0.1);
+  }
+
+  .action-btn.disconnect {
+    color: #ff4444;
+    border-color: #ff4444;
+  }
+
+  .action-btn.disconnect:hover:not(:disabled) {
+    background: rgba(255, 68, 68, 0.1);
+  }
+
+  .action-btn.secondary:hover:not(:disabled) {
+    color: var(--accent2);
+    border-color: var(--accent2);
+  }
+
+  .action-btn.danger:hover:not(:disabled) {
+    color: #ff4444;
+    border-color: #ff4444;
+  }
+</style>
