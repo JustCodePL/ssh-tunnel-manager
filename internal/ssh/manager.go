@@ -59,6 +59,20 @@ func isAuthError(err error) bool {
 		strings.Contains(msg, "handshake failed")
 }
 
+// isDNSError returns true if the error is a DNS resolution failure.
+// There is no point retrying these — the hostname doesn't exist or is unreachable.
+func isDNSError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "name or service not known") ||
+		strings.Contains(msg, "nodename nor servname provided") ||
+		strings.Contains(msg, "name resolution failure") ||
+		strings.Contains(msg, "dns") && strings.Contains(msg, "lookup")
+}
+
 type runningTunnel struct {
 	cancel context.CancelFunc
 	status config.TunnelStatus
@@ -183,6 +197,19 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 				rt.errMsg = authMsg
 				m.mu.Unlock()
 				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: authMsg})
+				cancel()
+				return
+			}
+
+			// Don't retry on DNS resolution failures — the host doesn't exist.
+			if isDNSError(err) {
+				dnsMsg := fmt.Sprintf("Connection failed: %s — check hostname. Not retrying.", errMsg)
+				m.emitLog(cfg.ID, "error", dnsMsg)
+				m.mu.Lock()
+				rt.status = config.StatusError
+				rt.errMsg = dnsMsg
+				m.mu.Unlock()
+				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: dnsMsg})
 				cancel()
 				return
 			}

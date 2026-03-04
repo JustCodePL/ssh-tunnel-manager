@@ -22,8 +22,8 @@ const (
 	ColorRed                      // at least one error
 )
 
-// GenerateIcon creates a 22x22 PNG tray icon with a colored circle and
-// optional badge count (0 = no badge).
+// GenerateIcon creates a tray icon PNG with a solid colored circle on a
+// transparent background. Simple and reliable across all platforms.
 func GenerateIcon(sc StatusColor, badge int) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, iconSize, iconSize))
 
@@ -38,19 +38,10 @@ func GenerateIcon(sc StatusColor, badge int) []byte {
 		base = color.RGBA{R: 161, G: 161, B: 170, A: 255} // zinc-400
 	}
 
-	// Draw filled circle (center of icon)
+	// Draw a simple solid circle — no highlights, no badges.
 	cx, cy := float64(iconSize)/2, float64(iconSize)/2
-	radius := float64(iconSize)/2 - 1
-	drawFilledCircle(img, cx, cy, radius, base)
-
-	// Inner highlight circle for depth
-	highlight := color.RGBA{R: 255, G: 255, B: 255, A: 40}
-	drawFilledCircle(img, cx-1, cy-1, radius-3, highlight)
-
-	// Badge count
-	if badge > 0 && badge <= 9 {
-		drawBadge(img, badge)
-	}
+	radius := float64(iconSize)/2 - 2
+	drawSolidCircle(img, cx, cy, radius, base)
 
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
@@ -108,6 +99,21 @@ func GenerateIconWithDots(sc StatusColor, dots []color.RGBA) []byte {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
 	return buf.Bytes()
+}
+
+// drawSolidCircle draws a hard-edged solid circle with no alpha blending.
+// More compatible with Windows system tray which can mishandle semi-transparent pixels.
+func drawSolidCircle(img *image.RGBA, cx, cy, r float64, c color.RGBA) {
+	bounds := img.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			dx := float64(x) + 0.5 - cx
+			dy := float64(y) + 0.5 - cy
+			if dx*dx+dy*dy <= r*r {
+				img.SetRGBA(x, y, c)
+			}
+		}
+	}
 }
 
 func drawFilledCircle(img *image.RGBA, cx, cy, r float64, c color.RGBA) {

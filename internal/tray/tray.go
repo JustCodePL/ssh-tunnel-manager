@@ -2,7 +2,6 @@ package tray
 
 import (
 	"fmt"
-	"image/color"
 	"log/slog"
 	"sync"
 
@@ -147,7 +146,6 @@ func (t *Tray) onExit() {
 }
 
 // updateIcon sets the tray icon based on aggregate tunnel status.
-// Connected tunnels with assigned colors get colored dots on the icon.
 func (t *Tray) updateIcon() {
 	t.mu.Lock()
 	statuses := make(map[string]ssh.StatusEvent, len(t.statuses))
@@ -156,25 +154,11 @@ func (t *Tray) updateIcon() {
 	}
 	t.mu.Unlock()
 
-	tunnels := t.cb.GetTunnels()
-
-	// Build a map of tunnel ID → color for quick lookup
-	colorMap := make(map[string]string, len(tunnels))
-	for _, tc := range tunnels {
-		if tc.Color != "" {
-			colorMap[tc.ID] = tc.Color
-		}
-	}
-
 	var connected, errors int
-	var dots []color.RGBA
 	for _, s := range statuses {
 		switch s.Status {
 		case config.StatusConnected:
 			connected++
-			if hex, ok := colorMap[s.TunnelID]; ok {
-				dots = append(dots, ParseHexColor(hex))
-			}
 		case config.StatusError:
 			errors++
 		}
@@ -190,12 +174,7 @@ func (t *Tray) updateIcon() {
 		sc = ColorGray
 	}
 
-	var icon []byte
-	if len(dots) > 0 {
-		icon = GenerateIconWithDots(sc, dots)
-	} else {
-		icon = GenerateIcon(sc, connected)
-	}
+	icon := GenerateIcon(sc, connected)
 	systray.SetIcon(icon)
 
 	// Tooltip with count
