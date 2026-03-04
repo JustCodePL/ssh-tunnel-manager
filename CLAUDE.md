@@ -41,3 +41,12 @@ Go backend + Wails v2 + Svelte frontend. Single binary, no Electron.
 
 - See `.claude/skills/` for Wails, SSH, and systray patterns
 - See `.claude/rules/` for Go and frontend conventions
+## Workflow — GitHub Projects
+
+Projekt: https://github.com/orgs/JustCodePL/projects/1
+
+Zasady przy pracy nad zadaniami:
+- **Pewny fix** → push na `main` bezpośrednio, status → Done
+- **Niepewny / wymaga testów** → branch + PR, status → In review
+- Aktualizuj status w projekcie na bieżąco: Backlog → In progress → Done/In review
+- Commituj z `Closes #N` żeby GitHub auto-zamknął issue
