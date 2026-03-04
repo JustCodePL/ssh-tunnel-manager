@@ -2,5 +2,6 @@
 
 package tray
 
-// wrapIconBytes is a no-op on non-Windows platforms — PNG is accepted directly.
-func wrapIconBytes(b []byte) []byte { return b }
+// wrapIconBytes and wrapDotIconBytes are no-ops on non-Windows — PNG is accepted directly.
+func wrapIconBytes(b []byte) []byte    { return b }
+func wrapDotIconBytes(b []byte) []byte { return b }

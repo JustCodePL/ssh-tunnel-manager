@@ -198,6 +198,7 @@ var digitGlyphs = [10][5]byte{
 }
 
 // StatusDotIcon creates a 16x16 PNG with a colored dot — used as menu item icons.
+// On Windows the result is wrapped in an ICO container so LoadImageW can load it.
 func StatusDotIcon(c color.RGBA) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
 	draw.Draw(img, img.Bounds(), image.Transparent, image.Point{}, draw.Src)
@@ -205,7 +206,7 @@ func StatusDotIcon(c color.RGBA) []byte {
 
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
-	return buf.Bytes()
+	return wrapDotIconBytes(buf.Bytes())
 }
 
 var (
