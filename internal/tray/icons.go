@@ -45,7 +45,7 @@ func GenerateIcon(sc StatusColor, badge int) []byte {
 
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
-	return buf.Bytes()
+	return wrapIconBytes(buf.Bytes())
 }
 
 // GenerateIconWithDots creates a tray icon with small colored dots along the
