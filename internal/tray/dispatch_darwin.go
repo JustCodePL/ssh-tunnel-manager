@@ -24,9 +24,20 @@ static void _tray_dispatch_to_main(void) {
 */
 import "C"
 
+import "github.com/energye/systray"
+
 func dispatchOnMainThread(fn func()) {
 	_pendingStart.Lock()
 	_pendingStart.fn = fn
 	_pendingStart.Unlock()
 	C._tray_dispatch_to_main()
+}
+
+// startTray on macOS uses GCD to dispatch start() to the main OS thread.
+func (t *Tray) startTray() {
+	start, end := systray.RunWithExternalLoop(t.onReady, t.onExit)
+	t.mu.Lock()
+	t.endFunc = end
+	t.mu.Unlock()
+	dispatchOnMainThread(start)
 }

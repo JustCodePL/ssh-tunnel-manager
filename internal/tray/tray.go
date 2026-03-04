@@ -52,15 +52,11 @@ func New(cb Callbacks) *Tray {
 	}
 }
 
-// Start initializes the system tray. Safe to call from any goroutine —
-// on macOS it dispatches the AppKit-touching start() call to the main OS
-// thread via GCD so that NSStatusBar is created on the correct thread.
+// Start initializes the system tray. Safe to call from any goroutine.
+// Platform-specific startTray() implementations ensure window creation and
+// the message loop run on the correct OS thread.
 func (t *Tray) Start() {
-	start, end := systray.RunWithExternalLoop(t.onReady, t.onExit)
-	t.mu.Lock()
-	t.endFunc = end
-	t.mu.Unlock()
-	dispatchOnMainThread(start)
+	t.startTray()
 }
 
 // RefreshMenu rebuilds the tray menu from current tunnel config.
@@ -125,17 +121,20 @@ func (t *Tray) onReady() {
 	slog.Info("system tray ready")
 	systray.SetTooltip("SSH Tunnel Manager")
 
-	// Left-click: show the manager window
-	systray.SetOnClick(func(menu systray.IMenu) {
+	// Left single-click and double-click both show the manager window.
+	showFn := func(menu systray.IMenu) {
 		if t.cb.ShowWindow != nil {
 			t.cb.ShowWindow()
 		}
-	})
+	}
+	systray.SetOnClick(showFn)
+	systray.SetOnDClick(showFn)
 
-	// Right-click: show context menu (default behavior on most platforms)
-	systray.SetOnRClick(func(menu systray.IMenu) {
-		menu.ShowMenu()
-	})
+	// Right-click: show context menu.
+	// Do NOT set SetOnRClick — let the library default to ShowMenu() which
+	// is called directly from wndProc on the message loop thread, avoiding
+	// the extra callback indirection that can cause issues on Windows.
+	
 
 	t.updateIcon()
 	t.rebuildMenu()
