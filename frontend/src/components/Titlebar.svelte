@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { WindowMinimise, Quit } from "../../wailsjs/runtime/runtime";
+  import { WindowMinimise, WindowToggleMaximise, Quit } from "../../wailsjs/runtime/runtime";
 </script>
 
 <div class="titlebar">
@@ -8,6 +8,7 @@
   </div>
   <div class="titlebar-controls">
     <button class="win-btn minimize" on:click={WindowMinimise} title="Minimize">−</button>
+    <button class="win-btn maximize" on:click={WindowToggleMaximise} title="Maximize">□</button>
     <button class="win-btn close" on:click={Quit} title="Close">×</button>
   </div>
 </div>
@@ -69,6 +70,11 @@
   .win-btn:hover.minimize {
     color: #00d4ff;
     background: rgba(0, 212, 255, 0.1);
+  }
+
+  .win-btn:hover.maximize {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
   }
 
   .win-btn:hover.close {

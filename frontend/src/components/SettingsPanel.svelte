@@ -90,13 +90,11 @@
       {#if autostartLoading}
         <div class="loading-text">// loading...</div>
       {:else}
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            checked={autostartEnabled}
-            on:change={toggleAutostart}
-          />
-          <span>start on login</span>
+        <label class="checkbox-label" on:click|preventDefault={toggleAutostart}>
+          <span class="hacker-check" class:checked={autostartEnabled}>
+            {#if autostartEnabled}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+          </span>
+          <span class="checkbox-text" class:active={autostartEnabled}>start on login</span>
         </label>
       {/if}
     </div>
@@ -190,7 +188,7 @@
 
   .section-label {
     font-size: 9px;
-    color: var(--muted);
+    color: var(--accent);
     font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -212,6 +210,45 @@
     font-size: 11px;
     color: var(--text);
     font-family: 'JetBrains Mono', monospace;
+    user-select: none;
+    padding: 4px 0;
+  }
+
+  .hacker-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+
+  .check-empty {
+    color: var(--muted);
+  }
+
+  .check-mark {
+    color: var(--accent);
+    text-shadow: 0 0 6px var(--accent);
+  }
+
+  .checkbox-text {
+    color: var(--muted);
+    transition: color 0.15s;
+  }
+
+  .checkbox-text.active {
+    color: var(--accent);
+  }
+
+  .checkbox-label:hover .check-empty {
+    color: var(--text);
+  }
+
+  .checkbox-label:hover .checkbox-text:not(.active) {
+    color: var(--text);
   }
 
   .version-line {

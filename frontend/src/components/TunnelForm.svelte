@@ -360,7 +360,7 @@
   .field-label {
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
-    color: var(--muted);
+    color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }

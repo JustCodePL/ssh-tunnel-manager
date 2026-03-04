@@ -5,6 +5,8 @@
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
 
+  export let filterGroup: string | null = null;
+
   let showForm = false;
   let editingTunnel: TunnelConfig | null = null;
   let loggingTunnel: TunnelConfig | null = null;
@@ -43,10 +45,16 @@
     groups: { name: string; tunnels: TunnelConfig[] }[];
   }
 
+  $: filteredTunnels = (() => {
+    if (filterGroup === null) return $tunnels;
+    if (filterGroup === "__ungrouped__") return $tunnels.filter(t => !t.group);
+    return $tunnels.filter(t => t.group === filterGroup);
+  })();
+
   $: grouped = (() => {
     const result: GroupedTunnels = { ungrouped: [], groups: [] };
     const groupMap = new Map<string, TunnelConfig[]>();
-    for (const t of $tunnels) {
+    for (const t of filteredTunnels) {
       if (t.group) {
         const list = groupMap.get(t.group);
         if (list) {
@@ -94,6 +102,12 @@
           <div>└─────────────────────┘</div>
         </div>
         <button class="add-btn" on:click={handleAdd}>+ add first tunnel</button>
+      </div>
+    {:else if filteredTunnels.length === 0}
+      <div class="empty-state">
+        <div class="empty-art">
+          <div>// no tunnels in this group</div>
+        </div>
       </div>
     {:else}
       <div class="cards">

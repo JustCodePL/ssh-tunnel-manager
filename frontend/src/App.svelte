@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Titlebar from "./components/Titlebar.svelte";
+  import GroupSidebar from "./components/GroupSidebar.svelte";
   import TunnelList from "./components/TunnelList.svelte";
   import ImportDialog from "./components/ImportDialog.svelte";
   import PassphraseDialog from "./components/PassphraseDialog.svelte";
@@ -12,6 +13,7 @@
   let showSettings = false;
   let passphraseKeyPath: string | null = null;
   let updateAvailable = false;
+  let selectedGroup: string | null = null;
 
   onMount(() => {
     initEventListeners();
@@ -69,13 +71,16 @@
     </div>
   </div>
 
-  <main class="app-main">
-    {#if showImport}
-      <ImportDialog on:close={() => (showImport = false)} />
-    {:else}
-      <TunnelList />
-    {/if}
-  </main>
+  <div class="app-content">
+    <GroupSidebar bind:selectedGroup />
+    <main class="app-main">
+      {#if showImport}
+        <ImportDialog on:close={() => (showImport = false)} />
+      {:else}
+        <TunnelList filterGroup={selectedGroup} />
+      {/if}
+    </main>
+  </div>
 
   {#if showSettings}
     <div class="modal-backdrop" on:click|self={() => (showSettings = false)} role="presentation">
@@ -163,6 +168,12 @@
     background: var(--accent2);
     border-radius: 50%;
     box-shadow: 0 0 4px var(--accent2);
+  }
+
+  .app-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
   }
 
   .app-main {
