@@ -32,22 +32,102 @@ type HostEntry struct {
 	Color        string
 	Group        string
 	AutoConnect  bool
+	SourceFile   string // absolute path to the file this entry was parsed from
 }
 
 // ParseFile reads an SSH config file and returns host entries for all
 // non-wildcard, non-Match Host entries. Wildcard hosts (containing * or ?)
 // and Match blocks are skipped. Returns nil, nil for a missing file.
+// Include directives are expanded: globs are resolved and included files
+// are parsed recursively. Each returned HostEntry has SourceFile set to
+// the absolute path of the file it was parsed from.
 func ParseFile(path string) ([]HostEntry, error) {
-	f, err := os.Open(path)
+	return parseFileWithVisited(path, nil)
+}
+
+func parseFileWithVisited(path string, visited map[string]bool) ([]HostEntry, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolving path %s: %w", path, err)
+	}
+
+	if visited == nil {
+		visited = make(map[string]bool)
+	}
+	if visited[absPath] {
+		return nil, nil // avoid circular includes
+	}
+	visited[absPath] = true
+
+	f, err := os.Open(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("opening ssh config %s: %w", path, err)
+		return nil, fmt.Errorf("opening ssh config %s: %w", absPath, err)
 	}
 	defer f.Close()
 
-	return Parse(bufio.NewScanner(f))
+	// First pass: collect Include directives and their line positions
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scanning ssh config %s: %w", absPath, err)
+	}
+
+	var allEntries []HostEntry
+	var chunk []string
+	baseDir := filepath.Dir(absPath)
+
+	flushChunk := func() error {
+		if len(chunk) == 0 {
+			return nil
+		}
+		s := bufio.NewScanner(strings.NewReader(strings.Join(chunk, "\n")))
+		entries, err := Parse(s)
+		if err != nil {
+			return err
+		}
+		for i := range entries {
+			entries[i].SourceFile = absPath
+		}
+		allEntries = append(allEntries, entries...)
+		chunk = nil
+		return nil
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if isIncludeDirective(trimmed) {
+			// Flush any accumulated lines before the Include
+			if err := flushChunk(); err != nil {
+				return nil, err
+			}
+			pattern := extractIncludePattern(trimmed, baseDir)
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("expanding Include glob %q: %w", pattern, err)
+			}
+			for _, m := range matches {
+				included, err := parseFileWithVisited(m, visited)
+				if err != nil {
+					return nil, fmt.Errorf("parsing included file %s: %w", m, err)
+				}
+				allEntries = append(allEntries, included...)
+			}
+		} else {
+			chunk = append(chunk, line)
+		}
+	}
+
+	if err := flushChunk(); err != nil {
+		return nil, err
+	}
+
+	return allEntries, nil
 }
 
 // Parse reads SSH config lines from a scanner and returns host entries.
@@ -348,4 +428,28 @@ func collapseTilde(path string) string {
 		return "~/" + path[len(home)+1:]
 	}
 	return path
+}
+
+func isIncludeDirective(line string) bool {
+	lower := strings.ToLower(line)
+	return strings.HasPrefix(lower, "include ") || strings.HasPrefix(lower, "include\t")
+}
+
+func extractIncludePattern(line, baseDir string) string {
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return ""
+	}
+	pattern := fields[1]
+	pattern = expandTilde(pattern)
+	if !filepath.IsAbs(pattern) {
+		pattern = filepath.Join(baseDir, pattern)
+	}
+	return pattern
+}
+
+// CollapseTildePath collapses an absolute path to use ~/ prefix if it's
+// under the user's home directory. Exported for use by the frontend.
+func CollapseTildePath(path string) string {
+	return collapseTilde(path)
 }

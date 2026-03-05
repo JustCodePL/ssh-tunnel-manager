@@ -2,6 +2,8 @@ package sshconfig
 
 import (
 	"bufio"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -462,5 +464,81 @@ func TestRoundTripParseRender(t *testing.T) {
 	}
 	if got.PortForwards[1].Description != "" {
 		t.Errorf("PortForwards[1].Description = %q, want empty", got.PortForwards[1].Description)
+	}
+}
+
+func TestParseFileWithInclude(t *testing.T) {
+	dir := t.TempDir()
+	confDir := filepath.Join(dir, "config.d")
+	if err := os.MkdirAll(confDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	// Write included file
+	included := filepath.Join(confDir, "work.conf")
+	if err := os.WriteFile(included, []byte(`Host work-server
+    HostName work.example.com
+    User deploy
+`), 0o644); err != nil {
+		t.Fatalf("write included: %v", err)
+	}
+
+	// Write main config with Include directive
+	mainConfig := filepath.Join(dir, "config")
+	if err := os.WriteFile(mainConfig, []byte(`Host main-server
+    HostName main.example.com
+    User admin
+
+Include `+confDir+`/*.conf
+`), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+
+	entries, err := ParseFile(mainConfig)
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	// First entry from main config
+	if entries[0].Alias != "main-server" {
+		t.Errorf("entries[0].Alias = %q, want %q", entries[0].Alias, "main-server")
+	}
+	absMain, _ := filepath.Abs(mainConfig)
+	if entries[0].SourceFile != absMain {
+		t.Errorf("entries[0].SourceFile = %q, want %q", entries[0].SourceFile, absMain)
+	}
+
+	// Second entry from included file
+	if entries[1].Alias != "work-server" {
+		t.Errorf("entries[1].Alias = %q, want %q", entries[1].Alias, "work-server")
+	}
+	absIncluded, _ := filepath.Abs(included)
+	if entries[1].SourceFile != absIncluded {
+		t.Errorf("entries[1].SourceFile = %q, want %q", entries[1].SourceFile, absIncluded)
+	}
+}
+
+func TestParseFileSourceFileSet(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	if err := os.WriteFile(path, []byte(`Host simple
+    HostName simple.example.com
+`), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	entries, err := ParseFile(path)
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	absPath, _ := filepath.Abs(path)
+	if entries[0].SourceFile != absPath {
+		t.Errorf("SourceFile = %q, want %q", entries[0].SourceFile, absPath)
 	}
 }

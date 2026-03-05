@@ -66,6 +66,7 @@ export namespace config {
 	    color?: string;
 	    group: string;
 	    autoConnect: boolean;
+	    sourceFile?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TunnelConfig(source);
@@ -85,6 +86,7 @@ export namespace config {
 	        this.color = source["color"];
 	        this.group = source["group"];
 	        this.autoConnect = source["autoConnect"];
+	        this.sourceFile = source["sourceFile"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

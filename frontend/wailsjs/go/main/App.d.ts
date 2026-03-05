@@ -22,6 +22,8 @@ export function ExportTunnels(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function GetAutostart():Promise<boolean>;
 
+export function GetConfigFiles():Promise<Array<string>>;
+
 export function GetCurrentVersion():Promise<string>;
 
 export function GetTunnelLogs(arg1:string):Promise<Array<config.LogEntry>>;

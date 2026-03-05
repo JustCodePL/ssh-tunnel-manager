@@ -38,6 +38,10 @@ export function GetAutostart() {
   return window['go']['main']['App']['GetAutostart']();
 }
 
+export function GetConfigFiles() {
+  return window['go']['main']['App']['GetConfigFiles']();
+}
+
 export function GetCurrentVersion() {
   return window['go']['main']['App']['GetCurrentVersion']();
 }
