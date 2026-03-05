@@ -4,12 +4,14 @@
   import TunnelCard from "./TunnelCard.svelte";
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
+  import TerminalWindow from "./TerminalWindow.svelte";
 
   export let filterGroup: string | null = null;
 
   let showForm = false;
   let editingTunnel: TunnelConfig | null = null;
   let loggingTunnel: TunnelConfig | null = null;
+  let terminalTunnel: TunnelConfig | null = null;
   let collapsedGroups: Record<string, boolean> = {};
 
   function handleAdd() {
@@ -29,6 +31,10 @@
 
   function handleLogs(event: CustomEvent<TunnelConfig>) {
     loggingTunnel = event.detail;
+  }
+
+  function handleTerminal(event: CustomEvent<TunnelConfig>) {
+    terminalTunnel = event.detail;
   }
 
   function handleLogsClose() {
@@ -82,6 +88,10 @@
   />
 {/if}
 
+{#if terminalTunnel}
+  <TerminalWindow tunnel={terminalTunnel} on:close={() => terminalTunnel = null} />
+{/if}
+
 <div class="tunnel-list">
   {#if showForm}
     <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
@@ -117,6 +127,7 @@
             status={getStatus($statuses, tunnel.id)}
             on:edit={handleEdit}
             on:logs={handleLogs}
+            on:terminal={handleTerminal}
           />
         {/each}
 
@@ -138,6 +149,7 @@
                     status={getStatus($statuses, tunnel.id)}
                     on:edit={handleEdit}
                     on:logs={handleLogs}
+                    on:terminal={handleTerminal}
                   />
                 {/each}
               </div>

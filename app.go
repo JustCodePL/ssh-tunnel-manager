@@ -25,6 +25,7 @@ type App struct {
 	ctx     context.Context
 	store   *config.Store
 	manager *ssh.Manager
+	termMgr *ssh.TerminalManager
 	tray    *tray.Tray
 
 	// Passphrase prompt coordination
@@ -46,6 +47,7 @@ func NewApp(store *config.Store) *App {
 		store:  store,
 		logBuf: make(map[string][]config.LogEntry),
 	}
+	app.termMgr = ssh.NewTerminalManager(app.getPassphrase)
 	app.manager = ssh.NewManager(func(event ssh.StatusEvent) {
 		app.emitStatus(event)
 		app.tray.HandleStatusEvent(event)
@@ -105,6 +107,7 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) shutdown(ctx context.Context) {
 	slog.Info("shutting down, disconnecting all tunnels")
 	a.tray.Stop()
+	a.termMgr.CloseAll()
 	a.manager.DisconnectAll()
 }
 
@@ -164,6 +167,60 @@ func (a *App) DisconnectTunnel(id string) error {
 // GetTunnelStatuses returns the current status of all tunnels.
 func (a *App) GetTunnelStatuses() map[string]ssh.StatusEvent {
 	return a.manager.GetStatuses()
+}
+
+// OpenTerminal opens an interactive SSH terminal session for the given tunnel.
+func (a *App) OpenTerminal(tunnelID string) (string, error) {
+	cfg, ok := a.store.GetTunnel(tunnelID)
+	if !ok {
+		return "", &tunnelNotFoundError{tunnelID}
+	}
+
+	sessionID, err := a.termMgr.OpenSession(cfg,
+		func(sessionID, data string) {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "terminal:output", map[string]any{
+					"sessionId": sessionID,
+					"data":      data,
+				})
+			}
+		},
+		func(sessionID string) {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "terminal:closed", map[string]any{
+					"sessionId": sessionID,
+				})
+			}
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("opening terminal for %s: %w", cfg.Name, err)
+	}
+	return sessionID, nil
+}
+
+// TerminalWrite sends input data to a terminal session.
+func (a *App) TerminalWrite(sessionID, data string) error {
+	ts, ok := a.termMgr.GetSession(sessionID)
+	if !ok {
+		return fmt.Errorf("terminal session %s not found", sessionID)
+	}
+	return ts.Write(data)
+}
+
+// CloseTerminal closes a terminal session.
+func (a *App) CloseTerminal(sessionID string) error {
+	a.termMgr.CloseSession(sessionID)
+	return nil
+}
+
+// ResizeTerminal resizes the PTY of a terminal session.
+func (a *App) ResizeTerminal(sessionID string, cols, rows int) error {
+	ts, ok := a.termMgr.GetSession(sessionID)
+	if !ok {
+		return fmt.Errorf("terminal session %s not found", sessionID)
+	}
+	return ts.Resize(cols, rows)
 }
 
 func (a *App) showWindow() {
