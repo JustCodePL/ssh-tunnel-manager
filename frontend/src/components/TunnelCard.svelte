@@ -7,7 +7,7 @@
   export let tunnel: TunnelConfig;
   export let status: TunnelStatus = "disconnected";
 
-  const dispatch = createEventDispatcher<{ edit: TunnelConfig; logs: TunnelConfig }>();
+  const dispatch = createEventDispatcher<{ edit: TunnelConfig; logs: TunnelConfig; terminal: TunnelConfig }>();
 
   let actionLoading = false;
 
@@ -88,6 +88,7 @@
         </button>
       {/if}
       <button class="action-btn secondary" on:click={() => dispatch("logs", tunnel)}>logs</button>
+      <button class="action-btn secondary" on:click={() => dispatch("terminal", tunnel)}>term</button>
       <button class="action-btn secondary" on:click={() => dispatch("edit", tunnel)}>edit</button>
       <button class="action-btn danger" on:click={handleDelete}>del</button>
     </div>

@@ -1,0 +1,97 @@
+<script lang="ts">
+  import { onMount, onDestroy } from "svelte";
+  import { Terminal } from "@xterm/xterm";
+  import { FitAddon } from "@xterm/addon-fit";
+  import { OpenTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
+  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+  import type { TunnelConfig } from "../types";
+  import { createEventDispatcher } from "svelte";
+
+  export let tunnel: TunnelConfig;
+  const dispatch = createEventDispatcher<{ close: void }>();
+
+  let termEl: HTMLDivElement;
+  let term: Terminal;
+  let fitAddon: FitAddon;
+  let sessionId: string = "";
+  let loading = true;
+  let error = "";
+
+  onMount(async () => {
+    term = new Terminal({
+      theme: { background: "#0a0a0a", foreground: "#00ff88", cursor: "#00ff88" },
+      fontFamily: "JetBrains Mono, monospace",
+      fontSize: 13,
+    });
+    fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(termEl);
+    fitAddon.fit();
+
+    EventsOn("terminal:output", (e: any) => {
+      if (e.sessionId === sessionId) term.write(e.data);
+    });
+    EventsOn("terminal:closed", (e: any) => {
+      if (e.sessionId === sessionId) dispatch("close");
+    });
+
+    term.onData((data) => { if (sessionId) TerminalWrite(sessionId, data); });
+    term.onResize(({ cols, rows }) => { if (sessionId) ResizeTerminal(sessionId, cols, rows); });
+
+    try {
+      sessionId = await OpenTerminal(tunnel.id);
+      loading = false;
+      // Fit again now that we have a session, to send correct initial size
+      setTimeout(() => {
+        fitAddon.fit();
+      }, 50);
+    } catch (e: any) {
+      error = e.toString();
+      loading = false;
+    }
+  });
+
+  onDestroy(() => {
+    EventsOff("terminal:output");
+    EventsOff("terminal:closed");
+    if (sessionId) CloseTerminal(sessionId);
+    term?.dispose();
+  });
+
+  function handleClose() {
+    if (sessionId) CloseTerminal(sessionId);
+    dispatch("close");
+  }
+</script>
+
+<div class="terminal-overlay">
+  <div class="terminal-window">
+    <div class="terminal-titlebar">
+      <span class="terminal-title">terminal — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
+      <button class="close-btn" on:click={handleClose}>×</button>
+    </div>
+    <div class="terminal-body">
+      {#if loading}
+        <div class="status-msg">connecting...</div>
+      {/if}
+      {#if error}
+        <div class="status-msg error">{error}</div>
+      {/if}
+      <div bind:this={termEl} class="xterm-container" class:hidden={loading || !!error} />
+    </div>
+  </div>
+</div>
+
+<style>
+  .terminal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .terminal-window { width: 90vw; height: 80vh; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; display: flex; flex-direction: column; }
+  .terminal-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; }
+  .terminal-title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00ff88; }
+  .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
+  .close-btn:hover { color: #ff4444; border-color: #ff4444; }
+  .terminal-body { flex: 1; overflow: hidden; padding: 8px; }
+  .xterm-container { width: 100%; height: 100%; }
+  .xterm-container.hidden { display: none; }
+  .status-msg { font-family: "JetBrains Mono", monospace; font-size: 12px; color: #00ff88; padding: 20px; }
+  .status-msg.error { color: #ff4444; }
+</style>

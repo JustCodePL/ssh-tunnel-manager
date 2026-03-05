@@ -117,46 +117,7 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 }
 
 func (t *Tunnel) buildSSHConfig() (*ssh.ClientConfig, error) {
-	keyData, err := os.ReadFile(t.Config.KeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading key %s: %w", t.Config.KeyPath, err)
-	}
-
-	signer, err := ssh.ParsePrivateKey(keyData)
-	if err != nil {
-		if _, ok := err.(*ssh.PassphraseMissingError); ok {
-			signer, err = t.parseEncryptedKey(keyData)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("parsing key %s: %w", t.Config.KeyPath, err)
-		}
-	}
-
-	return &ssh.ClientConfig{
-		User: t.Config.User,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         10 * time.Second,
-	}, nil
-}
-
-func (t *Tunnel) parseEncryptedKey(keyData []byte) (ssh.Signer, error) {
-	if t.GetPassphrase == nil {
-		return nil, fmt.Errorf("key %s is encrypted and no passphrase provider available", t.Config.KeyPath)
-	}
-	passphrase, err := t.GetPassphrase(t.Config.KeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("getting passphrase for %s: %w", t.Config.KeyPath, err)
-	}
-	signer, err := ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(passphrase))
-	if err != nil {
-		return nil, fmt.Errorf("decrypting key %s: %w", t.Config.KeyPath, err)
-	}
-	return signer, nil
+	return buildClientConfig(t.Config, t.GetPassphrase)
 }
 
 // dial establishes an SSH client connection using the appropriate method:
