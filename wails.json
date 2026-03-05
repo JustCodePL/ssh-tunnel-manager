@@ -6,7 +6,7 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
-  "wailsjsdir": "./frontend/wailsjs",
+  "wailsjsdir": "./frontend",
   "build:tags": "webkit2_41",
   "info": {
     "companyName": "JustCode",
