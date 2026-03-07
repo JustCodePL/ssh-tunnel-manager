@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 
 	"ssh-tunnel-manager/internal/config"
 )
@@ -237,37 +241,107 @@ func (tm *TerminalManager) cleanupSession(sessionID string) {
 
 // buildClientConfig creates an ssh.ClientConfig from a TunnelConfig.
 // This is the shared helper used by both Tunnel and TerminalManager.
+//
+// Authentication methods are tried in order:
+//  1. Explicit key from KeyPath (if set)
+//  2. SSH agent (ssh-agent on Unix, OpenSSH agent on Windows)
+//  3. Default key files (~/.ssh/id_ed25519, id_rsa, etc.) when KeyPath is empty
 func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc) (*ssh.ClientConfig, error) {
-	keyData, err := os.ReadFile(cfg.KeyPath)
+	var authMethods []ssh.AuthMethod
+
+	// 1. Explicit key file
+	if cfg.KeyPath != "" {
+		signer, err := loadSigner(cfg.KeyPath, getPassphrase)
+		if err != nil {
+			return nil, err
+		}
+		authMethods = append(authMethods, ssh.PublicKeys(signer))
+	}
+
+	// 2. SSH agent
+	if agentAuth, err := sshAgentAuth(); err == nil {
+		authMethods = append(authMethods, agentAuth)
+	} else {
+		slog.Debug("SSH agent not available", "error", err)
+	}
+
+	// 3. Default key files (only when no explicit key was given)
+	if cfg.KeyPath == "" {
+		home, _ := os.UserHomeDir()
+		if home != "" {
+			defaults := []string{
+				filepath.Join(home, ".ssh", "id_ed25519"),
+				filepath.Join(home, ".ssh", "id_ecdsa"),
+				filepath.Join(home, ".ssh", "id_rsa"),
+			}
+			for _, p := range defaults {
+				signer, err := loadSigner(p, getPassphrase)
+				if err != nil {
+					continue // skip missing or unreadable keys
+				}
+				authMethods = append(authMethods, ssh.PublicKeys(signer))
+			}
+		}
+	}
+
+	if len(authMethods) == 0 {
+		return nil, fmt.Errorf("no authentication methods available for %s (no key, no agent)", cfg.Host)
+	}
+
+	return &ssh.ClientConfig{
+		User:            cfg.User,
+		Auth:            authMethods,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}, nil
+}
+
+// loadSigner reads a private key file and returns an ssh.Signer.
+// If the key is encrypted, it calls getPassphrase for the passphrase.
+func loadSigner(keyPath string, getPassphrase PassphraseFunc) (ssh.Signer, error) {
+	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading key %s: %w", cfg.KeyPath, err)
+		return nil, fmt.Errorf("reading key %s: %w", keyPath, err)
 	}
 
 	signer, err := ssh.ParsePrivateKey(keyData)
 	if err != nil {
 		if _, ok := err.(*ssh.PassphraseMissingError); ok {
 			if getPassphrase == nil {
-				return nil, fmt.Errorf("key %s is encrypted and no passphrase provider available", cfg.KeyPath)
+				return nil, fmt.Errorf("key %s is encrypted and no passphrase provider available", keyPath)
 			}
-			passphrase, pErr := getPassphrase(cfg.KeyPath)
+			passphrase, pErr := getPassphrase(keyPath)
 			if pErr != nil {
-				return nil, fmt.Errorf("getting passphrase for %s: %w", cfg.KeyPath, pErr)
+				return nil, fmt.Errorf("getting passphrase for %s: %w", keyPath, pErr)
 			}
 			signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(passphrase))
 			if err != nil {
-				return nil, fmt.Errorf("decrypting key %s: %w", cfg.KeyPath, err)
+				return nil, fmt.Errorf("decrypting key %s: %w", keyPath, err)
 			}
 		} else {
-			return nil, fmt.Errorf("parsing key %s: %w", cfg.KeyPath, err)
+			return nil, fmt.Errorf("parsing key %s: %w", keyPath, err)
 		}
 	}
+	return signer, nil
+}
 
-	return &ssh.ClientConfig{
-		User: cfg.User,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         10 * time.Second,
-	}, nil
+// sshAgentAuth connects to the running SSH agent and returns an AuthMethod.
+func sshAgentAuth() (ssh.AuthMethod, error) {
+	conn, err := dialAgent()
+	if err != nil {
+		return nil, err
+	}
+	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers), nil
+}
+
+// dialAgent connects to the platform-specific SSH agent socket.
+func dialAgent() (net.Conn, error) {
+	if runtime.GOOS == "windows" {
+		return net.Dial("pipe", `\\.\pipe\openssh-ssh-agent`)
+	}
+	sock := os.Getenv("SSH_AUTH_SOCK")
+	if sock == "" {
+		return nil, fmt.Errorf("SSH_AUTH_SOCK not set")
+	}
+	return net.Dial("unix", sock)
 }

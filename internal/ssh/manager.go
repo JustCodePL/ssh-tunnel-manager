@@ -54,9 +54,8 @@ func isAuthError(err error) bool {
 	return strings.Contains(msg, "unable to authenticate") ||
 		strings.Contains(msg, "no supported methods remain") ||
 		strings.Contains(msg, "permission denied") ||
-		strings.Contains(msg, "publickey") ||
-		strings.Contains(msg, "authentication failed") ||
-		strings.Contains(msg, "handshake failed")
+		strings.Contains(msg, "no authentication methods available") ||
+		strings.Contains(msg, "authentication failed")
 }
 
 // isDNSError returns true if the error is a DNS resolution failure.
