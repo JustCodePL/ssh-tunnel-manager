@@ -340,6 +340,11 @@ func dialAgent() (net.Conn, error) {
 		return net.Dial("pipe", `\\.\pipe\openssh-ssh-agent`)
 	}
 	sock := os.Getenv("SSH_AUTH_SOCK")
+	if sock == "" && runtime.GOOS == "darwin" {
+		// macOS GUI apps may not inherit SSH_AUTH_SOCK from the shell.
+		// Try the launchd-managed agent socket.
+		sock = findMacOSAgentSocket()
+	}
 	if sock == "" {
 		return nil, fmt.Errorf("SSH_AUTH_SOCK not set")
 	}

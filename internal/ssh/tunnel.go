@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -8,6 +9,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -147,9 +150,21 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	cmdStr := expandProxyCommand(t.Config.ProxyCommand, t.Config.Host, t.Config.Port, t.Config.User)
 	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr)
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.CommandContext(ctx, "cmd", "/c", cmdStr)
+	} else {
+		cmd = exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	}
 	applySysProcAttr(cmd)
-	cmd.Stderr = os.Stderr
+
+	// Ensure SSH_AUTH_SOCK is available for the subprocess.
+	// On macOS, GUI apps may not inherit the shell environment.
+	cmd.Env = proxyCommandEnv()
+
+	// Capture stderr so we can surface proxy errors to the user
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -169,10 +184,57 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
 	if err != nil {
 		conn.Close()
+		proxyErr := strings.TrimSpace(stderrBuf.String())
+		if proxyErr != "" {
+			slog.Error("ProxyCommand stderr", "tunnel", t.Config.Name, "stderr", proxyErr)
+			t.log("error", fmt.Sprintf("ProxyCommand stderr: %s", proxyErr))
+			return nil, fmt.Errorf("SSH handshake via ProxyCommand: %w (proxy: %s)", err, proxyErr)
+		}
 		return nil, fmt.Errorf("SSH handshake via ProxyCommand: %w", err)
 	}
 
 	return ssh.NewClient(c, chans, reqs), nil
+}
+
+// proxyCommandEnv returns the environment for ProxyCommand subprocesses.
+// It starts with the current process environment, then ensures SSH_AUTH_SOCK
+// is set — on macOS GUI apps the shell environment may not be inherited.
+func proxyCommandEnv() []string {
+	env := os.Environ()
+
+	// If SSH_AUTH_SOCK is already set, nothing to do
+	if os.Getenv("SSH_AUTH_SOCK") != "" {
+		return env
+	}
+
+	// On macOS, try to discover the launchd-managed agent socket
+	if runtime.GOOS == "darwin" {
+		if sock := findMacOSAgentSocket(); sock != "" {
+			slog.Info("discovered macOS SSH agent socket", "path", sock)
+			env = append(env, "SSH_AUTH_SOCK="+sock)
+		}
+	}
+
+	return env
+}
+
+// findMacOSAgentSocket looks for the launchd SSH agent socket in common
+// locations. Returns empty string if not found.
+func findMacOSAgentSocket() string {
+	// launchd sockets are typically in /private/tmp/com.apple.launchd.*/Listeners
+	matches, err := filepath.Glob("/private/tmp/com.apple.launchd.*/Listeners")
+	if err != nil || len(matches) == 0 {
+		return ""
+	}
+	// Verify the socket is actually connectable
+	for _, sock := range matches {
+		conn, err := net.DialTimeout("unix", sock, 2*time.Second)
+		if err == nil {
+			conn.Close()
+			return sock
+		}
+	}
+	return ""
 }
 
 func (t *Tunnel) dialViaProxyJump(ctx context.Context, addr string, sshConfig *ssh.ClientConfig) (*ssh.Client, error) {
