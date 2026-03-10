@@ -58,6 +58,8 @@ func (s *Store) GetTunnel(id string) (TunnelConfig, bool) {
 }
 
 // AddTunnel appends a new Host block to the SSH config file.
+// If SourceFile is set, the block is written to that file; otherwise to the
+// main config.
 func (s *Store) AddTunnel(t TunnelConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -68,7 +70,12 @@ func (s *Store) AddTunnel(t TunnelConfig) error {
 		}
 	}
 
-	lines, err := sshconfig.ReadLines(s.filePath)
+	targetFile := s.filePath
+	if t.SourceFile != "" {
+		targetFile = t.SourceFile
+	}
+
+	lines, err := sshconfig.ReadLines(targetFile)
 	if err != nil {
 		return fmt.Errorf("reading ssh config: %w", err)
 	}
@@ -76,20 +83,23 @@ func (s *Store) AddTunnel(t TunnelConfig) error {
 	block := sshconfig.RenderHostBlock(toHostEntry(t))
 	lines = sshconfig.AppendHostBlock(lines, block)
 
-	if err := s.ensureDir(); err != nil {
+	if err := s.ensureDirFor(targetFile); err != nil {
 		return err
 	}
-	if err := sshconfig.WriteLines(s.filePath, lines); err != nil {
+	if err := sshconfig.WriteLines(targetFile, lines); err != nil {
 		return fmt.Errorf("writing ssh config: %w", err)
 	}
 
+	if t.SourceFile == "" {
+		t.SourceFile = s.filePath
+	}
 	s.tunnels = append(s.tunnels, t)
 	return nil
 }
 
 // UpdateTunnel replaces the Host block for the tunnel with matching ID.
 // If the name changed (rename), the old block is removed and a new one is
-// written with the new alias.
+// written with the new alias. Writes to the tunnel's SourceFile.
 func (s *Store) UpdateTunnel(t TunnelConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -105,19 +115,24 @@ func (s *Store) UpdateTunnel(t TunnelConfig) error {
 		return fmt.Errorf("tunnel %q not found", t.ID)
 	}
 
-	oldName := s.tunnels[idx].Name
-	lines, err := sshconfig.ReadLines(s.filePath)
+	oldTunnel := s.tunnels[idx]
+	targetFile := oldTunnel.SourceFile
+	if targetFile == "" {
+		targetFile = s.filePath
+	}
+
+	lines, err := sshconfig.ReadLines(targetFile)
 	if err != nil {
 		return fmt.Errorf("reading ssh config: %w", err)
 	}
 
 	block := sshconfig.RenderHostBlock(toHostEntry(t))
 
-	if oldName != t.Name {
+	if oldTunnel.Name != t.Name {
 		// Rename: remove old block, append new
-		lines, err = sshconfig.RemoveHostBlock(lines, oldName)
+		lines, err = sshconfig.RemoveHostBlock(lines, oldTunnel.Name)
 		if err != nil {
-			return fmt.Errorf("removing old host block %q: %w", oldName, err)
+			return fmt.Errorf("removing old host block %q: %w", oldTunnel.Name, err)
 		}
 		lines = sshconfig.AppendHostBlock(lines, block)
 	} else {
@@ -127,17 +142,20 @@ func (s *Store) UpdateTunnel(t TunnelConfig) error {
 		}
 	}
 
-	if err := sshconfig.WriteLines(s.filePath, lines); err != nil {
+	if err := sshconfig.WriteLines(targetFile, lines); err != nil {
 		return fmt.Errorf("writing ssh config: %w", err)
 	}
 
+	// Preserve the source file
+	t.SourceFile = targetFile
 	// Update ID to match new name on rename
 	t.ID = t.Name
 	s.tunnels[idx] = t
 	return nil
 }
 
-// DeleteTunnel removes the Host block with the given ID (alias) from the file.
+// DeleteTunnel removes the Host block with the given ID (alias) from its
+// source file.
 func (s *Store) DeleteTunnel(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -153,7 +171,12 @@ func (s *Store) DeleteTunnel(id string) error {
 		return fmt.Errorf("tunnel %q not found", id)
 	}
 
-	lines, err := sshconfig.ReadLines(s.filePath)
+	targetFile := s.tunnels[idx].SourceFile
+	if targetFile == "" {
+		targetFile = s.filePath
+	}
+
+	lines, err := sshconfig.ReadLines(targetFile)
 	if err != nil {
 		return fmt.Errorf("reading ssh config: %w", err)
 	}
@@ -163,7 +186,7 @@ func (s *Store) DeleteTunnel(id string) error {
 		return fmt.Errorf("removing host block %q: %w", s.tunnels[idx].Name, err)
 	}
 
-	if err := sshconfig.WriteLines(s.filePath, lines); err != nil {
+	if err := sshconfig.WriteLines(targetFile, lines); err != nil {
 		return fmt.Errorf("writing ssh config: %w", err)
 	}
 
@@ -189,12 +212,32 @@ func (s *Store) load() error {
 	return nil
 }
 
-func (s *Store) ensureDir() error {
-	dir := filepath.Dir(s.filePath)
+func (s *Store) ensureDirFor(path string) error {
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating directory %s: %w", dir, err)
 	}
 	return nil
+}
+
+// GetConfigFiles returns a deduplicated, ordered list of all source files
+// that contributed tunnel configs (main config + included files).
+func (s *Store) GetConfigFiles() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	seen := make(map[string]bool)
+	var files []string
+	for _, t := range s.tunnels {
+		sf := t.SourceFile
+		if sf == "" {
+			sf = s.filePath
+		}
+		if !seen[sf] {
+			seen[sf] = true
+			files = append(files, sf)
+		}
+	}
+	return files
 }
 
 func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
@@ -209,6 +252,7 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 		Color:        t.Color,
 		Group:        t.Group,
 		AutoConnect:  t.AutoConnect,
+		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
 		e.PortForwards = append(e.PortForwards, sshconfig.PortForwardEntry{
@@ -234,6 +278,7 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 		Color:        e.Color,
 		Group:        e.Group,
 		AutoConnect:  e.AutoConnect,
+		SourceFile:   e.SourceFile,
 	}
 	for _, pf := range e.PortForwards {
 		t.PortForwards = append(t.PortForwards, PortForward{

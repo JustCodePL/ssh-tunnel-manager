@@ -116,6 +116,16 @@ func (a *App) GetTunnels() []config.TunnelConfig {
 	return a.store.GetTunnels()
 }
 
+// GetConfigFiles returns the list of SSH config source files (main + included),
+// with paths collapsed to use ~/ where possible.
+func (a *App) GetConfigFiles() []string {
+	files := a.store.GetConfigFiles()
+	for i, f := range files {
+		files[i] = sshconfig.CollapseTildePath(f)
+	}
+	return files
+}
+
 // AddTunnel persists a new tunnel configuration. ID is set to Name.
 func (a *App) AddTunnel(t config.TunnelConfig) error {
 	t.ID = t.Name
@@ -466,6 +476,7 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 		Color:        e.Color,
 		Group:        e.Group,
 		AutoConnect:  e.AutoConnect,
+		SourceFile:   e.SourceFile,
 	}
 	for _, pf := range e.PortForwards {
 		t.PortForwards = append(t.PortForwards, config.PortForward{
@@ -490,6 +501,7 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 		Color:        t.Color,
 		Group:        t.Group,
 		AutoConnect:  t.AutoConnect,
+		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
 		e.PortForwards = append(e.PortForwards, sshconfig.PortForwardEntry{

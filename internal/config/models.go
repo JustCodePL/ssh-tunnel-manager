@@ -42,5 +42,6 @@ type TunnelConfig struct {
 	Color        string        `json:"color,omitempty"`
 	Group        string        `json:"group"`
 	AutoConnect  bool          `json:"autoConnect"`
+	SourceFile   string        `json:"sourceFile,omitempty"`
 }
 

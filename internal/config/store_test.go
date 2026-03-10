@@ -320,6 +320,91 @@ func TestDirCreatedOnAdd(t *testing.T) {
 	}
 }
 
+func TestMultiFileInclude(t *testing.T) {
+	dir := t.TempDir()
+	confDir := filepath.Join(dir, "config.d")
+	if err := os.MkdirAll(confDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	// Write included file
+	included := filepath.Join(confDir, "work.conf")
+	writeSSHConfig(t, included, `Host work-server
+    HostName work.example.com
+    User deploy
+`)
+
+	// Write main config with Include
+	mainConfig := filepath.Join(dir, "config")
+	writeSSHConfig(t, mainConfig, `Host main-server
+    HostName main.example.com
+    User admin
+
+Include `+confDir+`/*.conf
+`)
+
+	s, err := NewStoreWithPath(mainConfig)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	tunnels := s.GetTunnels()
+	if len(tunnels) != 2 {
+		t.Fatalf("expected 2 tunnels, got %d", len(tunnels))
+	}
+
+	// Verify source files are tracked
+	absMain, _ := filepath.Abs(mainConfig)
+	absIncluded, _ := filepath.Abs(included)
+	if tunnels[0].SourceFile != absMain {
+		t.Errorf("tunnel[0].SourceFile = %q, want %q", tunnels[0].SourceFile, absMain)
+	}
+	if tunnels[1].SourceFile != absIncluded {
+		t.Errorf("tunnel[1].SourceFile = %q, want %q", tunnels[1].SourceFile, absIncluded)
+	}
+
+	// Update a tunnel in the included file — should write back to included file
+	updated := tunnels[1]
+	updated.Host = "updated-work.example.com"
+	if err := s.UpdateTunnel(updated); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	// Verify included file was modified
+	data, err := os.ReadFile(included)
+	if err != nil {
+		t.Fatalf("read included: %v", err)
+	}
+	if !strings.Contains(string(data), "updated-work.example.com") {
+		t.Error("included file should contain updated hostname")
+	}
+
+	// Verify main config was NOT modified
+	mainData, err := os.ReadFile(mainConfig)
+	if err != nil {
+		t.Fatalf("read main: %v", err)
+	}
+	if strings.Contains(string(mainData), "updated-work.example.com") {
+		t.Error("main config should not contain the updated hostname")
+	}
+
+	// Delete from included file
+	if err := s.DeleteTunnel("work-server"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(s.GetTunnels()) != 1 {
+		t.Fatalf("expected 1 tunnel after delete, got %d", len(s.GetTunnels()))
+	}
+
+	// Verify included file had the host removed
+	data, err = os.ReadFile(included)
+	if err != nil {
+		t.Fatalf("read included: %v", err)
+	}
+	if strings.Contains(string(data), "Host work-server") {
+		t.Error("included file should no longer contain work-server")
+	}
+}
+
 func TestMetadataRoundTrip(t *testing.T) {
 	path := tempSSHConfigPath(t)
 	s, err := NewStoreWithPath(path)
