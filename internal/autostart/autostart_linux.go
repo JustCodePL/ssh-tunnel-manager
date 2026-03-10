@@ -11,7 +11,7 @@ import (
 const desktopEntry = `[Desktop Entry]
 Type=Application
 Name=SSH Tunnel Manager
-Exec=%s
+Exec=%s --hidden
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true

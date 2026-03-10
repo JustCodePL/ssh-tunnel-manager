@@ -20,13 +20,20 @@ func main() {
 		Level: slog.LevelInfo,
 	})))
 
+	startHidden := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--hidden" {
+			startHidden = true
+		}
+	}
+
 	store, err := config.NewStore()
 	if err != nil {
 		slog.Error("failed to initialize config store", "error", err)
 		os.Exit(1)
 	}
 
-	app := NewApp(store)
+	app := NewApp(store, startHidden)
 
 	err = wails.Run(&options.App{
 		Title:     "SSH Tunnel Manager",
