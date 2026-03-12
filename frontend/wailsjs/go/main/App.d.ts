@@ -52,6 +52,8 @@ export function SetAutostart(arg1:boolean):Promise<void>;
 
 export function SetCloseToTray(arg1:boolean):Promise<void>;
 
+export function SetTunnelPinned(arg1:string,arg2:boolean):Promise<void>;
+
 export function SubmitPassphrase(arg1:string):Promise<void>;
 
 export function TerminalWrite(arg1:string,arg2:string):Promise<void>;

@@ -32,6 +32,7 @@ type HostEntry struct {
 	Color        string
 	Group        string
 	AutoConnect  bool
+	Pinned       bool
 	SourceFile   string // absolute path to the file this entry was parsed from
 }
 
@@ -137,6 +138,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var metaGroup string
 	var metaColor string
 	var metaAutoConnect bool
+	var metaPinned bool
 	inMatch := false
 
 	for scanner.Scan() {
@@ -153,6 +155,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaColor = val
 			case "autoconnect":
 				metaAutoConnect = val == "true"
+			case "pinned":
+				metaPinned = val == "true"
 			}
 			continue
 		}
@@ -167,6 +171,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 			metaGroup = ""
 			metaColor = ""
 			metaAutoConnect = false
+			metaPinned = false
 			continue
 		}
 
@@ -183,6 +188,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaGroup = ""
 				metaColor = ""
 				metaAutoConnect = false
+				metaPinned = false
 				continue
 			}
 
@@ -192,10 +198,12 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				Color:       metaColor,
 				Group:       metaGroup,
 				AutoConnect: metaAutoConnect,
+				Pinned:      metaPinned,
 			}
 			metaGroup = ""
 			metaColor = ""
 			metaAutoConnect = false
+			metaPinned = false
 			continue
 		}
 
@@ -206,6 +214,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaGroup = ""
 				metaColor = ""
 				metaAutoConnect = false
+				metaPinned = false
 			}
 			continue
 		}
@@ -269,6 +278,9 @@ func RenderHostBlock(e HostEntry) string {
 	}
 	if e.AutoConnect {
 		b.WriteString("# stm:autoconnect=true\n")
+	}
+	if e.Pinned {
+		b.WriteString("# stm:pinned=true\n")
 	}
 
 	fmt.Fprintf(&b, "Host %s\n", e.Alias)

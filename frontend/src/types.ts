@@ -20,6 +20,7 @@ export interface TunnelConfig {
   color?: string;
   group: string;
   autoConnect: boolean;
+  pinned?: boolean;
   sourceFile?: string;
 }
 

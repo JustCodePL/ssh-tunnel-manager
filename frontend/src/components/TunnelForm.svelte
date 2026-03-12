@@ -76,6 +76,7 @@
         color: tunnelColor || undefined,
         group: group.trim(),
         autoConnect,
+        pinned: tunnel?.pinned,
       };
       if (isEdit) {
         await updateTunnel(cfg);
@@ -264,9 +265,11 @@
       {/if}
     </div>
 
-    <label class="checkbox-label">
-      <input type="checkbox" bind:checked={autoConnect} />
-      <span>auto-connect on startup</span>
+    <label class="checkbox-label" on:click|preventDefault={() => (autoConnect = !autoConnect)}>
+      <span class="hacker-check" class:checked={autoConnect}>
+        {#if autoConnect}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+      </span>
+      <span class="checkbox-text" class:active={autoConnect}>auto-connect on startup</span>
     </label>
 
     <div class="form-actions">
@@ -503,9 +506,48 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 10px;
-    color: var(--muted);
+    font-size: 11px;
+    color: var(--text);
     font-family: 'JetBrains Mono', monospace;
+    user-select: none;
+    padding: 4px 0;
+  }
+
+  .hacker-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+
+  .check-empty {
+    color: var(--muted);
+  }
+
+  .check-mark {
+    color: var(--accent);
+    text-shadow: 0 0 6px var(--accent);
+  }
+
+  .checkbox-text {
+    color: var(--muted);
+    transition: color 0.15s;
+  }
+
+  .checkbox-text.active {
+    color: var(--accent);
+  }
+
+  .checkbox-label:hover .check-empty {
+    color: var(--text);
+  }
+
+  .checkbox-label:hover .checkbox-text:not(.active) {
+    color: var(--text);
   }
 
   .form-actions {

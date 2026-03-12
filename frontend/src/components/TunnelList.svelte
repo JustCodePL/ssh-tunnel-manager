@@ -94,13 +94,19 @@
 
   $: filteredTunnels = (() => {
     if (filterGroup === null) return $tunnels;
+    if (filterGroup === "__pinned__") return $tunnels.filter(t => t.pinned);
     if (filterGroup === "__ungrouped__") return $tunnels.filter(t => !t.group);
     return $tunnels.filter(t => t.group === filterGroup);
   })();
 
+  $: pinnedTunnels = filterGroup === null ? $tunnels.filter(t => t.pinned) : [];
+  $: unpinnedTunnels = filterGroup === null
+    ? filteredTunnels.filter(t => !t.pinned)
+    : filteredTunnels;
+
   $: fileSections = (() => {
     const fileMap = new Map<string, TunnelConfig[]>();
-    for (const t of filteredTunnels) {
+    for (const t of unpinnedTunnels) {
       const key = t.sourceFile || "";
       const arr = fileMap.get(key);
       if (arr) {
@@ -160,6 +166,22 @@
       </div>
     {:else}
       <div class="cards">
+        {#if pinnedTunnels.length > 0}
+          <div class="pinned-section">
+            <div class="pinned-header">// przypięte</div>
+            <div class="pinned-tunnels">
+              {#each pinnedTunnels as tunnel (tunnel.id)}
+                <TunnelCard
+                  {tunnel}
+                  status={getStatus($statuses, tunnel.id)}
+                  on:edit={handleEdit}
+                  on:logs={handleLogs}
+                  on:terminal={handleTerminal}
+                />
+              {/each}
+            </div>
+          </div>
+        {/if}
         {#each fileSections as section (section.file)}
           {#if hasMultipleFiles}
             <div class="file-section">
@@ -383,15 +405,15 @@
 
   .group-name {
     letter-spacing: 0.1em;
-    color: #444;
-  }
-
-  .group-header:hover .group-name {
     color: var(--muted);
   }
 
+  .group-header:hover .group-name {
+    color: var(--text);
+  }
+
   .group-count {
-    color: #333;
+    color: var(--muted);
   }
 
   .group-tunnels {
@@ -401,5 +423,28 @@
     padding-left: 14px;
     border-left: 1px solid var(--border);
     margin-left: 4px;
+  }
+
+  .pinned-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .pinned-header {
+    font-size: 9px;
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pinned-tunnels {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 </style>

@@ -252,6 +252,7 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 		Color:        t.Color,
 		Group:        t.Group,
 		AutoConnect:  t.AutoConnect,
+		Pinned:       t.Pinned,
 		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
@@ -278,6 +279,7 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 		Color:        e.Color,
 		Group:        e.Group,
 		AutoConnect:  e.AutoConnect,
+		Pinned:       e.Pinned,
 		SourceFile:   e.SourceFile,
 	}
 	for _, pf := range e.PortForwards {
