@@ -53,3 +53,7 @@ export function SubmitPassphrase(arg1:string):Promise<void>;
 export function TerminalWrite(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateTunnel(arg1:config.TunnelConfig):Promise<void>;
+
+export function GetCloseToTray():Promise<boolean>;
+
+export function SetCloseToTray(arg1:boolean):Promise<void>;

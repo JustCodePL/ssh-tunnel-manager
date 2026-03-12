@@ -14,6 +14,7 @@ import (
 	"ssh-tunnel-manager/internal/autostart"
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/keychain"
+	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/ssh"
 	"ssh-tunnel-manager/internal/sshconfig"
 	"ssh-tunnel-manager/internal/tray"
@@ -24,6 +25,7 @@ import (
 type App struct {
 	ctx         context.Context
 	store       *config.Store
+	prefs       *prefs.Store
 	manager     *ssh.Manager
 	termMgr     *ssh.TerminalManager
 	tray        *tray.Tray
@@ -43,9 +45,10 @@ type App struct {
 }
 
 // NewApp creates a new App instance.
-func NewApp(store *config.Store, startHidden bool) *App {
+func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App {
 	app := &App{
 		store:       store,
+		prefs:       prefsStore,
 		startHidden: startHidden,
 		logBuf:      make(map[string][]config.LogEntry),
 	}
@@ -546,4 +549,17 @@ type tunnelNotFoundError struct {
 
 func (e *tunnelNotFoundError) Error() string {
 	return "tunnel not found: " + e.id
+}
+
+// GetCloseToTray returns whether the window close button hides to tray (true)
+// or quits the application (false).
+func (a *App) GetCloseToTray() bool {
+	return a.prefs.Get().CloseToTray
+}
+
+// SetCloseToTray configures the close button behaviour and persists the setting.
+func (a *App) SetCloseToTray(enabled bool) error {
+	p := a.prefs.Get()
+	p.CloseToTray = enabled
+	return a.prefs.Set(p)
 }
