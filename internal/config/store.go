@@ -93,6 +93,7 @@ func (s *Store) AddTunnel(t TunnelConfig) error {
 	if t.SourceFile == "" {
 		t.SourceFile = s.filePath
 	}
+	t.SourceFileLabel = sshconfig.CollapseTildePath(t.SourceFile)
 	s.tunnels = append(s.tunnels, t)
 	return nil
 }
@@ -148,6 +149,7 @@ func (s *Store) UpdateTunnel(t TunnelConfig) error {
 
 	// Preserve the source file
 	t.SourceFile = targetFile
+	t.SourceFileLabel = sshconfig.CollapseTildePath(targetFile)
 	// Update ID to match new name on rename
 	t.ID = t.Name
 	s.tunnels[idx] = t
@@ -240,6 +242,30 @@ func (s *Store) GetConfigFiles() []string {
 	return files
 }
 
+// GetIncludedConfigFiles returns the list of files referenced by Include
+// directives, beginning with the main config file.
+func (s *Store) GetIncludedConfigFiles() ([]ConfigFileInfo, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	files, err := sshconfig.IncludedConfigFiles(s.filePath)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ConfigFileInfo, 0, len(files))
+	seen := make(map[string]bool)
+	for _, file := range files {
+		if file == "" || seen[file] {
+			continue
+		}
+		seen[file] = true
+		result = append(result, ConfigFileInfo{
+			Path:  file,
+			Label: sshconfig.CollapseTildePath(file),
+		})
+	}
+	return result, nil
+}
+
 func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 	e := sshconfig.HostEntry{
 		Alias:        t.Name,
@@ -268,19 +294,20 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 
 func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 	t := TunnelConfig{
-		ID:           e.Alias,
-		Name:         e.Alias,
-		Host:         e.HostName,
-		Port:         e.Port,
-		User:         e.User,
-		KeyPath:      e.IdentityFile,
-		ProxyCommand: e.ProxyCommand,
-		ProxyJump:    e.ProxyJump,
-		Color:        e.Color,
-		Group:        e.Group,
-		AutoConnect:  e.AutoConnect,
-		Pinned:       e.Pinned,
-		SourceFile:   e.SourceFile,
+		ID:              e.Alias,
+		Name:            e.Alias,
+		Host:            e.HostName,
+		Port:            e.Port,
+		User:            e.User,
+		KeyPath:         e.IdentityFile,
+		ProxyCommand:    e.ProxyCommand,
+		ProxyJump:       e.ProxyJump,
+		Color:           e.Color,
+		Group:           e.Group,
+		AutoConnect:     e.AutoConnect,
+		Pinned:          e.Pinned,
+		SourceFile:      e.SourceFile,
+		SourceFileLabel: sshconfig.CollapseTildePath(e.SourceFile),
 	}
 	for _, pf := range e.PortForwards {
 		t.PortForwards = append(t.PortForwards, PortForward{

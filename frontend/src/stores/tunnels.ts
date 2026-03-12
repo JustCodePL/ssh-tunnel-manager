@@ -1,18 +1,24 @@
 import { writable, derived } from "svelte/store";
-import type { TunnelConfig, TunnelStatus, StatusEvent } from "../types";
-import { GetTunnels, GetTunnelStatuses, AddTunnel, UpdateTunnel, DeleteTunnel, ConnectTunnel, DisconnectTunnel, SelectFile, ImportPreview, ImportTunnels, SelectSaveFile, ExportTunnels, SetTunnelPinned, ConnectGroup, DisconnectGroup, RenameGroup } from "../../wailsjs/go/main/App";
+import type { TunnelConfig, TunnelStatus, StatusEvent, ConfigFileInfo } from "../types";
+import { GetTunnels, GetTunnelStatuses, AddTunnel, UpdateTunnel, DeleteTunnel, ConnectTunnel, DisconnectTunnel, SelectFile, ImportPreview, ImportTunnels, SelectSaveFile, ExportTunnels, SetTunnelPinned, ConnectGroup, DisconnectGroup, RenameGroup, GetIncludedConfigFiles } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 export const tunnels = writable<TunnelConfig[]>([]);
 export const statuses = writable<Record<string, StatusEvent>>({});
 export const loading = writable(true);
+export const includedConfigFiles = writable<ConfigFileInfo[]>([]);
 
 export async function loadTunnels() {
   loading.set(true);
   try {
-    const [cfgs, sts] = await Promise.all([GetTunnels(), GetTunnelStatuses()]);
+    const [cfgs, sts, includes] = await Promise.all([
+      GetTunnels(),
+      GetTunnelStatuses(),
+      GetIncludedConfigFiles(),
+    ]);
     tunnels.set(cfgs || []);
     statuses.set(sts || {});
+    includedConfigFiles.set(includes || []);
   } finally {
     loading.set(false);
   }

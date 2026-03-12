@@ -135,6 +135,17 @@ func (a *App) GetConfigFiles() []string {
 	return files
 }
 
+// GetIncludedConfigFiles lists the files that can be written to when Include
+// directives are present in the main config.
+func (a *App) GetIncludedConfigFiles() []config.ConfigFileInfo {
+	files, err := a.store.GetIncludedConfigFiles()
+	if err != nil {
+		slog.Warn("failed to list included config files", "error", err)
+		return nil
+	}
+	return files
+}
+
 // AddTunnel persists a new tunnel configuration. ID is set to Name.
 func (a *App) AddTunnel(t config.TunnelConfig) error {
 	t.ID = t.Name
@@ -488,19 +499,20 @@ func (a *App) ExportTunnels(path string, ids []string) error {
 
 func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 	t := config.TunnelConfig{
-		ID:           e.Alias,
-		Name:         e.Alias,
-		Host:         e.HostName,
-		Port:         e.Port,
-		User:         e.User,
-		KeyPath:      e.IdentityFile,
-		ProxyCommand: e.ProxyCommand,
-		ProxyJump:    e.ProxyJump,
-		Color:        e.Color,
-		Group:        e.Group,
-		AutoConnect:  e.AutoConnect,
-		Pinned:       e.Pinned,
-		SourceFile:   e.SourceFile,
+		ID:              e.Alias,
+		Name:            e.Alias,
+		Host:            e.HostName,
+		Port:            e.Port,
+		User:            e.User,
+		KeyPath:         e.IdentityFile,
+		ProxyCommand:    e.ProxyCommand,
+		ProxyJump:       e.ProxyJump,
+		Color:           e.Color,
+		Group:           e.Group,
+		AutoConnect:     e.AutoConnect,
+		Pinned:          e.Pinned,
+		SourceFile:      e.SourceFile,
+		SourceFileLabel: sshconfig.CollapseTildePath(e.SourceFile),
 	}
 	for _, pf := range e.PortForwards {
 		t.PortForwards = append(t.PortForwards, config.PortForward{

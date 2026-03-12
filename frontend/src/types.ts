@@ -22,6 +22,7 @@ export interface TunnelConfig {
   autoConnect: boolean;
   pinned?: boolean;
   sourceFile?: string;
+  sourceFileLabel?: string;
 }
 
 export interface StatusEvent {
@@ -34,4 +35,9 @@ export interface LogEntry {
   timestamp: string;
   level: "info" | "warn" | "error";
   message: string;
+}
+
+export interface ConfigFileInfo {
+  path: string;
+  label: string;
 }

@@ -123,6 +123,13 @@
   })();
 
   $: hasMultipleFiles = fileSections.length > 1;
+  $: showInlineGroupTitle = filterGroup !== null && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__";
+  $: currentTitle = (() => {
+    if (filterGroup === null) return "all tunnels";
+    if (filterGroup === "__pinned__") return "przypięte";
+    if (filterGroup === "__ungrouped__") return "nieprzypisane";
+    return filterGroup || "all tunnels";
+  })();
 
   function groupAllConnected(tunnelList: TunnelConfig[]): boolean {
     return tunnelList.length > 0 && tunnelList.every(t => {
@@ -157,6 +164,7 @@
     <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
   {:else}
     <div class="list-header">
+      <div class="list-title" class:muted-title={!showInlineGroupTitle}>{currentTitle}</div>
       <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
     </div>
   {/if}
@@ -210,15 +218,6 @@
               </button>
               {#if !collapsedFiles[section.file]}
                 <div class="file-tunnels">
-                  {#each section.grouped.ungrouped as tunnel (tunnel.id)}
-                    <TunnelCard
-                      {tunnel}
-                      status={getStatus($statuses, tunnel.id)}
-                      on:edit={handleEdit}
-                      on:logs={handleLogs}
-                      on:terminal={handleTerminal}
-                    />
-                  {/each}
                   {#each section.grouped.groups as group (group.name)}
                     <div class="group-section">
                       <div class="group-header-row">
@@ -248,19 +247,19 @@
                       {/if}
                     </div>
                   {/each}
+                  {#each section.grouped.ungrouped as tunnel (tunnel.id)}
+                    <TunnelCard
+                      {tunnel}
+                      status={getStatus($statuses, tunnel.id)}
+                      on:edit={handleEdit}
+                      on:logs={handleLogs}
+                      on:terminal={handleTerminal}
+                    />
+                  {/each}
                 </div>
               {/if}
             </div>
           {:else}
-            {#each section.grouped.ungrouped as tunnel (tunnel.id)}
-              <TunnelCard
-                {tunnel}
-                status={getStatus($statuses, tunnel.id)}
-                on:edit={handleEdit}
-                on:logs={handleLogs}
-                on:terminal={handleTerminal}
-              />
-            {/each}
             {#each section.grouped.groups as group (group.name)}
               <div class="group-section">
                 <div class="group-header-row">
@@ -290,6 +289,15 @@
                 {/if}
               </div>
             {/each}
+            {#each section.grouped.ungrouped as tunnel (tunnel.id)}
+              <TunnelCard
+                {tunnel}
+                status={getStatus($statuses, tunnel.id)}
+                on:edit={handleEdit}
+                on:logs={handleLogs}
+                on:terminal={handleTerminal}
+              />
+            {/each}
           {/if}
         {/each}
       </div>
@@ -306,8 +314,22 @@
 
   .list-header {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 4px;
+    gap: 8px;
+  }
+
+  .list-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+
+  .list-title.muted-title {
+    color: var(--muted);
   }
 
   .add-btn {
@@ -464,7 +486,7 @@
 
   .group-name {
     letter-spacing: 0.1em;
-    color: var(--muted);
+    color: var(--accent);
   }
 
   .group-header:hover .group-name {

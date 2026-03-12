@@ -465,3 +465,67 @@ func extractIncludePattern(line, baseDir string) string {
 func CollapseTildePath(path string) string {
 	return collapseTilde(path)
 }
+
+// IncludedConfigFiles returns the main config path followed by the files
+// referenced by any Include directives found while scanning the given file.
+func IncludedConfigFiles(path string) ([]string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolving path %s: %w", path, err)
+	}
+
+	seen := make(map[string]bool)
+	files := []string{}
+
+	var collect func(string) error
+	collect = func(p string) error {
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			return fmt.Errorf("resolving path %s: %w", p, err)
+		}
+		if seen[abs] {
+			return nil
+		}
+		seen[abs] = true
+		files = append(files, abs)
+
+		f, err := os.Open(abs)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return fmt.Errorf("opening ssh config %s: %w", abs, err)
+		}
+		defer f.Close()
+
+		scanner := bufio.NewScanner(f)
+		baseDir := filepath.Dir(abs)
+		for scanner.Scan() {
+			trimmed := strings.TrimSpace(scanner.Text())
+			if isIncludeDirective(trimmed) {
+				pattern := extractIncludePattern(trimmed, baseDir)
+				if pattern == "" {
+					continue
+				}
+				matches, err := filepath.Glob(pattern)
+				if err != nil {
+					return fmt.Errorf("expanding Include glob %q: %w", pattern, err)
+				}
+				for _, match := range matches {
+					if err := collect(match); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("scanning ssh config %s: %w", abs, err)
+		}
+		return nil
+	}
+
+	if err := collect(absPath); err != nil {
+		return nil, err
+	}
+	return files, nil
+}

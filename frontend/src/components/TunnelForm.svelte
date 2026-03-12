@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TunnelConfig, PortForward } from "../types";
-  import { addTunnel, updateTunnel, tunnels } from "../stores/tunnels";
+  import { addTunnel, updateTunnel, tunnels, includedConfigFiles } from "../stores/tunnels";
   import { createEventDispatcher } from "svelte";
 
   export let tunnel: TunnelConfig | null = null;
@@ -17,6 +17,8 @@
   let tunnelColor = tunnel?.color ?? "";
   let proxyCommand = tunnel?.proxyCommand ?? "";
   let proxyJump = tunnel?.proxyJump ?? "";
+  let selectedConfigFile = tunnel?.sourceFile ?? "";
+  let configSelectionKey = tunnel?.id ?? "__new";
 
   const presetColors = [
     { name: "red", hex: "#ef4444" },
@@ -32,11 +34,29 @@
     ? [...tunnel.portForwards]
     : [];
   let showAdvanced = !!(tunnel?.proxyCommand || tunnel?.proxyJump);
+  let hasIncludeOptions = false;
 
   let saving = false;
   let error = "";
 
   $: isEdit = tunnel !== null;
+  $: hasIncludeOptions = $includedConfigFiles.length > 1;
+
+  $: {
+    const key = tunnel?.id ?? "__new";
+    if (key !== configSelectionKey) {
+      configSelectionKey = key;
+      if (tunnel?.sourceFile) {
+        selectedConfigFile = tunnel.sourceFile;
+      } else {
+        selectedConfigFile = $includedConfigFiles[0]?.path ?? "";
+      }
+    }
+  }
+
+  $: if (!selectedConfigFile && !tunnel && hasIncludeOptions) {
+    selectedConfigFile = $includedConfigFiles[0]?.path ?? "";
+  }
 
   $: existingGroups = [...new Set($tunnels.map(t => t.group).filter(Boolean))].sort();
 
@@ -80,6 +100,9 @@
         autoConnect,
         pinned: tunnel?.pinned,
       };
+      if (hasIncludeOptions && selectedConfigFile) {
+        cfg.sourceFile = selectedConfigFile;
+      }
       if (isEdit) {
         await updateTunnel(cfg);
       } else {
@@ -198,6 +221,18 @@
         />
       </div>
     </div>
+
+    {#if hasIncludeOptions}
+      <div class="field">
+        <label class="field-label">plik config</label>
+        <select class="field-input" bind:value={selectedConfigFile}>
+          {#each $includedConfigFiles as file}
+            <option value={file.path}>{file.label}</option>
+          {/each}
+        </select>
+        <p class="hint">wybierz plik docelowy dla nowego hosta</p>
+      </div>
+    {/if}
 
     <div class="field">
       <div class="forwards-header">

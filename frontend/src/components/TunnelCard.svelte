@@ -51,17 +51,21 @@
   class="tunnel-card"
   class:connected={isConnected}
   class:error={isError}
+  data-has-color={tunnel.color ? "true" : undefined}
+  style={tunnel.color ? `--tunnel-tint: ${tunnel.color};` : undefined}
 >
   <div class="card-header">
     <div class="card-info">
       <div class="card-name-row">
-        {#if tunnel.color}
-          <span class="color-dot" style="color: {tunnel.color};">●</span>
-        {/if}
         <span class="card-name">{tunnel.name}</span>
         <StatusBadge {status} />
       </div>
       <div class="card-host">{tunnel.user}@{tunnel.host}:{tunnel.port}</div>
+      {#if tunnel.sourceFileLabel || tunnel.sourceFile}
+        <div class="card-source">
+          plik config: {tunnel.sourceFileLabel ?? tunnel.sourceFile}
+        </div>
+      {/if}
       {#if tunnel.portForwards && tunnel.portForwards.length > 0}
         <div class="card-forwards">
           {#each tunnel.portForwards as pf}
@@ -107,12 +111,28 @@
 
 <style>
   .tunnel-card {
+    --tunnel-tint: var(--border);
+    position: relative;
+    overflow: hidden;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 2px solid var(--border);
+    border-left: 4px solid var(--border);
     padding: 10px 12px;
     border-radius: 2px;
     transition: border-color 0.15s;
+  }
+
+  .tunnel-card[data-has-color="true"] {
+    border-left-color: var(--tunnel-tint);
+  }
+
+  .tunnel-card[data-has-color="true"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--tunnel-tint);
+    opacity: 0.06;
+    pointer-events: none;
   }
 
   .tunnel-card:hover {
@@ -135,11 +155,15 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    position: relative;
+    z-index: 1;
   }
 
   .card-info {
     min-width: 0;
     flex: 1;
+    position: relative;
+    z-index: 1;
   }
 
   .card-name-row {
@@ -149,15 +173,10 @@
     margin-bottom: 3px;
   }
 
-  .color-dot {
-    font-size: 8px;
-    flex-shrink: 0;
-  }
-
   .card-name {
     font-size: 12px;
     font-weight: 600;
-    color: #e0e0e0;
+    color: var(--accent);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -165,7 +184,14 @@
 
   .card-host {
     font-size: 10px;
-    color: var(--muted);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 4px;
+  }
+
+  .card-source {
+    font-size: 9px;
+    color: var(--accent);
     font-family: 'JetBrains Mono', monospace;
     margin-bottom: 4px;
   }
@@ -180,9 +206,9 @@
   .forward-tag {
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
-    color: var(--muted);
-    background: var(--surface2);
-    border: 1px solid var(--border);
+    color: var(--accent);
+    background: rgba(0, 255, 136, 0.08);
+    border: 1px solid var(--accent);
     padding: 1px 5px;
     border-radius: 2px;
   }
@@ -192,6 +218,8 @@
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
   }
 
   .action-btn {

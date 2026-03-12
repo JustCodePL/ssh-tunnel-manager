@@ -30,19 +30,25 @@ type PortForward struct {
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.
 type TunnelConfig struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Host         string        `json:"host"`
-	Port         int           `json:"port"`
-	User         string        `json:"user"`
-	KeyPath      string        `json:"keyPath"`
-	PortForwards []PortForward `json:"portForwards"`
-	ProxyCommand string        `json:"proxyCommand,omitempty"`
-	ProxyJump    string        `json:"proxyJump,omitempty"`
-	Color        string        `json:"color,omitempty"`
-	Group        string        `json:"group"`
-	AutoConnect  bool          `json:"autoConnect"`
-	Pinned       bool          `json:"pinned"`
-	SourceFile   string        `json:"sourceFile,omitempty"`
+	ID              string        `json:"id"`
+	Name            string        `json:"name"`
+	Host            string        `json:"host"`
+	Port            int           `json:"port"`
+	User            string        `json:"user"`
+	KeyPath         string        `json:"keyPath"`
+	PortForwards    []PortForward `json:"portForwards"`
+	ProxyCommand    string        `json:"proxyCommand,omitempty"`
+	ProxyJump       string        `json:"proxyJump,omitempty"`
+	Color           string        `json:"color,omitempty"`
+	Group           string        `json:"group"`
+	AutoConnect     bool          `json:"autoConnect"`
+	Pinned          bool          `json:"pinned"`
+	SourceFile      string        `json:"sourceFile,omitempty"`
+	SourceFileLabel string        `json:"sourceFileLabel,omitempty"`
 }
 
+// ConfigFileInfo describes an SSH config file that can be edited.
+type ConfigFileInfo struct {
+	Path  string `json:"path"`
+	Label string `json:"label"`
+}
