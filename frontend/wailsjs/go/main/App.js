@@ -38,6 +38,10 @@ export function GetAutostart() {
   return window['go']['main']['App']['GetAutostart']();
 }
 
+export function GetCloseToTray() {
+  return window['go']['main']['App']['GetCloseToTray']();
+}
+
 export function GetConfigFiles() {
   return window['go']['main']['App']['GetConfigFiles']();
 }
@@ -90,6 +94,10 @@ export function SetAutostart(arg1) {
   return window['go']['main']['App']['SetAutostart'](arg1);
 }
 
+export function SetCloseToTray(arg1) {
+  return window['go']['main']['App']['SetCloseToTray'](arg1);
+}
+
 export function SubmitPassphrase(arg1) {
   return window['go']['main']['App']['SubmitPassphrase'](arg1);
 }
@@ -100,12 +108,4 @@ export function TerminalWrite(arg1, arg2) {
 
 export function UpdateTunnel(arg1) {
   return window['go']['main']['App']['UpdateTunnel'](arg1);
-}
-
-export function GetCloseToTray() {
-  return window['go']['main']['App']['GetCloseToTray']();
-}
-
-export function SetCloseToTray(arg1) {
-  return window['go']['main']['App']['SetCloseToTray'](arg1);
 }

@@ -22,6 +22,8 @@ export function ExportTunnels(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function GetAutostart():Promise<boolean>;
 
+export function GetCloseToTray():Promise<boolean>;
+
 export function GetConfigFiles():Promise<Array<string>>;
 
 export function GetCurrentVersion():Promise<string>;
@@ -48,12 +50,10 @@ export function SelectSaveFile(arg1:string):Promise<string>;
 
 export function SetAutostart(arg1:boolean):Promise<void>;
 
+export function SetCloseToTray(arg1:boolean):Promise<void>;
+
 export function SubmitPassphrase(arg1:string):Promise<void>;
 
 export function TerminalWrite(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateTunnel(arg1:config.TunnelConfig):Promise<void>;
-
-export function GetCloseToTray():Promise<boolean>;
-
-export function SetCloseToTray(arg1:boolean):Promise<void>;

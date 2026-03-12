@@ -150,12 +150,10 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	cmdStr := expandProxyCommand(t.Config.ProxyCommand, t.Config.Host, t.Config.Port, t.Config.User)
 	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr)
 
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "cmd", "/c", cmdStr)
-	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-c", cmdStr)
-	}
+	// Always use sh -c, matching OpenSSH behaviour. ProxyCommands are
+	// POSIX shell commands by convention; cmd.exe on Windows mangles the
+	// quoting of inner double-quotes, breaking commands like AWS SSM.
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	applySysProcAttr(cmd)
 
 	// Ensure SSH_AUTH_SOCK is available for the subprocess.
