@@ -12,9 +12,13 @@ export function ClearTunnelLogs(arg1:string):Promise<void>;
 
 export function CloseTerminal(arg1:string):Promise<void>;
 
+export function ConnectGroup(arg1:string):Promise<void>;
+
 export function ConnectTunnel(arg1:string):Promise<void>;
 
 export function DeleteTunnel(arg1:string):Promise<void>;
+
+export function DisconnectGroup(arg1:string):Promise<void>;
 
 export function DisconnectTunnel(arg1:string):Promise<void>;
 
@@ -41,6 +45,8 @@ export function ImportTunnels(arg1:string,arg2:Array<string>):Promise<number>;
 export function InstallUpdate():Promise<void>;
 
 export function OpenTerminal(arg1:string):Promise<string>;
+
+export function RenameGroup(arg1:string,arg2:string):Promise<void>;
 
 export function ResizeTerminal(arg1:string,arg2:number,arg3:number):Promise<void>;
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TunnelConfig, PortForward } from "../types";
-  import { addTunnel, updateTunnel } from "../stores/tunnels";
+  import { addTunnel, updateTunnel, tunnels } from "../stores/tunnels";
   import { createEventDispatcher } from "svelte";
 
   export let tunnel: TunnelConfig | null = null;
@@ -37,6 +37,8 @@
   let error = "";
 
   $: isEdit = tunnel !== null;
+
+  $: existingGroups = [...new Set($tunnels.map(t => t.group).filter(Boolean))].sort();
 
   function addPortForward() {
     portForwards = [...portForwards, { localPort: 0, remoteHost: "127.0.0.1", remotePort: 0, description: "" }];
@@ -120,7 +122,14 @@
           bind:value={group}
           class="field-input"
           placeholder="production"
+          list="group-options"
+          autocomplete="off"
         />
+        <datalist id="group-options">
+          {#each existingGroups as g}
+            <option value={g} />
+          {/each}
+        </datalist>
       </div>
     </div>
 

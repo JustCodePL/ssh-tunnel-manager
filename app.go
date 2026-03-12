@@ -559,6 +559,62 @@ func (a *App) ClearTunnelLogs(tunnelID string) {
 	delete(a.logBuf, tunnelID)
 }
 
+// ConnectGroup connects all tunnels belonging to the given group.
+func (a *App) ConnectGroup(group string) error {
+	tunnels := a.store.GetTunnels()
+	var firstErr error
+	for _, t := range tunnels {
+		if t.Group != group {
+			continue
+		}
+		if err := a.manager.Connect(t); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// DisconnectGroup disconnects all tunnels belonging to the given group.
+func (a *App) DisconnectGroup(group string) error {
+	tunnels := a.store.GetTunnels()
+	var firstErr error
+	for _, t := range tunnels {
+		if t.Group != group {
+			continue
+		}
+		if err := a.manager.Disconnect(t.ID); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// RenameGroup renames a group across all tunnels that belong to it.
+func (a *App) RenameGroup(oldName, newName string) error {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("new group name cannot be empty")
+	}
+	if oldName == newName {
+		return nil
+	}
+	tunnels := a.store.GetTunnels()
+	for _, t := range tunnels {
+		if t.Group != oldName {
+			continue
+		}
+		t.Group = newName
+		if err := a.store.UpdateTunnel(t); err != nil {
+			return fmt.Errorf("renaming group for %s: %w", t.Name, err)
+		}
+	}
+	a.tray.RefreshMenu()
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "tunnels:changed")
+	}
+	return nil
+}
+
 type tunnelNotFoundError struct {
 	id string
 }
