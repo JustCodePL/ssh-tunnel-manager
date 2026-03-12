@@ -22,11 +22,12 @@ import (
 
 // App is the Wails application struct, bridging Go backend and frontend.
 type App struct {
-	ctx     context.Context
-	store   *config.Store
-	manager *ssh.Manager
-	termMgr *ssh.TerminalManager
-	tray    *tray.Tray
+	ctx         context.Context
+	store       *config.Store
+	manager     *ssh.Manager
+	termMgr     *ssh.TerminalManager
+	tray        *tray.Tray
+	startHidden bool
 
 	// Passphrase prompt coordination
 	passphraseMu   sync.Mutex
@@ -42,10 +43,11 @@ type App struct {
 }
 
 // NewApp creates a new App instance.
-func NewApp(store *config.Store) *App {
+func NewApp(store *config.Store, startHidden bool) *App {
 	app := &App{
-		store:  store,
-		logBuf: make(map[string][]config.LogEntry),
+		store:       store,
+		startHidden: startHidden,
+		logBuf:      make(map[string][]config.LogEntry),
 	}
 	app.termMgr = ssh.NewTerminalManager(app.getPassphrase)
 	app.manager = ssh.NewManager(func(event ssh.StatusEvent) {
@@ -84,6 +86,10 @@ func NewApp(store *config.Store) *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.tray.Start()
+
+	if !a.startHidden {
+		runtime.WindowShow(a.ctx)
+	}
 
 	go func() {
 		info, err := updater.Check(ctx, Version, "JustCodePL/ssh-tunnel-manager")

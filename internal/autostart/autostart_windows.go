@@ -41,7 +41,8 @@ func Enable() error {
 	}
 	defer key.Close()
 
-	if err := key.SetStringValue(regValue, exePath); err != nil {
+	value := fmt.Sprintf(`"%s" --hidden`, exePath)
+	if err := key.SetStringValue(regValue, value); err != nil {
 		return fmt.Errorf("setting registry value: %w", err)
 	}
 	return nil
