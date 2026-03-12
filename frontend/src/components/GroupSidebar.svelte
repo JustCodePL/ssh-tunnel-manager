@@ -122,7 +122,7 @@
         on:click={() => selectGroup("__pinned__")}
       >
         <span class="item-icon">^</span>
-        <span class="item-name">przypięte</span>
+        <span class="item-name">pinned</span>
         <span class="item-count">{groups.pinnedTotal}</span>
         {#if groups.pinnedConnected > 0}
           <span class="item-dot active-dot"></span>
@@ -158,11 +158,11 @@
           {#if selectedGroup === group.name}
             <div class="group-actions">
               {#if isGroupAllConnected(group.name)}
-                <button class="group-act-btn disconnect" on:click={() => disconnectGroup(group.name)} title="Rozłącz wszystkie">rozłącz</button>
+                <button class="group-act-btn disconnect" on:click={() => disconnectGroup(group.name)} title="Disconnect all">disconnect</button>
               {:else}
-                <button class="group-act-btn" on:click={() => connectGroup(group.name)} title="Połącz wszystkie">połącz</button>
+                <button class="group-act-btn" on:click={() => connectGroup(group.name)} title="Connect all">connect</button>
               {/if}
-              <button class="group-act-btn" on:click|stopPropagation={() => startRename(group.name)} title="Zmień nazwę grupy">✎</button>
+              <button class="group-act-btn" on:click|stopPropagation={() => startRename(group.name)} title="Rename group">✎</button>
             </div>
           {/if}
         {/if}
@@ -176,7 +176,7 @@
         on:click={() => selectGroup("__ungrouped__")}
       >
         <span class="item-icon">~</span>
-        <span class="item-name">nieprzypisane</span>
+        <span class="item-name">unassigned</span>
         <span class="item-count">{groups.ungroupedTotal}</span>
         {#if groups.ungroupedConnected > 0}
           <span class="item-dot active-dot"></span>

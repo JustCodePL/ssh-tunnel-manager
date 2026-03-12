@@ -224,13 +224,13 @@
 
     {#if hasIncludeOptions}
       <div class="field">
-        <label class="field-label">plik config</label>
+        <label class="field-label">config file</label>
         <select class="field-input" bind:value={selectedConfigFile}>
           {#each $includedConfigFiles as file}
             <option value={file.path}>{file.label}</option>
           {/each}
         </select>
-        <p class="hint">wybierz plik docelowy dla nowego hosta</p>
+        <p class="hint">choose target config file for this host</p>
       </div>
     {/if}
 
