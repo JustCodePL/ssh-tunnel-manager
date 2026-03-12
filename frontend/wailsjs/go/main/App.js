@@ -101,3 +101,11 @@ export function TerminalWrite(arg1, arg2) {
 export function UpdateTunnel(arg1) {
   return window['go']['main']['App']['UpdateTunnel'](arg1);
 }
+
+export function GetCloseToTray() {
+  return window['go']['main']['App']['GetCloseToTray']();
+}
+
+export function SetCloseToTray(arg1) {
+  return window['go']['main']['App']['SetCloseToTray'](arg1);
+}

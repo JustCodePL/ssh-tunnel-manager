@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
-  import { GetAutostart, SetAutostart, GetCurrentVersion, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
+  import { GetAutostart, SetAutostart, GetCloseToTray, SetCloseToTray, GetCurrentVersion, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
   import { EventsOn } from "../../wailsjs/runtime/runtime";
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let autostartEnabled = false;
   let autostartLoading = true;
+  let closeToTray = true;
+  let closeToTrayLoading = true;
 
   let currentVersion = "";
   let updateInfo: { latestVersion: string; releaseUrl: string; assetUrl: string; releaseNotes: string } | null = null;
@@ -22,6 +24,14 @@
       console.error("Failed to get autostart status:", e);
     } finally {
       autostartLoading = false;
+    }
+
+    try {
+      closeToTray = await GetCloseToTray();
+    } catch (e) {
+      console.error("Failed to get close-to-tray setting:", e);
+    } finally {
+      closeToTrayLoading = false;
     }
 
     try {
@@ -46,6 +56,16 @@
       autostartEnabled = newValue;
     } catch (e: any) {
       console.error("Failed to set autostart:", e);
+    }
+  }
+
+  async function toggleCloseToTray() {
+    const newValue = !closeToTray;
+    try {
+      await SetCloseToTray(newValue);
+      closeToTray = newValue;
+    } catch (e: any) {
+      console.error("Failed to set close-to-tray:", e);
     }
   }
 
@@ -95,6 +115,20 @@
             {#if autostartEnabled}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
           </span>
           <span class="checkbox-text" class:active={autostartEnabled}>start on login</span>
+        </label>
+      {/if}
+    </div>
+
+    <div class="settings-section">
+      <div class="section-label">window</div>
+      {#if closeToTrayLoading}
+        <div class="loading-text">// loading...</div>
+      {:else}
+        <label class="checkbox-label" on:click|preventDefault={toggleCloseToTray}>
+          <span class="hacker-check" class:checked={closeToTray}>
+            {#if closeToTray}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+          </span>
+          <span class="checkbox-text" class:active={closeToTray}>hide to tray on close</span>
         </label>
       {/if}
     </div>

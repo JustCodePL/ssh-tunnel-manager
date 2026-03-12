@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log/slog"
 	"os"
@@ -8,8 +9,10 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/prefs"
 )
 
 //go:embed all:frontend/dist
@@ -33,7 +36,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := NewApp(store, startHidden)
+	prefsStore, err := prefs.NewStore()
+	if err != nil {
+		slog.Error("failed to initialize prefs store", "error", err)
+		os.Exit(1)
+	}
+
+	app := NewApp(store, prefsStore, startHidden)
 
 	err = wails.Run(&options.App{
 		Title:     "SSH Tunnel Manager",
@@ -43,10 +52,16 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour:  &options.RGBA{R: 10, G: 10, B: 10, A: 1},
-		HideWindowOnClose: true,
-		OnStartup:         app.startup,
-		OnShutdown:        app.shutdown,
+		BackgroundColour: &options.RGBA{R: 10, G: 10, B: 10, A: 1},
+		OnBeforeClose: func(ctx context.Context) bool {
+			if app.GetCloseToTray() {
+				runtime.WindowHide(ctx)
+				return true // cancel the close — hide instead
+			}
+			return false // allow quit
+		},
+		OnStartup:  app.startup,
+		OnShutdown: app.shutdown,
 		Bind: []interface{}{
 			app,
 		},
