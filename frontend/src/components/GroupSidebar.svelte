@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { tunnels, statuses, getStatus } from "../stores/tunnels";
+  import { tunnels, statuses, getStatus, connectGroup, disconnectGroup, renameGroup } from "../stores/tunnels";
   import type { TunnelStatus } from "../types";
 
   export let selectedGroup: string | null = null;
+  let renamingGroup: string | null = null;
+  let renameValue = "";
 
   interface GroupInfo {
     name: string;
@@ -59,6 +61,40 @@
 
   function selectGroup(group: string | null) {
     selectedGroup = group;
+    renamingGroup = null;
+  }
+
+  function startRename(groupName: string) {
+    renamingGroup = groupName;
+    renameValue = groupName;
+  }
+
+  async function confirmRename() {
+    if (!renamingGroup || !renameValue.trim()) {
+      renamingGroup = null;
+      return;
+    }
+    const oldName = renamingGroup;
+    const newName = renameValue.trim();
+    renamingGroup = null;
+    if (oldName === newName) return;
+    await renameGroup(oldName, newName);
+    if (selectedGroup === oldName) {
+      selectedGroup = newName;
+    }
+  }
+
+  function handleRenameKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter") confirmRename();
+    if (e.key === "Escape") renamingGroup = null;
+  }
+
+  function isGroupAllConnected(groupName: string): boolean {
+    const groupTunnels = $tunnels.filter(t => t.group === groupName);
+    return groupTunnels.length > 0 && groupTunnels.every(t => {
+      const s = getStatus($statuses, t.id);
+      return s === "connected" || s === "connecting" || s === "reconnecting";
+    });
   }
 </script>
 
@@ -110,18 +146,42 @@
     {/if}
 
     {#each groups.groups as group (group.name)}
-      <button
-        class="sidebar-item"
-        class:active={selectedGroup === group.name}
-        on:click={() => selectGroup(group.name)}
-      >
-        <span class="item-icon">▸</span>
-        <span class="item-name">{group.name}</span>
-        <span class="item-count">{group.count}</span>
-        {#if group.connectedCount > 0}
-          <span class="item-dot active-dot"></span>
+      <div class="sidebar-group-wrapper">
+        {#if renamingGroup === group.name}
+          <div class="rename-row">
+            <input
+              class="rename-input"
+              bind:value={renameValue}
+              on:keydown={handleRenameKeydown}
+              on:blur={confirmRename}
+              autofocus
+            />
+          </div>
+        {:else}
+          <button
+            class="sidebar-item"
+            class:active={selectedGroup === group.name}
+            on:click={() => selectGroup(group.name)}
+          >
+            <span class="item-icon">▸</span>
+            <span class="item-name">{group.name}</span>
+            <span class="item-count">{group.count}</span>
+            {#if group.connectedCount > 0}
+              <span class="item-dot active-dot"></span>
+            {/if}
+          </button>
+          {#if selectedGroup === group.name}
+            <div class="group-actions">
+              {#if isGroupAllConnected(group.name)}
+                <button class="group-act-btn disconnect" on:click={() => disconnectGroup(group.name)} title="Rozłącz wszystkie">rozłącz</button>
+              {:else}
+                <button class="group-act-btn" on:click={() => connectGroup(group.name)} title="Połącz wszystkie">połącz</button>
+              {/if}
+              <button class="group-act-btn" on:click|stopPropagation={() => startRename(group.name)} title="Zmień nazwę grupy">✎</button>
+            </div>
+          {/if}
         {/if}
-      </button>
+      </div>
     {/each}
   </div>
 </div>
@@ -225,5 +285,55 @@
   .active-dot {
     background: var(--accent);
     box-shadow: 0 0 4px var(--accent);
+  }
+
+  .sidebar-group-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .group-actions {
+    display: flex;
+    gap: 4px;
+    padding: 2px 12px 4px 28px;
+  }
+
+  .group-act-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    padding: 1px 5px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .group-act-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .group-act-btn.disconnect:hover {
+    color: #ff4444;
+    border-color: #ff4444;
+  }
+
+  .rename-row {
+    padding: 4px 12px;
+  }
+
+  .rename-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 6px;
+    outline: none;
   }
 </style>

@@ -18,12 +18,20 @@ export function CloseTerminal(arg1) {
   return window['go']['main']['App']['CloseTerminal'](arg1);
 }
 
+export function ConnectGroup(arg1) {
+  return window['go']['main']['App']['ConnectGroup'](arg1);
+}
+
 export function ConnectTunnel(arg1) {
   return window['go']['main']['App']['ConnectTunnel'](arg1);
 }
 
 export function DeleteTunnel(arg1) {
   return window['go']['main']['App']['DeleteTunnel'](arg1);
+}
+
+export function DisconnectGroup(arg1) {
+  return window['go']['main']['App']['DisconnectGroup'](arg1);
 }
 
 export function DisconnectTunnel(arg1) {
@@ -76,6 +84,10 @@ export function InstallUpdate() {
 
 export function OpenTerminal(arg1) {
   return window['go']['main']['App']['OpenTerminal'](arg1);
+}
+
+export function RenameGroup(arg1, arg2) {
+  return window['go']['main']['App']['RenameGroup'](arg1, arg2);
 }
 
 export function ResizeTerminal(arg1, arg2, arg3) {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TunnelConfig } from "../types";
-  import { tunnels, statuses, loading, getStatus } from "../stores/tunnels";
+  import { tunnels, statuses, loading, getStatus, connectGroup, disconnectGroup } from "../stores/tunnels";
   import TunnelCard from "./TunnelCard.svelte";
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
@@ -123,6 +123,21 @@
   })();
 
   $: hasMultipleFiles = fileSections.length > 1;
+
+  function groupAllConnected(tunnelList: TunnelConfig[]): boolean {
+    return tunnelList.length > 0 && tunnelList.every(t => {
+      const s = getStatus($statuses, t.id);
+      return s === "connected" || s === "connecting" || s === "reconnecting";
+    });
+  }
+
+  function handleGroupConnect(groupName: string) {
+    connectGroup(groupName);
+  }
+
+  function handleGroupDisconnect(groupName: string) {
+    disconnectGroup(groupName);
+  }
 </script>
 
 {#if loggingTunnel}
@@ -206,11 +221,18 @@
                   {/each}
                   {#each section.grouped.groups as group (group.name)}
                     <div class="group-section">
-                      <button class="group-header" on:click={() => toggleGroup(group.name)}>
-                        <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
-                        <span class="group-name">{group.name.toUpperCase()}</span>
-                        <span class="group-count">({group.tunnels.length})</span>
-                      </button>
+                      <div class="group-header-row">
+                        <button class="group-header" on:click={() => toggleGroup(group.name)}>
+                          <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
+                          <span class="group-name">{group.name.toUpperCase()}</span>
+                          <span class="group-count">({group.tunnels.length})</span>
+                        </button>
+                        {#if groupAllConnected(group.tunnels)}
+                          <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>rozłącz</button>
+                        {:else}
+                          <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>połącz wszystkie</button>
+                        {/if}
+                      </div>
                       {#if !collapsedGroups[group.name]}
                         <div class="group-tunnels">
                           {#each group.tunnels as tunnel (tunnel.id)}
@@ -241,11 +263,18 @@
             {/each}
             {#each section.grouped.groups as group (group.name)}
               <div class="group-section">
-                <button class="group-header" on:click={() => toggleGroup(group.name)}>
-                  <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
-                  <span class="group-name">{group.name.toUpperCase()}</span>
-                  <span class="group-count">({group.tunnels.length})</span>
-                </button>
+                <div class="group-header-row">
+                  <button class="group-header" on:click={() => toggleGroup(group.name)}>
+                    <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
+                    <span class="group-name">{group.name.toUpperCase()}</span>
+                    <span class="group-count">({group.tunnels.length})</span>
+                  </button>
+                  {#if groupAllConnected(group.tunnels)}
+                    <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>rozłącz</button>
+                  {:else}
+                    <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>połącz wszystkie</button>
+                  {/if}
+                </div>
                 {#if !collapsedGroups[group.name]}
                   <div class="group-tunnels">
                     {#each group.tunnels as tunnel (tunnel.id)}
@@ -384,6 +413,12 @@
     gap: 4px;
   }
 
+  .group-header-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .group-header {
     display: flex;
     align-items: center;
@@ -396,6 +431,30 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
     text-align: left;
+  }
+
+  .group-action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    padding: 1px 6px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .group-action-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .group-action-btn.disconnect:hover {
+    color: #ff4444;
+    border-color: #ff4444;
   }
 
   .group-arrow {

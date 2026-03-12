@@ -1,6 +1,6 @@
 import { writable, derived } from "svelte/store";
 import type { TunnelConfig, TunnelStatus, StatusEvent } from "../types";
-import { GetTunnels, GetTunnelStatuses, AddTunnel, UpdateTunnel, DeleteTunnel, ConnectTunnel, DisconnectTunnel, SelectFile, ImportPreview, ImportTunnels, SelectSaveFile, ExportTunnels, SetTunnelPinned } from "../../wailsjs/go/main/App";
+import { GetTunnels, GetTunnelStatuses, AddTunnel, UpdateTunnel, DeleteTunnel, ConnectTunnel, DisconnectTunnel, SelectFile, ImportPreview, ImportTunnels, SelectSaveFile, ExportTunnels, SetTunnelPinned, ConnectGroup, DisconnectGroup, RenameGroup } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 export const tunnels = writable<TunnelConfig[]>([]);
@@ -44,6 +44,18 @@ export async function disconnectTunnel(id: string): Promise<void> {
 export async function setTunnelPinned(id: string, pinned: boolean): Promise<void> {
   await SetTunnelPinned(id, pinned);
   await loadTunnels();
+}
+
+export async function connectGroup(group: string): Promise<void> {
+  await ConnectGroup(group);
+}
+
+export async function disconnectGroup(group: string): Promise<void> {
+  await DisconnectGroup(group);
+}
+
+export async function renameGroup(oldName: string, newName: string): Promise<void> {
+  await RenameGroup(oldName, newName);
 }
 
 export function getStatus(
