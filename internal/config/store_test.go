@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"ssh-tunnel-manager/internal/sshconfig"
 )
 
 func tempSSHConfigPath(t *testing.T) string {
@@ -402,6 +404,56 @@ Include `+confDir+`/*.conf
 	}
 	if strings.Contains(string(data), "Host work-server") {
 		t.Error("included file should no longer contain work-server")
+	}
+}
+
+func TestGetIncludedConfigFiles(t *testing.T) {
+	dir := t.TempDir()
+	confDir := filepath.Join(dir, "config.d")
+	if err := os.MkdirAll(confDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	included := filepath.Join(confDir, "work.conf")
+	writeSSHConfig(t, included, `Host work-server
+    HostName work.example.com
+    User deploy
+`)
+
+	mainConfig := filepath.Join(dir, "config")
+	writeSSHConfig(t, mainConfig, `Host main-server
+    HostName main.example.com
+    User admin
+
+Include `+confDir+`/*.conf
+`)
+
+	s, err := NewStoreWithPath(mainConfig)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	files, err := s.GetIncludedConfigFiles()
+	if err != nil {
+		t.Fatalf("GetIncludedConfigFiles: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files, got %d", len(files))
+	}
+
+	absMain, _ := filepath.Abs(mainConfig)
+	absIncluded, _ := filepath.Abs(included)
+	if files[0].Path != absMain {
+		t.Errorf("files[0].Path = %q, want %q", files[0].Path, absMain)
+	}
+	if files[1].Path != absIncluded {
+		t.Errorf("files[1].Path = %q, want %q", files[1].Path, absIncluded)
+	}
+	if files[0].Label != sshconfig.CollapseTildePath(absMain) {
+		t.Errorf("files[0].Label = %q, want %q", files[0].Label, sshconfig.CollapseTildePath(absMain))
+	}
+	if files[1].Label != sshconfig.CollapseTildePath(absIncluded) {
+		t.Errorf("files[1].Label = %q, want %q", files[1].Label, sshconfig.CollapseTildePath(absIncluded))
 	}
 }
 

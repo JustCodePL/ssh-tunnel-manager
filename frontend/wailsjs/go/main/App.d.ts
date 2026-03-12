@@ -32,6 +32,8 @@ export function GetConfigFiles():Promise<Array<string>>;
 
 export function GetCurrentVersion():Promise<string>;
 
+export function GetIncludedConfigFiles():Promise<Array<config.ConfigFileInfo>>;
+
 export function GetTunnelLogs(arg1:string):Promise<Array<config.LogEntry>>;
 
 export function GetTunnelStatuses():Promise<Record<string, ssh.StatusEvent>>;

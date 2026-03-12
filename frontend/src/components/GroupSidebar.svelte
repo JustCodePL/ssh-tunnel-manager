@@ -130,21 +130,6 @@
       </button>
     {/if}
 
-    {#if groups.ungroupedTotal > 0}
-      <button
-        class="sidebar-item"
-        class:active={selectedGroup === "__ungrouped__"}
-        on:click={() => selectGroup("__ungrouped__")}
-      >
-        <span class="item-icon">~</span>
-        <span class="item-name">ungrouped</span>
-        <span class="item-count">{groups.ungroupedTotal}</span>
-        {#if groups.ungroupedConnected > 0}
-          <span class="item-dot active-dot"></span>
-        {/if}
-      </button>
-    {/if}
-
     {#each groups.groups as group (group.name)}
       <div class="sidebar-group-wrapper">
         {#if renamingGroup === group.name}
@@ -183,6 +168,21 @@
         {/if}
       </div>
     {/each}
+
+    {#if groups.ungroupedTotal > 0}
+      <button
+        class="sidebar-item"
+        class:active={selectedGroup === "__ungrouped__"}
+        on:click={() => selectGroup("__ungrouped__")}
+      >
+        <span class="item-icon">~</span>
+        <span class="item-name">nieprzypisane</span>
+        <span class="item-count">{groups.ungroupedTotal}</span>
+        {#if groups.ungroupedConnected > 0}
+          <span class="item-dot active-dot"></span>
+        {/if}
+      </button>
+    {/if}
   </div>
 </div>
 

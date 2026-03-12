@@ -58,6 +58,10 @@ export function GetCurrentVersion() {
   return window['go']['main']['App']['GetCurrentVersion']();
 }
 
+export function GetIncludedConfigFiles() {
+  return window['go']['main']['App']['GetIncludedConfigFiles']();
+}
+
 export function GetTunnelLogs(arg1) {
   return window['go']['main']['App']['GetTunnelLogs'](arg1);
 }

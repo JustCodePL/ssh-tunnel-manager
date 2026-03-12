@@ -67,6 +67,7 @@ export namespace config {
 	    group: string;
 	    autoConnect: boolean;
 	    sourceFile?: string;
+	    sourceFileLabel?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TunnelConfig(source);
@@ -87,6 +88,7 @@ export namespace config {
 	        this.group = source["group"];
 	        this.autoConnect = source["autoConnect"];
 	        this.sourceFile = source["sourceFile"];
+	        this.sourceFileLabel = source["sourceFileLabel"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -106,6 +108,20 @@ export namespace config {
 		    }
 		    return a;
 		}
+	}
+	export class ConfigFileInfo {
+	    path: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigFileInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.label = source["label"];
+	    }
 	}
 
 }
