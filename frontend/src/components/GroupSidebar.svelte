@@ -14,10 +14,17 @@
     const groupMap = new Map<string, { total: number; connected: number }>();
     let ungroupedTotal = 0;
     let ungroupedConnected = 0;
+    let pinnedTotal = 0;
+    let pinnedConnected = 0;
 
     for (const t of $tunnels) {
       const status = getStatus($statuses, t.id);
       const isConnected = status === "connected" || status === "connecting" || status === "reconnecting";
+
+      if (t.pinned) {
+        pinnedTotal++;
+        if (isConnected) pinnedConnected++;
+      }
 
       if (t.group) {
         const existing = groupMap.get(t.group);
@@ -38,7 +45,7 @@
       result.push({ name, count: info.total, connectedCount: info.connected });
     }
     result.sort((a, b) => a.name.localeCompare(b.name));
-    return { groups: result, ungroupedTotal, ungroupedConnected };
+    return { groups: result, ungroupedTotal, ungroupedConnected, pinnedTotal, pinnedConnected };
   })();
 
   $: totalConnected = (() => {
@@ -71,6 +78,21 @@
         <span class="item-dot active-dot"></span>
       {/if}
     </button>
+
+    {#if groups.pinnedTotal > 0}
+      <button
+        class="sidebar-item"
+        class:active={selectedGroup === "__pinned__"}
+        on:click={() => selectGroup("__pinned__")}
+      >
+        <span class="item-icon">^</span>
+        <span class="item-name">przypięte</span>
+        <span class="item-count">{groups.pinnedTotal}</span>
+        {#if groups.pinnedConnected > 0}
+          <span class="item-dot active-dot"></span>
+        {/if}
+      </button>
+    {/if}
 
     {#if groups.ungroupedTotal > 0}
       <button
@@ -185,7 +207,7 @@
 
   .item-count {
     font-size: 9px;
-    color: #444;
+    color: var(--muted);
     flex-shrink: 0;
   }
 

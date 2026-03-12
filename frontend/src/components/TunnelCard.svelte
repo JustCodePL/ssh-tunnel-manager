@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TunnelConfig, TunnelStatus } from "../types";
-  import { connectTunnel, disconnectTunnel, deleteTunnel } from "../stores/tunnels";
+  import { connectTunnel, disconnectTunnel, deleteTunnel, setTunnelPinned } from "../stores/tunnels";
   import StatusBadge from "./StatusBadge.svelte";
   import { createEventDispatcher } from "svelte";
 
@@ -36,6 +36,10 @@
   async function handleDelete() {
     if (!confirm(`Delete tunnel "${tunnel.name}"?`)) return;
     await deleteTunnel(tunnel.id);
+  }
+
+  async function handleTogglePin() {
+    await setTunnelPinned(tunnel.id, !tunnel.pinned);
   }
 
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
@@ -87,6 +91,12 @@
           connect
         </button>
       {/if}
+      <button
+        class="action-btn pin"
+        class:pinned={tunnel.pinned}
+        on:click={handleTogglePin}
+        title={tunnel.pinned ? "Odepnij" : "Przypnij"}
+      >{tunnel.pinned ? "unpin" : "pin"}</button>
       <button class="action-btn secondary" on:click={() => dispatch("logs", tunnel)}>logs</button>
       <button class="action-btn secondary" on:click={() => dispatch("terminal", tunnel)}>term</button>
       <button class="action-btn secondary" on:click={() => dispatch("edit", tunnel)}>edit</button>
@@ -229,5 +239,20 @@
   .action-btn.danger:hover:not(:disabled) {
     color: #ff4444;
     border-color: #ff4444;
+  }
+
+  .action-btn.pin {
+    color: var(--muted);
+    border-color: var(--border);
+  }
+
+  .action-btn.pin:hover:not(:disabled) {
+    color: var(--accent2);
+    border-color: var(--accent2);
+  }
+
+  .action-btn.pin.pinned {
+    color: var(--accent2);
+    border-color: var(--accent2);
   }
 </style>

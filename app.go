@@ -169,6 +169,20 @@ func (a *App) DeleteTunnel(id string) error {
 	return nil
 }
 
+// SetTunnelPinned toggles the pinned state of a tunnel and persists it.
+func (a *App) SetTunnelPinned(id string, pinned bool) error {
+	t, ok := a.store.GetTunnel(id)
+	if !ok {
+		return &tunnelNotFoundError{id}
+	}
+	t.Pinned = pinned
+	if err := a.store.UpdateTunnel(t); err != nil {
+		return err
+	}
+	a.tray.RefreshMenu()
+	return nil
+}
+
 // ConnectTunnel starts an SSH connection for the given tunnel ID.
 func (a *App) ConnectTunnel(id string) error {
 	cfg, ok := a.store.GetTunnel(id)
@@ -485,6 +499,7 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 		Color:        e.Color,
 		Group:        e.Group,
 		AutoConnect:  e.AutoConnect,
+		Pinned:       e.Pinned,
 		SourceFile:   e.SourceFile,
 	}
 	for _, pf := range e.PortForwards {
@@ -510,6 +525,7 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 		Color:        t.Color,
 		Group:        t.Group,
 		AutoConnect:  t.AutoConnect,
+		Pinned:       t.Pinned,
 		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {

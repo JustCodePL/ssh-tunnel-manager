@@ -98,6 +98,10 @@ export function SetCloseToTray(arg1) {
   return window['go']['main']['App']['SetCloseToTray'](arg1);
 }
 
+export function SetTunnelPinned(arg1, arg2) {
+  return window['go']['main']['App']['SetTunnelPinned'](arg1, arg2);
+}
+
 export function SubmitPassphrase(arg1) {
   return window['go']['main']['App']['SubmitPassphrase'](arg1);
 }
