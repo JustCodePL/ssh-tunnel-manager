@@ -123,11 +123,12 @@
   })();
 
   $: hasMultipleFiles = fileSections.length > 1;
+  $: isAllView = filterGroup === null;
   $: showInlineGroupTitle = filterGroup !== null && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__";
   $: currentTitle = (() => {
     if (filterGroup === null) return "all tunnels";
-    if (filterGroup === "__pinned__") return "przypięte";
-    if (filterGroup === "__ungrouped__") return "nieprzypisane";
+    if (filterGroup === "__pinned__") return "pinned";
+    if (filterGroup === "__ungrouped__") return "unassigned";
     return filterGroup || "all tunnels";
   })();
 
@@ -191,7 +192,7 @@
       <div class="cards">
         {#if pinnedTunnels.length > 0}
           <div class="pinned-section">
-            <div class="pinned-header">// przypięte</div>
+            <div class="pinned-header">// pinned</div>
             <div class="pinned-tunnels">
               {#each pinnedTunnels as tunnel (tunnel.id)}
                 <TunnelCard
@@ -218,6 +219,9 @@
               </button>
               {#if !collapsedFiles[section.file]}
                 <div class="file-tunnels">
+                  {#if isAllView && section.grouped.groups.length > 0}
+                    <div class="section-subheader">// Groups</div>
+                  {/if}
                   {#each section.grouped.groups as group (group.name)}
                     <div class="group-section">
                       <div class="group-header-row">
@@ -227,9 +231,9 @@
                           <span class="group-count">({group.tunnels.length})</span>
                         </button>
                         {#if groupAllConnected(group.tunnels)}
-                          <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>rozłącz</button>
+                          <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>disconnect</button>
                         {:else}
-                          <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>połącz wszystkie</button>
+                          <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>connect all</button>
                         {/if}
                       </div>
                       {#if !collapsedGroups[group.name]}
@@ -247,6 +251,9 @@
                       {/if}
                     </div>
                   {/each}
+                  {#if isAllView && section.grouped.ungrouped.length > 0}
+                    <div class="section-subheader">// Unassigned</div>
+                  {/if}
                   {#each section.grouped.ungrouped as tunnel (tunnel.id)}
                     <TunnelCard
                       {tunnel}
@@ -260,6 +267,9 @@
               {/if}
             </div>
           {:else}
+            {#if isAllView && section.grouped.groups.length > 0}
+              <div class="section-subheader">// Groups</div>
+            {/if}
             {#each section.grouped.groups as group (group.name)}
               <div class="group-section">
                 <div class="group-header-row">
@@ -269,9 +279,9 @@
                     <span class="group-count">({group.tunnels.length})</span>
                   </button>
                   {#if groupAllConnected(group.tunnels)}
-                    <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>rozłącz</button>
+                    <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>disconnect</button>
                   {:else}
-                    <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>połącz wszystkie</button>
+                    <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>connect all</button>
                   {/if}
                 </div>
                 {#if !collapsedGroups[group.name]}
@@ -289,6 +299,9 @@
                 {/if}
               </div>
             {/each}
+            {#if isAllView && section.grouped.ungrouped.length > 0}
+              <div class="section-subheader">// Unassigned</div>
+            {/if}
             {#each section.grouped.ungrouped as tunnel (tunnel.id)}
               <TunnelCard
                 {tunnel}
@@ -325,11 +338,20 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--accent);
+    color: var(--text);
   }
 
   .list-title.muted-title {
     color: var(--muted);
+  }
+
+  .section-subheader {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 6px 0 2px;
   }
 
   .add-btn {
@@ -486,7 +508,7 @@
 
   .group-name {
     letter-spacing: 0.1em;
-    color: var(--accent);
+    color: var(--muted);
   }
 
   .group-header:hover .group-name {

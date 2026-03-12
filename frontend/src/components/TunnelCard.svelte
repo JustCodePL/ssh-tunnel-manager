@@ -63,7 +63,7 @@
       <div class="card-host">{tunnel.user}@{tunnel.host}:{tunnel.port}</div>
       {#if tunnel.sourceFileLabel || tunnel.sourceFile}
         <div class="card-source">
-          plik config: {tunnel.sourceFileLabel ?? tunnel.sourceFile}
+          config file: {tunnel.sourceFileLabel ?? tunnel.sourceFile}
         </div>
       {/if}
       {#if tunnel.portForwards && tunnel.portForwards.length > 0}
@@ -176,7 +176,7 @@
   .card-name {
     font-size: 12px;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -184,14 +184,14 @@
 
   .card-host {
     font-size: 10px;
-    color: var(--accent);
+    color: var(--text);
     font-family: 'JetBrains Mono', monospace;
     margin-bottom: 4px;
   }
 
   .card-source {
     font-size: 9px;
-    color: var(--accent);
+    color: var(--muted);
     font-family: 'JetBrains Mono', monospace;
     margin-bottom: 4px;
   }
@@ -206,9 +206,9 @@
   .forward-tag {
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
-    color: var(--accent);
-    background: rgba(0, 255, 136, 0.08);
-    border: 1px solid var(--accent);
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
     padding: 1px 5px;
     border-radius: 2px;
   }
