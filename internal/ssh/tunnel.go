@@ -150,10 +150,7 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	cmdStr := expandProxyCommand(t.Config.ProxyCommand, t.Config.Host, t.Config.Port, t.Config.User)
 	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr)
 
-	// Always use sh -c, matching OpenSSH behaviour. ProxyCommands are
-	// POSIX shell commands by convention; cmd.exe on Windows mangles the
-	// quoting of inner double-quotes, breaking commands like AWS SSM.
-	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	cmd := proxyCommandExec(ctx, cmdStr)
 	applySysProcAttr(cmd)
 
 	// Ensure SSH_AUTH_SOCK is available for the subprocess.
@@ -232,6 +229,60 @@ func findMacOSAgentSocket() string {
 			return sock
 		}
 	}
+	return ""
+}
+
+// proxyCommandExec builds an exec.Cmd for running a ProxyCommand string.
+// It prefers sh -c (matching OpenSSH behaviour), falling back to cmd /c on
+// Windows when no POSIX shell is available.
+func proxyCommandExec(ctx context.Context, cmdStr string) *exec.Cmd {
+	if runtime.GOOS != "windows" {
+		return exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	}
+
+	// On Windows, try to find sh (Git for Windows / MSYS2).
+	if sh := findWindowsShell(); sh != "" {
+		slog.Debug("using POSIX shell for ProxyCommand", "shell", sh)
+		return exec.CommandContext(ctx, sh, "-c", cmdStr)
+	}
+
+	// Fallback: cmd /c. Works for simple commands that don't need POSIX
+	// quoting. If the ProxyCommand itself invokes sh, the user needs Git
+	// for Windows installed anyway.
+	slog.Warn("sh not found, falling back to cmd /c for ProxyCommand; " +
+		"install Git for Windows for full ProxyCommand support")
+	return exec.CommandContext(ctx, "cmd", "/c", cmdStr)
+}
+
+// findWindowsShell searches for sh.exe in PATH and common Git for Windows
+// locations. Returns empty string if not found.
+func findWindowsShell() string {
+	// Try PATH first
+	if p, err := exec.LookPath("sh"); err == nil {
+		return p
+	}
+
+	// Common Git for Windows / MSYS2 locations
+	roots := []string{
+		os.Getenv("ProgramFiles"),
+		os.Getenv("ProgramFiles(x86)"),
+		filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs"),
+	}
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		for _, rel := range []string{
+			filepath.Join("Git", "bin", "sh.exe"),
+			filepath.Join("Git", "usr", "bin", "sh.exe"),
+		} {
+			p := filepath.Join(root, rel)
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+
 	return ""
 }
 
