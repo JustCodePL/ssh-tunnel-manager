@@ -11,7 +11,7 @@
   "info": {
     "companyName": "JustCode",
     "productName": "SSH Tunnel Manager",
-    "productVersion": "1.0.17",
+    "productVersion": "1.0.18",
     "copyright": "Copyright © 2026 JustCode",
     "comments": "SSH tunnel manager built with Wails"
   },
