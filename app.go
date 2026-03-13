@@ -30,6 +30,7 @@ type App struct {
 	termMgr     *ssh.TerminalManager
 	tray        *tray.Tray
 	startHidden bool
+	forceQuit   bool
 
 	// Passphrase prompt coordination
 	passphraseMu   sync.Mutex
@@ -275,6 +276,7 @@ func (a *App) showWindow() {
 
 func (a *App) quit() {
 	if a.ctx != nil {
+		a.forceQuit = true
 		runtime.Quit(a.ctx)
 	}
 }

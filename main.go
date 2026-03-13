@@ -54,6 +54,9 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 10, G: 10, B: 10, A: 1},
 		OnBeforeClose: func(ctx context.Context) bool {
+			if app.forceQuit {
+				return false // always allow quit from tray
+			}
 			if app.GetCloseToTray() {
 				runtime.WindowHide(ctx)
 				return true // cancel the close — hide instead
