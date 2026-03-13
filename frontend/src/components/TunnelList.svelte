@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import type { TunnelConfig } from "../types";
-  import { tunnels, statuses, loading, getStatus, connectGroup, disconnectGroup, renameGroup } from "../stores/tunnels";
+  import { tunnels, statuses, loading, getStatus, connectGroup, disconnectGroup, disconnectTunnel, renameGroup } from "../stores/tunnels";
   import TunnelCard from "./TunnelCard.svelte";
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
@@ -134,6 +134,10 @@
   $: isAllView = filterGroup === null;
   $: showInlineGroupTitle = filterGroup !== null && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__";
   $: singleGroupAllConnected = showInlineGroupTitle ? groupAllConnected(filteredTunnels) : false;
+  $: anyActive = filteredTunnels.some(t => {
+    const s = getStatus($statuses, t.id);
+    return s === "connected" || s === "connecting" || s === "reconnecting";
+  });
   $: currentTitle = (() => {
     if (filterGroup === null) return "all tunnels";
     if (filterGroup === "__pinned__") return "pinned";
@@ -154,6 +158,15 @@
 
   function handleGroupDisconnect(groupName: string) {
     disconnectGroup(groupName);
+  }
+
+  function handleDisconnectFiltered() {
+    for (const t of filteredTunnels) {
+      const s = getStatus($statuses, t.id);
+      if (s === "connected" || s === "connecting" || s === "reconnecting") {
+        disconnectTunnel(t.id);
+      }
+    }
   }
 
   function startRenameGroup() {
@@ -216,8 +229,13 @@
             <button class="add-btn disconnect-btn" on:click={() => handleGroupDisconnect(filterGroup)}>disconnect all</button>
           {:else}
             <button class="add-btn" on:click={() => handleGroupConnect(filterGroup)}>connect all</button>
+            {#if anyActive}
+              <button class="add-btn disconnect-btn" on:click={() => handleGroupDisconnect(filterGroup)}>disconnect all</button>
+            {/if}
           {/if}
           <button class="add-btn" on:click={startRenameGroup} title="Rename group">✎</button>
+        {:else if anyActive}
+          <button class="add-btn disconnect-btn" on:click={handleDisconnectFiltered}>disconnect all</button>
         {/if}
         <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
       </div>
@@ -485,6 +503,15 @@
 
   .add-btn:hover {
     background: rgba(0, 255, 136, 0.1);
+  }
+
+  .add-btn.disconnect-btn {
+    border-color: #ff4444;
+    color: #ff4444;
+  }
+
+  .add-btn.disconnect-btn:hover {
+    background: rgba(255, 68, 68, 0.1);
   }
 
   .loading-msg {
