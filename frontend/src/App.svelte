@@ -77,7 +77,7 @@
       {#if showImport}
         <ImportDialog on:close={() => (showImport = false)} />
       {:else}
-        <TunnelList filterGroup={selectedGroup} />
+        <TunnelList filterGroup={selectedGroup} on:groupRenamed={(e) => selectedGroup = e.detail} />
       {/if}
     </main>
   </div>
