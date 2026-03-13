@@ -116,6 +116,7 @@ func (a *App) startup(ctx context.Context) {
 // shutdown is called by Wails when the application is closing.
 func (a *App) shutdown(ctx context.Context) {
 	slog.Info("shutting down, disconnecting all tunnels")
+	a.saveWindowSize()
 	a.tray.Stop()
 	a.termMgr.CloseAll()
 	a.manager.DisconnectAll()
@@ -278,6 +279,22 @@ func (a *App) quit() {
 	if a.ctx != nil {
 		a.forceQuit = true
 		runtime.Quit(a.ctx)
+	}
+}
+
+func (a *App) saveWindowSize() {
+	if a.ctx == nil {
+		return
+	}
+	w, h := runtime.WindowGetSize(a.ctx)
+	if w < 400 || h < 300 {
+		return
+	}
+	p := a.prefs.Get()
+	p.WindowWidth = w
+	p.WindowHeight = h
+	if err := a.prefs.Set(p); err != nil {
+		slog.Warn("failed to save window size", "error", err)
 	}
 }
 

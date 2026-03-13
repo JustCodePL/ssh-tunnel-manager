@@ -44,10 +44,20 @@ func main() {
 
 	app := NewApp(store, prefsStore, startHidden)
 
+	p := prefsStore.Get()
+	initWidth := p.WindowWidth
+	initHeight := p.WindowHeight
+	if initWidth < 400 {
+		initWidth = 900
+	}
+	if initHeight < 300 {
+		initHeight = 600
+	}
+
 	err = wails.Run(&options.App{
 		Title:     "SSH Tunnel Manager",
-		Width:     900,
-		Height:    600,
+		Width:     initWidth,
+		Height:    initHeight,
 		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,

@@ -1,9 +1,13 @@
 <script lang="ts">
   import { WindowMinimise, WindowToggleMaximise, Quit } from "../../wailsjs/runtime/runtime";
+
+  function handleDragDblClick() {
+    WindowToggleMaximise();
+  }
 </script>
 
 <div class="titlebar">
-  <div class="titlebar-drag">
+  <div class="titlebar-drag" on:dblclick={handleDragDblClick}>
     <span class="titlebar-title">[ SSH TUNNEL MANAGER ]</span>
   </div>
   <div class="titlebar-controls">

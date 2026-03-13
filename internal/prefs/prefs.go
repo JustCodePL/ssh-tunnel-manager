@@ -12,13 +12,17 @@ import (
 
 // Prefs holds user-configurable application preferences.
 type Prefs struct {
-	CloseToTray bool `json:"closeToTray"`
+	CloseToTray  bool `json:"closeToTray"`
+	WindowWidth  int  `json:"windowWidth,omitempty"`
+	WindowHeight int  `json:"windowHeight,omitempty"`
 }
 
 // defaultPrefs returns a Prefs with sensible defaults.
 func defaultPrefs() Prefs {
 	return Prefs{
-		CloseToTray: true,
+		CloseToTray:  true,
+		WindowWidth:  900,
+		WindowHeight: 600,
 	}
 }
 
