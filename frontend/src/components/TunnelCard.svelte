@@ -122,10 +122,6 @@
     transition: border-color 0.15s;
   }
 
-  .tunnel-card[data-has-color="true"] {
-    border-left-color: var(--tunnel-tint);
-  }
-
   .tunnel-card[data-has-color="true"]::after {
     content: "";
     position: absolute;

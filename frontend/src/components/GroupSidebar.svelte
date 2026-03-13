@@ -155,16 +155,7 @@
               <span class="item-dot active-dot"></span>
             {/if}
           </button>
-          {#if selectedGroup === group.name}
-            <div class="group-actions">
-              {#if isGroupAllConnected(group.name)}
-                <button class="group-act-btn disconnect" on:click={() => disconnectGroup(group.name)} title="Disconnect all">disconnect</button>
-              {:else}
-                <button class="group-act-btn" on:click={() => connectGroup(group.name)} title="Connect all">connect</button>
-              {/if}
-              <button class="group-act-btn" on:click|stopPropagation={() => startRename(group.name)} title="Rename group">✎</button>
-            </div>
-          {/if}
+
         {/if}
       </div>
     {/each}
@@ -292,34 +283,6 @@
     flex-direction: column;
   }
 
-  .group-actions {
-    display: flex;
-    gap: 4px;
-    padding: 2px 12px 4px 28px;
-  }
-
-  .group-act-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    padding: 1px 5px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: color 0.15s, border-color 0.15s;
-    letter-spacing: 0.05em;
-  }
-
-  .group-act-btn:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .group-act-btn.disconnect:hover {
-    color: #ff4444;
-    border-color: #ff4444;
-  }
 
   .rename-row {
     padding: 4px 12px;

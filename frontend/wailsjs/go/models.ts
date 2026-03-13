@@ -1,5 +1,19 @@
 export namespace config {
 	
+	export class ConfigFileInfo {
+	    path: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigFileInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.label = source["label"];
+	    }
+	}
 	export class LogEntry {
 	    // Go type: time
 	    timestamp: any;
@@ -66,6 +80,7 @@ export namespace config {
 	    color?: string;
 	    group: string;
 	    autoConnect: boolean;
+	    pinned: boolean;
 	    sourceFile?: string;
 	    sourceFileLabel?: string;
 	
@@ -87,6 +102,7 @@ export namespace config {
 	        this.color = source["color"];
 	        this.group = source["group"];
 	        this.autoConnect = source["autoConnect"];
+	        this.pinned = source["pinned"];
 	        this.sourceFile = source["sourceFile"];
 	        this.sourceFileLabel = source["sourceFileLabel"];
 	    }
@@ -108,20 +124,6 @@ export namespace config {
 		    }
 		    return a;
 		}
-	}
-	export class ConfigFileInfo {
-	    path: string;
-	    label: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ConfigFileInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.path = source["path"];
-	        this.label = source["label"];
-	    }
 	}
 
 }

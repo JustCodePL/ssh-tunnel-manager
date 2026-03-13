@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { createEventDispatcher } from "svelte";
   import type { TunnelConfig } from "../types";
-  import { tunnels, statuses, loading, getStatus, connectGroup, disconnectGroup } from "../stores/tunnels";
+  import { tunnels, statuses, loading, getStatus, connectGroup, disconnectGroup, renameGroup } from "../stores/tunnels";
   import TunnelCard from "./TunnelCard.svelte";
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
@@ -8,12 +9,16 @@
 
   export let filterGroup: string | null = null;
 
+  const dispatch = createEventDispatcher<{ groupRenamed: string }>();
+
   let showForm = false;
   let editingTunnel: TunnelConfig | null = null;
   let loggingTunnel: TunnelConfig | null = null;
   let terminalTunnel: TunnelConfig | null = null;
   let collapsedGroups: Record<string, boolean> = {};
   let collapsedFiles: Record<string, boolean> = {};
+  let renamingGroup = false;
+  let renameValue = "";
 
   function handleAdd() {
     editingTunnel = null;
@@ -122,9 +127,13 @@
     return sections;
   })();
 
-  $: hasMultipleFiles = fileSections.length > 1;
+  $: hasMultipleFiles = (() => {
+    const files = new Set(filteredTunnels.map(t => t.sourceFile || ""));
+    return files.size > 1;
+  })();
   $: isAllView = filterGroup === null;
   $: showInlineGroupTitle = filterGroup !== null && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__";
+  $: singleGroupAllConnected = showInlineGroupTitle ? groupAllConnected(filteredTunnels) : false;
   $: currentTitle = (() => {
     if (filterGroup === null) return "all tunnels";
     if (filterGroup === "__pinned__") return "pinned";
@@ -146,6 +155,31 @@
   function handleGroupDisconnect(groupName: string) {
     disconnectGroup(groupName);
   }
+
+  function startRenameGroup() {
+    if (filterGroup && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__") {
+      renameValue = filterGroup;
+      renamingGroup = true;
+    }
+  }
+
+  async function confirmRenameGroup() {
+    if (!renamingGroup || !renameValue.trim() || !filterGroup) {
+      renamingGroup = false;
+      return;
+    }
+    const newName = renameValue.trim();
+    const oldName = filterGroup;
+    renamingGroup = false;
+    if (oldName === newName) return;
+    await renameGroup(oldName, newName);
+    dispatch("groupRenamed", newName);
+  }
+
+  function handleRenameKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter") confirmRenameGroup();
+    if (e.key === "Escape") renamingGroup = false;
+  }
 </script>
 
 {#if loggingTunnel}
@@ -165,8 +199,28 @@
     <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
   {:else}
     <div class="list-header">
-      <div class="list-title" class:muted-title={!showInlineGroupTitle}>{currentTitle}</div>
-      <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
+      {#if renamingGroup}
+        <input
+          class="rename-input"
+          bind:value={renameValue}
+          on:keydown={handleRenameKeydown}
+          on:blur={confirmRenameGroup}
+          autofocus
+        />
+      {:else}
+        <div class="list-title">{currentTitle}</div>
+      {/if}
+      <div class="header-actions">
+        {#if showInlineGroupTitle}
+          {#if singleGroupAllConnected}
+            <button class="add-btn disconnect-btn" on:click={() => handleGroupDisconnect(filterGroup)}>disconnect all</button>
+          {:else}
+            <button class="add-btn" on:click={() => handleGroupConnect(filterGroup)}>connect all</button>
+          {/if}
+          <button class="add-btn" on:click={startRenameGroup} title="Rename group">✎</button>
+        {/if}
+        <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
+      </div>
     </div>
   {/if}
 
@@ -219,6 +273,28 @@
               </button>
               {#if !collapsedFiles[section.file]}
                 <div class="file-tunnels">
+                  {#if showInlineGroupTitle}
+                    {#each section.grouped.groups as group}
+                      {#each group.tunnels as tunnel (tunnel.id)}
+                        <TunnelCard
+                          {tunnel}
+                          status={getStatus($statuses, tunnel.id)}
+                          on:edit={handleEdit}
+                          on:logs={handleLogs}
+                          on:terminal={handleTerminal}
+                        />
+                      {/each}
+                    {/each}
+                    {#each section.grouped.ungrouped as tunnel (tunnel.id)}
+                      <TunnelCard
+                        {tunnel}
+                        status={getStatus($statuses, tunnel.id)}
+                        on:edit={handleEdit}
+                        on:logs={handleLogs}
+                        on:terminal={handleTerminal}
+                      />
+                    {/each}
+                  {:else}
                   {#if isAllView && section.grouped.groups.length > 0}
                     <div class="section-subheader">// Groups</div>
                   {/if}
@@ -263,10 +339,33 @@
                       on:terminal={handleTerminal}
                     />
                   {/each}
+                  {/if}
                 </div>
               {/if}
             </div>
           {:else}
+            {#if showInlineGroupTitle}
+              {#each section.grouped.groups as group}
+                {#each group.tunnels as tunnel (tunnel.id)}
+                  <TunnelCard
+                    {tunnel}
+                    status={getStatus($statuses, tunnel.id)}
+                    on:edit={handleEdit}
+                    on:logs={handleLogs}
+                    on:terminal={handleTerminal}
+                  />
+                {/each}
+              {/each}
+              {#each section.grouped.ungrouped as tunnel (tunnel.id)}
+                <TunnelCard
+                  {tunnel}
+                  status={getStatus($statuses, tunnel.id)}
+                  on:edit={handleEdit}
+                  on:logs={handleLogs}
+                  on:terminal={handleTerminal}
+                />
+              {/each}
+            {:else}
             {#if isAllView && section.grouped.groups.length > 0}
               <div class="section-subheader">// Groups</div>
             {/if}
@@ -311,6 +410,7 @@
                 on:terminal={handleTerminal}
               />
             {/each}
+            {/if}
           {/if}
         {/each}
       </div>
@@ -333,16 +433,32 @@
     gap: 8px;
   }
 
+  .rename-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    outline: none;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .list-title {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text);
-  }
-
-  .list-title.muted-title {
-    color: var(--muted);
   }
 
   .section-subheader {
