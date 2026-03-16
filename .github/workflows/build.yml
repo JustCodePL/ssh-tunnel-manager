@@ -147,7 +147,7 @@ jobs:
             --icon "ssh-tunnel-manager.app" 150 190 \
             --hide-extension "ssh-tunnel-manager.app" \
             --app-drop-link 450 190 \
-            --codesign "Developer ID Application: $(security find-identity -v -p codesigning $RUNNER_TEMP/app-signing.keychain-db | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $2}')" \
+            --codesign "$(security find-identity -v -p codesigning $RUNNER_TEMP/app-signing.keychain-db | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $2}')" \
             "build/bin/ssh-tunnel-manager.dmg" \
             "build/bin/"
 
