@@ -31,3 +31,5 @@ Thumbs.db
 
 # App config
 config.json
+
+node_modules/

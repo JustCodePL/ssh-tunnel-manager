@@ -55,10 +55,11 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:     "SSH Tunnel Manager",
-		Width:     initWidth,
-		Height:    initHeight,
-		Frameless: true,
+		Title:       "SSH Tunnel Manager",
+		Width:       initWidth,
+		Height:      initHeight,
+		Frameless:   true,
+		StartHidden: startHidden,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
