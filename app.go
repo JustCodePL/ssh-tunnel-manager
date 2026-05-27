@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ type App struct {
 	prefs       *prefs.Store
 	manager     *ssh.Manager
 	termMgr     *ssh.TerminalManager
+	sftpMgr     *ssh.SFTPManager
 	tray        *tray.Tray
 	startHidden bool
 	forceQuit   bool
@@ -43,6 +45,12 @@ type App struct {
 	// Per-tunnel log buffer (ring buffer, max 300 entries per tunnel)
 	logMu  sync.Mutex
 	logBuf map[string][]config.LogEntry
+
+	// Active SFTP transfers, keyed by transferID — supports multiple
+	// concurrent transfers per session.
+	sftpTransferMu sync.Mutex
+	sftpTransfers  map[string]context.CancelFunc
+	sftpNextXferID int
 }
 
 // NewApp creates a new App instance.
@@ -51,9 +59,11 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		store:       store,
 		prefs:       prefsStore,
 		startHidden: startHidden,
-		logBuf:      make(map[string][]config.LogEntry),
+		logBuf:        make(map[string][]config.LogEntry),
+		sftpTransfers: make(map[string]context.CancelFunc),
 	}
 	app.termMgr = ssh.NewTerminalManager(app.getPassphrase)
+	app.sftpMgr = ssh.NewSFTPManager(app.getPassphrase)
 	app.manager = ssh.NewManager(func(event ssh.StatusEvent) {
 		app.emitStatus(event)
 		app.tray.HandleStatusEvent(event)
@@ -119,6 +129,7 @@ func (a *App) shutdown(ctx context.Context) {
 	a.saveWindowSize()
 	a.tray.Stop()
 	a.termMgr.CloseAll()
+	a.sftpMgr.CloseAll()
 	a.manager.DisconnectAll()
 }
 
@@ -267,6 +278,240 @@ func (a *App) ResizeTerminal(sessionID string, cols, rows int) error {
 		return fmt.Errorf("terminal session %s not found", sessionID)
 	}
 	return ts.Resize(cols, rows)
+}
+
+// SFTPOpenResult is returned from OpenSFTP with the session ID and the
+// initial directory (remote home) to start browsing from.
+type SFTPOpenResult struct {
+	SessionID string `json:"sessionId"`
+	Home      string `json:"home"`
+}
+
+// OpenSFTP starts a new SFTP session for the given tunnel.
+func (a *App) OpenSFTP(tunnelID string) (*SFTPOpenResult, error) {
+	cfg, ok := a.store.GetTunnel(tunnelID)
+	if !ok {
+		return nil, &tunnelNotFoundError{tunnelID}
+	}
+	sessionID, home, err := a.sftpMgr.OpenSession(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("opening SFTP for %s: %w", cfg.Name, err)
+	}
+	return &SFTPOpenResult{SessionID: sessionID, Home: home}, nil
+}
+
+// CloseSFTP closes an SFTP session.
+func (a *App) CloseSFTP(sessionID string) error {
+	a.sftpMgr.CloseSession(sessionID)
+	return nil
+}
+
+// SFTPListDir returns the contents of a remote directory.
+func (a *App) SFTPListDir(sessionID, remotePath string) ([]ssh.FileEntry, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	return s.List(remotePath)
+}
+
+// SFTPDownload prompts the user for a local save location and downloads the
+// remote file. Returns the local path written, or empty string if cancelled.
+func (a *App) SFTPDownload(sessionID, remotePath string) (string, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return "", fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	defaultName := filepath.Base(remotePath)
+	localPath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Save file as",
+		DefaultFilename: defaultName,
+	})
+	if err != nil {
+		return "", fmt.Errorf("save dialog: %w", err)
+	}
+	if localPath == "" {
+		return "", nil
+	}
+	xferID, ctx := a.startSFTPTransfer()
+	defer a.endSFTPTransfer(xferID)
+	progress := a.sftpProgressFn(xferID, sessionID, "download", defaultName, 1, 1)
+	if err := s.Download(ctx, remotePath, localPath, progress); err != nil {
+		a.emitSFTPProgress(xferID, sessionID, "download", defaultName, 1, 1, 0, 0, err.Error(), true)
+		return "", err
+	}
+	a.emitSFTPProgress(xferID, sessionID, "download", defaultName, 1, 1, 0, 0, "", true)
+	return localPath, nil
+}
+
+// SFTPDownloadDir prompts the user for a local save location and downloads
+// the remote directory as a ZIP archive. Returns the local path written or
+// empty string if cancelled.
+func (a *App) SFTPDownloadDir(sessionID, remotePath string) (string, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return "", fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	defaultName := filepath.Base(remotePath) + ".zip"
+	localPath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Save directory as ZIP",
+		DefaultFilename: defaultName,
+	})
+	if err != nil {
+		return "", fmt.Errorf("save dialog: %w", err)
+	}
+	if localPath == "" {
+		return "", nil
+	}
+	xferID, ctx := a.startSFTPTransfer()
+	defer a.endSFTPTransfer(xferID)
+	progress := a.sftpProgressFn(xferID, sessionID, "download", defaultName, 1, 1)
+	if err := s.DownloadDirZip(ctx, remotePath, localPath, progress); err != nil {
+		a.emitSFTPProgress(xferID, sessionID, "download", defaultName, 1, 1, 0, 0, err.Error(), true)
+		return "", err
+	}
+	a.emitSFTPProgress(xferID, sessionID, "download", defaultName, 1, 1, 0, 0, "", true)
+	return localPath, nil
+}
+
+// SFTPUploadPick is returned from SFTPPickUploadFiles. Paths lists the local
+// files the user selected; Conflicts lists the base names among those that
+// already exist in the target remote directory.
+type SFTPUploadPick struct {
+	Paths     []string `json:"paths"`
+	Conflicts []string `json:"conflicts"`
+}
+
+// SFTPPickUploadFiles opens the file picker and returns the chosen local
+// paths plus any name conflicts in remoteDir. No upload happens yet.
+func (a *App) SFTPPickUploadFiles(sessionID, remoteDir string) (*SFTPUploadPick, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	paths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select files to upload",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "All Files", Pattern: "*"},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("open dialog: %w", err)
+	}
+	var conflicts []string
+	for _, p := range paths {
+		name := filepath.Base(p)
+		if _, err := s.StatRemote(remoteDir, name); err == nil {
+			conflicts = append(conflicts, name)
+		}
+	}
+	return &SFTPUploadPick{Paths: paths, Conflicts: conflicts}, nil
+}
+
+// SFTPUploadFiles uploads the given local paths into remoteDir. Caller is
+// responsible for having confirmed any overwrites first.
+func (a *App) SFTPUploadFiles(sessionID string, paths []string, remoteDir string) (int, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return 0, fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	xferID, ctx := a.startSFTPTransfer()
+	defer a.endSFTPTransfer(xferID)
+	var uploaded int
+	for i, p := range paths {
+		if ctx.Err() != nil {
+			break
+		}
+		name := filepath.Base(p)
+		progress := a.sftpProgressFn(xferID, sessionID, "upload", name, i+1, len(paths))
+		if _, err := s.Upload(ctx, p, remoteDir, progress); err != nil {
+			a.emitSFTPProgress(xferID, sessionID, "upload", name, i+1, len(paths), 0, 0, err.Error(), true)
+			return uploaded, err
+		}
+		uploaded++
+	}
+	a.emitSFTPProgress(xferID, sessionID, "upload", "", uploaded, len(paths), 0, 0, "", true)
+	return uploaded, nil
+}
+
+// CancelSFTPTransfer cancels the in-flight transfer with the given ID.
+// Returns true if it was running, false if no such transfer exists.
+func (a *App) CancelSFTPTransfer(transferID string) bool {
+	a.sftpTransferMu.Lock()
+	cancel, ok := a.sftpTransfers[transferID]
+	a.sftpTransferMu.Unlock()
+	if !ok {
+		return false
+	}
+	cancel()
+	return true
+}
+
+func (a *App) startSFTPTransfer() (string, context.Context) {
+	a.sftpTransferMu.Lock()
+	a.sftpNextXferID++
+	id := fmt.Sprintf("xfer-%d", a.sftpNextXferID)
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.sftpTransfers[id] = cancel
+	a.sftpTransferMu.Unlock()
+	return id, ctx
+}
+
+func (a *App) endSFTPTransfer(id string) {
+	a.sftpTransferMu.Lock()
+	delete(a.sftpTransfers, id)
+	a.sftpTransferMu.Unlock()
+}
+
+func (a *App) sftpProgressFn(transferID, sessionID, kind, name string, index, total int) ssh.ProgressFunc {
+	return func(transferred, fileSize int64) {
+		a.emitSFTPProgress(transferID, sessionID, kind, name, index, total, transferred, fileSize, "", false)
+	}
+}
+
+func (a *App) emitSFTPProgress(transferID, sessionID, kind, name string, index, total int, transferred, size int64, errMsg string, done bool) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "sftp:progress", map[string]any{
+		"transferId":  transferID,
+		"sessionId":   sessionID,
+		"kind":        kind,
+		"name":        name,
+		"fileIndex":   index,
+		"fileTotal":   total,
+		"transferred": transferred,
+		"size":        size,
+		"error":       errMsg,
+		"done":        done,
+	})
+}
+
+// SFTPMkdir creates a new remote directory.
+func (a *App) SFTPMkdir(sessionID, remotePath string) error {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	return s.Mkdir(remotePath)
+}
+
+// SFTPDelete removes a remote file or directory (recursively).
+func (a *App) SFTPDelete(sessionID, remotePath string) error {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	return s.Remove(remotePath)
+}
+
+// SFTPRename renames or moves a remote entry.
+func (a *App) SFTPRename(sessionID, oldPath, newPath string) error {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	return s.Rename(oldPath, newPath)
 }
 
 func (a *App) showWindow() {

@@ -3,12 +3,17 @@
 import {config} from '../models';
 import {updater} from '../models';
 import {ssh} from '../models';
+import {main} from '../models';
 
 export function AddTunnel(arg1:config.TunnelConfig):Promise<void>;
+
+export function CancelSFTPTransfer(arg1:string):Promise<boolean>;
 
 export function CheckForUpdate():Promise<updater.UpdateInfo>;
 
 export function ClearTunnelLogs(arg1:string):Promise<void>;
+
+export function CloseSFTP(arg1:string):Promise<void>;
 
 export function CloseTerminal(arg1:string):Promise<void>;
 
@@ -46,11 +51,29 @@ export function ImportTunnels(arg1:string,arg2:Array<string>):Promise<number>;
 
 export function InstallUpdate():Promise<void>;
 
+export function OpenSFTP(arg1:string):Promise<main.SFTPOpenResult>;
+
 export function OpenTerminal(arg1:string):Promise<string>;
 
 export function RenameGroup(arg1:string,arg2:string):Promise<void>;
 
 export function ResizeTerminal(arg1:string,arg2:number,arg3:number):Promise<void>;
+
+export function SFTPDelete(arg1:string,arg2:string):Promise<void>;
+
+export function SFTPDownload(arg1:string,arg2:string):Promise<string>;
+
+export function SFTPDownloadDir(arg1:string,arg2:string):Promise<string>;
+
+export function SFTPListDir(arg1:string,arg2:string):Promise<Array<ssh.FileEntry>>;
+
+export function SFTPMkdir(arg1:string,arg2:string):Promise<void>;
+
+export function SFTPPickUploadFiles(arg1:string,arg2:string):Promise<main.SFTPUploadPick>;
+
+export function SFTPRename(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SFTPUploadFiles(arg1:string,arg2:Array<string>,arg3:string):Promise<number>;
 
 export function SelectFile():Promise<string>;
 

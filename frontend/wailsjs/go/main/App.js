@@ -6,12 +6,20 @@ export function AddTunnel(arg1) {
   return window['go']['main']['App']['AddTunnel'](arg1);
 }
 
+export function CancelSFTPTransfer(arg1) {
+  return window['go']['main']['App']['CancelSFTPTransfer'](arg1);
+}
+
 export function CheckForUpdate() {
   return window['go']['main']['App']['CheckForUpdate']();
 }
 
 export function ClearTunnelLogs(arg1) {
   return window['go']['main']['App']['ClearTunnelLogs'](arg1);
+}
+
+export function CloseSFTP(arg1) {
+  return window['go']['main']['App']['CloseSFTP'](arg1);
 }
 
 export function CloseTerminal(arg1) {
@@ -86,6 +94,10 @@ export function InstallUpdate() {
   return window['go']['main']['App']['InstallUpdate']();
 }
 
+export function OpenSFTP(arg1) {
+  return window['go']['main']['App']['OpenSFTP'](arg1);
+}
+
 export function OpenTerminal(arg1) {
   return window['go']['main']['App']['OpenTerminal'](arg1);
 }
@@ -96,6 +108,38 @@ export function RenameGroup(arg1, arg2) {
 
 export function ResizeTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResizeTerminal'](arg1, arg2, arg3);
+}
+
+export function SFTPDelete(arg1, arg2) {
+  return window['go']['main']['App']['SFTPDelete'](arg1, arg2);
+}
+
+export function SFTPDownload(arg1, arg2) {
+  return window['go']['main']['App']['SFTPDownload'](arg1, arg2);
+}
+
+export function SFTPDownloadDir(arg1, arg2) {
+  return window['go']['main']['App']['SFTPDownloadDir'](arg1, arg2);
+}
+
+export function SFTPListDir(arg1, arg2) {
+  return window['go']['main']['App']['SFTPListDir'](arg1, arg2);
+}
+
+export function SFTPMkdir(arg1, arg2) {
+  return window['go']['main']['App']['SFTPMkdir'](arg1, arg2);
+}
+
+export function SFTPPickUploadFiles(arg1, arg2) {
+  return window['go']['main']['App']['SFTPPickUploadFiles'](arg1, arg2);
+}
+
+export function SFTPRename(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SFTPRename'](arg1, arg2, arg3);
+}
+
+export function SFTPUploadFiles(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SFTPUploadFiles'](arg1, arg2, arg3);
 }
 
 export function SelectFile() {

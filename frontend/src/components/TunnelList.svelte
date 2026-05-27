@@ -6,6 +6,7 @@
   import TunnelForm from "./TunnelForm.svelte";
   import TunnelLogs from "./TunnelLogs.svelte";
   import TerminalWindow from "./TerminalWindow.svelte";
+  import FileBrowserWindow from "./FileBrowserWindow.svelte";
 
   export let filterGroup: string | null = null;
 
@@ -15,6 +16,7 @@
   let editingTunnel: TunnelConfig | null = null;
   let loggingTunnel: TunnelConfig | null = null;
   let terminalTunnel: TunnelConfig | null = null;
+  let filesTunnel: TunnelConfig | null = null;
   let collapsedGroups: Record<string, boolean> = {};
   let collapsedFiles: Record<string, boolean> = {};
   let renamingGroup = false;
@@ -41,6 +43,10 @@
 
   function handleTerminal(event: CustomEvent<TunnelConfig>) {
     terminalTunnel = event.detail;
+  }
+
+  function handleFiles(event: CustomEvent<TunnelConfig>) {
+    filesTunnel = event.detail;
   }
 
   function handleLogsClose() {
@@ -207,6 +213,10 @@
   <TerminalWindow tunnel={terminalTunnel} on:close={() => terminalTunnel = null} />
 {/if}
 
+{#if filesTunnel}
+  <FileBrowserWindow tunnel={filesTunnel} on:close={() => filesTunnel = null} />
+{/if}
+
 <div class="tunnel-list">
   {#if showForm}
     <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
@@ -273,6 +283,7 @@
                   on:edit={handleEdit}
                   on:logs={handleLogs}
                   on:terminal={handleTerminal}
+                  on:files={handleFiles}
                 />
               {/each}
             </div>
@@ -300,6 +311,7 @@
                           on:edit={handleEdit}
                           on:logs={handleLogs}
                           on:terminal={handleTerminal}
+                          on:files={handleFiles}
                         />
                       {/each}
                     {/each}
@@ -310,6 +322,7 @@
                         on:edit={handleEdit}
                         on:logs={handleLogs}
                         on:terminal={handleTerminal}
+                        on:files={handleFiles}
                       />
                     {/each}
                   {:else}
@@ -339,6 +352,7 @@
                               on:edit={handleEdit}
                               on:logs={handleLogs}
                               on:terminal={handleTerminal}
+                              on:files={handleFiles}
                             />
                           {/each}
                         </div>
@@ -355,6 +369,7 @@
                       on:edit={handleEdit}
                       on:logs={handleLogs}
                       on:terminal={handleTerminal}
+                      on:files={handleFiles}
                     />
                   {/each}
                   {/if}
@@ -371,6 +386,7 @@
                     on:edit={handleEdit}
                     on:logs={handleLogs}
                     on:terminal={handleTerminal}
+                    on:files={handleFiles}
                   />
                 {/each}
               {/each}
@@ -381,6 +397,7 @@
                   on:edit={handleEdit}
                   on:logs={handleLogs}
                   on:terminal={handleTerminal}
+                  on:files={handleFiles}
                 />
               {/each}
             {:else}
@@ -410,6 +427,7 @@
                         on:edit={handleEdit}
                         on:logs={handleLogs}
                         on:terminal={handleTerminal}
+                        on:files={handleFiles}
                       />
                     {/each}
                   </div>
@@ -426,6 +444,7 @@
                 on:edit={handleEdit}
                 on:logs={handleLogs}
                 on:terminal={handleTerminal}
+                on:files={handleFiles}
               />
             {/each}
             {/if}
