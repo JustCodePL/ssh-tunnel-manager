@@ -122,9 +122,9 @@
 <style>
   .terminal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
   .terminal-window { width: 90vw; height: 80vh; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; display: flex; flex-direction: column; }
-  .terminal-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; --wails-draggable: drag; user-select: none; }
+  .terminal-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; }
   .terminal-title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00ff88; }
-  .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; --wails-draggable: nodrag; }
+  .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
   .close-btn:hover { color: #ff4444; border-color: #ff4444; }
   .terminal-body { flex: 1; overflow: hidden; padding: 8px; }
   .xterm-container { width: 100%; height: 100%; }
