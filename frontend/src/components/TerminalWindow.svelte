@@ -17,6 +17,15 @@
   let loading = true;
   let error = "";
   let minimized = false;
+  let resizeObserver: ResizeObserver | null = null;
+  let fitTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleFit() {
+    if (fitTimer) clearTimeout(fitTimer);
+    fitTimer = setTimeout(() => {
+      try { fitAddon?.fit(); } catch {}
+    }, 30);
+  }
 
   onMount(async () => {
     term = new Terminal({
@@ -74,12 +83,22 @@
       error = e.toString();
       loading = false;
     }
+
+    // Auto-refit xterm when the container (or window) resizes.
+    if (termEl && typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        if (!minimized) scheduleFit();
+      });
+      resizeObserver.observe(termEl);
+    }
   });
 
   onDestroy(() => {
     EventsOff("terminal:output");
     EventsOff("terminal:closed");
     if (sessionId) CloseTerminal(sessionId);
+    resizeObserver?.disconnect();
+    if (fitTimer) clearTimeout(fitTimer);
     term?.dispose();
   });
 

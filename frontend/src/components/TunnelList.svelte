@@ -217,10 +217,11 @@
   <FileBrowserWindow tunnel={filesTunnel} on:close={() => filesTunnel = null} />
 {/if}
 
+{#if showForm}
+  <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
+{/if}
+
 <div class="tunnel-list">
-  {#if showForm}
-    <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
-  {:else}
     <div class="list-header">
       {#if renamingGroup}
         <input
@@ -250,11 +251,10 @@
         <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
       </div>
     </div>
-  {/if}
 
   {#if $loading}
     <div class="loading-msg">// loading...</div>
-  {:else if !showForm}
+  {:else}
     {#if $tunnels.length === 0}
       <div class="empty-state">
         <div class="empty-art">

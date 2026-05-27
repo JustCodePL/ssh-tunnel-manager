@@ -13,6 +13,8 @@
   let logs: LogEntry[] = [];
   let logContainer: HTMLDivElement;
   let autoScroll = true;
+  let minimized = false;
+  let resizeObserver: ResizeObserver | null = null;
 
   function formatTime(iso: string): string {
     const d = new Date(iso);
@@ -64,6 +66,13 @@
     }
   }
 
+  function minimize() { minimized = true; }
+  function restore() {
+    minimized = false;
+    setTimeout(scrollToBottom, 50);
+  }
+  function handleClose() { dispatch("close"); }
+
   onMount(async () => {
     try {
       const initial = await GetTunnelLogs(tunnelId);
@@ -73,10 +82,17 @@
       console.error("GetTunnelLogs failed:", e);
     }
     EventsOn("tunnel:log", handleLogEvent);
+
+    // Keep view pinned to bottom when window/container is resized.
+    if (logContainer && typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => scrollToBottom());
+      resizeObserver.observe(logContainer);
+    }
   });
 
   onDestroy(() => {
     EventsOff("tunnel:log");
+    resizeObserver?.disconnect();
   });
 
   $: if (logs.length > 0) {
@@ -84,23 +100,14 @@
   }
 </script>
 
-<div
-  class="logs-backdrop"
-  on:click|self={() => dispatch("close")}
-  on:keydown={(e) => e.key === "Escape" && dispatch("close")}
-  role="dialog"
-  aria-modal="true"
-  tabindex="-1"
->
-  <div class="logs-panel">
-    <div class="logs-header">
-      <div class="logs-title">
-        <span class="logs-label">// logs</span>
-        <span class="logs-tunnel-name">{tunnelName}</span>
-      </div>
-      <div class="logs-actions">
-        <button class="log-btn" on:click={handleClear}>[ clear ]</button>
-        <button class="log-btn close" on:click={() => dispatch("close")}>[ × ]</button>
+<div class="logs-overlay" class:hidden={minimized}>
+  <div class="logs-window">
+    <div class="logs-titlebar">
+      <span class="logs-title">logs — {tunnelName}</span>
+      <div class="titlebar-actions">
+        <button class="tb-btn" on:click={handleClear} title="Clear all log entries">[ clear ]</button>
+        <button class="title-btn minimize-btn" on:click={minimize} title="Minimize">−</button>
+        <button class="close-btn" on:click={handleClose} title="Close">×</button>
       </div>
     </div>
 
@@ -126,7 +133,7 @@
       <span class="logs-count">{logs.length} entr{logs.length !== 1 ? "ies" : "y"}</span>
       {#if !autoScroll}
         <button
-          class="log-btn"
+          class="tb-btn"
           on:click={() => { autoScroll = true; scrollToBottom(); }}
         >
           ↓ scroll to bottom
@@ -136,141 +143,43 @@
   </div>
 </div>
 
+{#if minimized}
+  <button class="restore-pill" on:click={restore} title="Restore logs">
+    <span class="pill-icon">▢</span>
+    <span class="pill-text">logs — {tunnelName}</span>
+    <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
+  </button>
+{/if}
+
 <style>
-  .logs-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.8);
-  }
+  .logs-overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 998; display: flex; align-items: center; justify-content: center; }
+  .logs-overlay.hidden { display: none; }
+  .logs-window { width: 90vw; height: 80vh; background: #0a0a0a; border: 1px solid #ffaa00; border-radius: 2px; display: flex; flex-direction: column; min-height: 0; }
+  .logs-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; flex-shrink: 0; }
+  .logs-title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #ffaa00; }
+  .titlebar-actions { display: flex; gap: 4px; align-items: center; }
+  .title-btn, .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
+  .minimize-btn:hover { color: #ffaa00; border-color: #ffaa00; }
+  .close-btn:hover { color: #ff4444; border-color: #ff4444; }
 
-  .logs-panel {
-    width: 100%;
-    max-width: 700px;
-    margin: 0 16px;
-    background: #050505;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    display: flex;
-    flex-direction: column;
-    max-height: 75vh;
-  }
+  .tb-btn { background: transparent; border: 1px solid #333; color: #888; font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 3px 8px; cursor: pointer; border-radius: 2px; }
+  .tb-btn:hover { color: #ffaa00; border-color: #ffaa00; }
 
-  .logs-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
+  .logs-body { flex: 1; overflow-y: auto; padding: 10px 12px; font-family: "JetBrains Mono", monospace; font-size: 10px; line-height: 1.7; min-height: 0; }
+  .logs-empty { color: #333; text-align: center; padding: 32px 0; font-size: 11px; }
 
-  .logs-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .log-line { display: flex; gap: 10px; align-items: baseline; white-space: pre-wrap; word-break: break-all; }
+  .log-time { color: #333; flex-shrink: 0; font-size: 9px; }
+  .log-level { flex-shrink: 0; font-size: 9px; font-weight: 600; width: 38px; text-align: right; }
+  .log-msg { flex: 1; }
 
-  .logs-label {
-    font-size: 10px;
-    color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.05em;
-  }
+  .logs-footer { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-top: 1px solid #1a1a1a; background: #0d0d0d; flex-shrink: 0; }
+  .logs-count { font-size: 9px; color: #444; font-family: "JetBrains Mono", monospace; }
 
-  .logs-tunnel-name {
-    font-size: 10px;
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .logs-actions {
-    display: flex;
-    gap: 4px;
-  }
-
-  .log-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    padding: 2px 7px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: color 0.15s, border-color 0.15s;
-    letter-spacing: 0.05em;
-  }
-
-  .log-btn:hover {
-    color: var(--text);
-    border-color: var(--muted);
-  }
-
-  .log-btn.close:hover {
-    color: #ff4444;
-    border-color: #ff4444;
-  }
-
-  .logs-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 12px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    line-height: 1.7;
-    min-height: 0;
-  }
-
-  .logs-empty {
-    color: #333;
-    text-align: center;
-    padding: 32px 0;
-    font-size: 11px;
-  }
-
-  .log-line {
-    display: flex;
-    gap: 10px;
-    align-items: baseline;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-
-  .log-time {
-    color: #333333;
-    flex-shrink: 0;
-    font-size: 9px;
-    tabular-nums: numeric;
-  }
-
-  .log-level {
-    flex-shrink: 0;
-    font-size: 9px;
-    font-weight: 600;
-    width: 38px;
-    text-align: right;
-  }
-
-  .log-msg {
-    flex: 1;
-  }
-
-  .logs-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .logs-count {
-    font-size: 9px;
-    color: #333;
-    font-family: 'JetBrains Mono', monospace;
-  }
+  .restore-pill { position: fixed; bottom: 12px; right: 428px; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0a0a0a; border: 1px solid #ffaa00; border-radius: 2px; color: #ffaa00; font-family: "JetBrains Mono", monospace; font-size: 11px; cursor: pointer; box-shadow: 0 0 12px rgba(255, 170, 0, 0.3); }
+  .restore-pill:hover { background: #111; box-shadow: 0 0 16px rgba(255, 170, 0, 0.5); }
+  .pill-icon { font-size: 13px; }
+  .pill-text { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill-close { color: #888; padding: 0 4px; font-size: 14px; line-height: 1; }
+  .pill-close:hover { color: #ff4444; }
 </style>
