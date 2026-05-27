@@ -3,7 +3,7 @@
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { OpenTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
-  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+  import { EventsOn, EventsOff, ClipboardGetText, ClipboardSetText } from "../../wailsjs/runtime/runtime";
   import type { TunnelConfig } from "../types";
   import { createEventDispatcher } from "svelte";
 
@@ -38,6 +38,30 @@
     term.onData((data) => { if (sessionId) TerminalWrite(sessionId, data); });
     term.onResize(({ cols, rows }) => { if (sessionId) ResizeTerminal(sessionId, cols, rows); });
 
+    term.attachCustomKeyEventHandler((ev) => {
+      if (ev.type !== "keydown") return true;
+      const mod = ev.ctrlKey || ev.metaKey;
+      if (!mod) return true;
+      const key = ev.key.toLowerCase();
+      // Ctrl/Cmd+Shift+C → always copy. Ctrl/Cmd+C → copy if selection, else let SIGINT through.
+      if (key === "c" && (ev.shiftKey || term.hasSelection())) {
+        const sel = term.getSelection();
+        if (sel) {
+          ClipboardSetText(sel);
+          term.clearSelection();
+        }
+        return false;
+      }
+      // Ctrl/Cmd+V or Ctrl/Cmd+Shift+V → paste
+      if (key === "v") {
+        ClipboardGetText().then((text) => {
+          if (text && sessionId) TerminalWrite(sessionId, text);
+        });
+        return false;
+      }
+      return true;
+    });
+
     try {
       sessionId = await OpenTerminal(tunnel.id);
       loading = false;
@@ -62,6 +86,19 @@
     if (sessionId) CloseTerminal(sessionId);
     dispatch("close");
   }
+
+  async function handleContextMenu(ev: MouseEvent) {
+    ev.preventDefault();
+    if (!term) return;
+    const sel = term.getSelection();
+    if (sel) {
+      await ClipboardSetText(sel);
+      term.clearSelection();
+    } else if (sessionId) {
+      const text = await ClipboardGetText();
+      if (text) TerminalWrite(sessionId, text);
+    }
+  }
 </script>
 
 <div class="terminal-overlay">
@@ -77,7 +114,7 @@
       {#if error}
         <div class="status-msg error">{error}</div>
       {/if}
-      <div bind:this={termEl} class="xterm-container" class:hidden={loading || !!error} />
+      <div bind:this={termEl} class="xterm-container" class:hidden={loading || !!error} on:contextmenu={handleContextMenu} />
     </div>
   </div>
 </div>
