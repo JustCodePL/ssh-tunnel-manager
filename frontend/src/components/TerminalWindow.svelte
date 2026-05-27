@@ -16,6 +16,7 @@
   let sessionId: string = "";
   let loading = true;
   let error = "";
+  let minimized = false;
 
   onMount(async () => {
     term = new Terminal({
@@ -87,6 +88,18 @@
     dispatch("close");
   }
 
+  function minimize() {
+    minimized = true;
+  }
+
+  function restore() {
+    minimized = false;
+    setTimeout(() => {
+      fitAddon?.fit();
+      term?.focus();
+    }, 50);
+  }
+
   async function handleContextMenu(ev: MouseEvent) {
     ev.preventDefault();
     if (!term) return;
@@ -101,11 +114,14 @@
   }
 </script>
 
-<div class="terminal-overlay">
+<div class="terminal-overlay" class:hidden={minimized}>
   <div class="terminal-window">
     <div class="terminal-titlebar">
       <span class="terminal-title">terminal — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
-      <button class="close-btn" on:click={handleClose}>×</button>
+      <div class="titlebar-actions">
+        <button class="title-btn minimize-btn" on:click={minimize} title="Minimize">−</button>
+        <button class="close-btn" on:click={handleClose} title="Close">×</button>
+      </div>
     </div>
     <div class="terminal-body">
       {#if loading}
@@ -119,13 +135,30 @@
   </div>
 </div>
 
+{#if minimized}
+  <button class="restore-pill" on:click={restore} title="Restore terminal">
+    <span class="pill-icon">▢</span>
+    <span class="pill-text">terminal — {tunnel.name}</span>
+    <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
+  </button>
+{/if}
+
 <style>
   .terminal-overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .terminal-overlay.hidden { display: none; }
   .terminal-window { width: 90vw; height: 80vh; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; display: flex; flex-direction: column; }
   .terminal-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; }
   .terminal-title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00ff88; }
-  .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
+  .titlebar-actions { display: flex; gap: 4px; }
+  .title-btn, .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
+  .minimize-btn:hover { color: #00d4ff; border-color: #00d4ff; }
   .close-btn:hover { color: #ff4444; border-color: #ff4444; }
+  .restore-pill { position: fixed; bottom: 12px; right: 12px; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; color: #00ff88; font-family: "JetBrains Mono", monospace; font-size: 11px; cursor: pointer; box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
+  .restore-pill:hover { background: #111; box-shadow: 0 0 16px rgba(0, 255, 136, 0.5); }
+  .pill-icon { font-size: 13px; }
+  .pill-text { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill-close { color: #888; padding: 0 4px; font-size: 14px; line-height: 1; }
+  .pill-close:hover { color: #ff4444; }
   .terminal-body { flex: 1; overflow: hidden; padding: 8px; }
   .xterm-container { width: 100%; height: 100%; }
   .xterm-container.hidden { display: none; }
