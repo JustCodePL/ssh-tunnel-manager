@@ -13,6 +13,58 @@ import (
 	"ssh-tunnel-manager/internal/config"
 )
 
+func TestEffectiveHostHeader(t *testing.T) {
+	tests := []struct {
+		name string
+		pf   config.PortForward
+		want string
+	}{
+		{
+			name: "explicit overrides everything",
+			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com"},
+			want: "custom.example.com",
+		},
+		{
+			name: "explicit works even without portless",
+			pf:   config.PortForward{Portless: false, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com"},
+			want: "custom.example.com",
+		},
+		{
+			name: "portless + FQDN remote auto-rewrites",
+			pf:   config.PortForward{Portless: true, RemoteHost: "dev.mix-dev.com"},
+			want: "dev.mix-dev.com",
+		},
+		{
+			name: "portless + IPv4 remote keeps raw TCP",
+			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1"},
+			want: "",
+		},
+		{
+			name: "portless + localhost keeps raw TCP",
+			pf:   config.PortForward{Portless: true, RemoteHost: "localhost"},
+			want: "",
+		},
+		{
+			name: "portless + single-label remote keeps raw TCP",
+			pf:   config.PortForward{Portless: true, RemoteHost: "internal-db"},
+			want: "",
+		},
+		{
+			name: "non-portless + FQDN remote stays raw TCP",
+			pf:   config.PortForward{Portless: false, RemoteHost: "dev.mix-dev.com"},
+			want: "",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := effectiveHostHeader(tc.pf)
+			if got != tc.want {
+				t.Errorf("effectiveHostHeader(%+v) = %q, want %q", tc.pf, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBuildSSHConfig_MissingKey(t *testing.T) {
 	tun := &Tunnel{
 		Config: config.TunnelConfig{

@@ -7,6 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -448,6 +451,16 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 		listener.Close()
 	}()
 
+	// HTTP-aware path: rewrite the Host header on its way upstream so a
+	// reverse proxy on the remote (e.g. Traefik in front of Portainer) routes
+	// correctly even though the browser hit something.ssh-local. Only kicks
+	// in for portless forwards — for plain 127.0.0.1:port tunnels the user
+	// already controls what the browser sends.
+	if header := effectiveHostHeader(pf); header != "" {
+		t.serveHTTPProxy(ctx, client, listener, pf, header)
+		return
+	}
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -460,6 +473,74 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 			return
 		}
 		go t.handleForwardConn(ctx, client, conn, pf)
+	}
+}
+
+// effectiveHostHeader returns the Host header value to send upstream, or ""
+// to keep raw TCP forwarding. Explicit HostHeader always wins. Otherwise
+// portless + FQDN-looking RemoteHost (e.g. "dev.mix-dev.com") auto-uses the
+// remote host so jumphost-routed services like Portainer "just work".
+func effectiveHostHeader(pf config.PortForward) string {
+	if pf.HostHeader != "" {
+		return pf.HostHeader
+	}
+	if !pf.Portless {
+		return ""
+	}
+	if looksLikeFQDN(pf.RemoteHost) {
+		return pf.RemoteHost
+	}
+	return ""
+}
+
+func looksLikeFQDN(h string) bool {
+	if h == "" {
+		return false
+	}
+	if net.ParseIP(h) != nil {
+		return false
+	}
+	if !strings.Contains(h, ".") {
+		return false
+	}
+	if strings.EqualFold(h, "localhost") {
+		return false
+	}
+	return true
+}
+
+func (t *Tunnel) serveHTTPProxy(ctx context.Context, client *ssh.Client, listener net.Listener, pf config.PortForward, hostHeader string) {
+	target := &url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", pf.RemoteHost, pf.RemotePort),
+	}
+	proxy := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = target.Scheme
+			req.URL.Host = target.Host
+			req.Host = hostHeader
+		},
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, addr string) (net.Conn, error) {
+				return client.Dial("tcp", addr)
+			},
+			DisableKeepAlives: true,
+		},
+		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelWarn),
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			slog.Warn("http proxy error", "tunnel", t.Config.Name, "error", err)
+			http.Error(w, "ssh-tunnel-manager: upstream error: "+err.Error(), http.StatusBadGateway)
+		},
+	}
+	srv := &http.Server{Handler: proxy}
+	go func() {
+		<-ctx.Done()
+		_ = srv.Close()
+	}()
+	t.log("info", fmt.Sprintf("HTTP proxy: %s → %s (Host: %s)", listener.Addr().String(), target.Host, hostHeader))
+	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed && ctx.Err() == nil {
+		t.log("error", fmt.Sprintf("HTTP proxy error: %v", err))
+		slog.Error("http proxy serve failed", "tunnel", t.Config.Name, "error", err)
 	}
 }
 

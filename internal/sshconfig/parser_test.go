@@ -674,6 +674,80 @@ func TestRoundTripPortless(t *testing.T) {
 	}
 }
 
+func TestRoundTripPortlessHostHeader(t *testing.T) {
+	// Use case: Portainer behind a host-routing reverse proxy reached via a
+	// jumphost. User binds portainer.dev.ssh-local but the upstream needs
+	// Host: dev.mix-dev.com.
+	original := HostEntry{
+		Alias:    "dev",
+		HostName: "bastion.example.com",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{
+				LocalPort:  9000,
+				RemoteHost: "10.0.0.5",
+				RemotePort: 9000,
+				Portless:   true,
+				Domain:     "portainer.dev",
+				HostHeader: "dev.mix-dev.com",
+			},
+		},
+	}
+	rendered := RenderHostBlock(original)
+	if !strings.Contains(rendered, "# stm:forward-host-header=dev.mix-dev.com") {
+		t.Errorf("render missing host-header comment:\n%s", rendered)
+	}
+	parsed, err := parseString(rendered)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := parsed[0].PortForwards[0]
+	if pf.HostHeader != "dev.mix-dev.com" {
+		t.Errorf("round-trip HostHeader = %q, want %q", pf.HostHeader, "dev.mix-dev.com")
+	}
+}
+
+func TestRenderNoHostHeaderWhenEmpty(t *testing.T) {
+	e := HostEntry{
+		Alias:    "x",
+		HostName: "x.example.com",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{LocalPort: 80, RemoteHost: "127.0.0.1", RemotePort: 80, Portless: true, Domain: "x"},
+		},
+	}
+	rendered := RenderHostBlock(e)
+	if strings.Contains(rendered, "forward-host-header") {
+		t.Errorf("render should not emit host-header comment when empty:\n%s", rendered)
+	}
+}
+
+func TestHostHeaderResetBetweenForwards(t *testing.T) {
+	// host-header comment must not bleed into a later LocalForward.
+	input := `Host x
+    HostName x.example.com
+    # stm:forward-portless=true
+    # stm:forward-domain=a
+    # stm:forward-host-header=upstream.example.com
+    LocalForward 8080 10.0.0.1:8080
+    LocalForward 9090 10.0.0.2:9090
+`
+	entries, err := parseString(input)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pfs := entries[0].PortForwards
+	if len(pfs) != 2 {
+		t.Fatalf("PortForwards = %d, want 2", len(pfs))
+	}
+	if pfs[0].HostHeader != "upstream.example.com" {
+		t.Errorf("first HostHeader = %q, want %q", pfs[0].HostHeader, "upstream.example.com")
+	}
+	if pfs[1].HostHeader != "" {
+		t.Errorf("second HostHeader = %q, want empty", pfs[1].HostHeader)
+	}
+}
+
 func TestParseFileSourceFileSet(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")

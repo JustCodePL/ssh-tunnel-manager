@@ -29,6 +29,13 @@ const (
 // When Portless is true, the runtime instead binds on a dynamically allocated
 // 127.0.1.x loopback address at ExposePort (or RemotePort if ExposePort is 0).
 // Domain is published under the .ssh-local TLD by the embedded DNS server.
+//
+// HostHeader, when set, switches the portless forward to HTTP-aware mode and
+// rewrites the request Host header before sending upstream. Empty + RemoteHost
+// that looks like an FQDN auto-uses RemoteHost as the header (so a Portainer
+// behind a host-routing reverse proxy "just works"). Empty + non-FQDN remote
+// keeps raw TCP — the browser's Host header (e.g. db.ssh-local) is sent
+// through unchanged.
 type PortForward struct {
 	LocalPort   int    `json:"localPort"`
 	RemoteHost  string `json:"remoteHost"`
@@ -37,6 +44,7 @@ type PortForward struct {
 	Portless    bool   `json:"portless,omitempty"`
 	Domain      string `json:"domain,omitempty"`
 	ExposePort  int    `json:"exposePort,omitempty"`
+	HostHeader  string `json:"hostHeader,omitempty"`
 }
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.

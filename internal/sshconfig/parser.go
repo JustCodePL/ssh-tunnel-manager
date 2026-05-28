@@ -10,9 +10,9 @@ import (
 )
 
 // PortForwardEntry defines a single local-to-remote port mapping parsed from
-// a LocalForward directive. Portless/Domain/ExposePort are picked up from
-// "# stm:forward-..." comments placed on the lines immediately above the
-// LocalForward.
+// a LocalForward directive. Portless/Domain/ExposePort/HostHeader are picked
+// up from "# stm:forward-..." comments placed on the lines immediately above
+// the LocalForward.
 type PortForwardEntry struct {
 	LocalPort   int
 	RemoteHost  string
@@ -21,6 +21,7 @@ type PortForwardEntry struct {
 	Portless    bool
 	Domain      string
 	ExposePort  int
+	HostHeader  string
 }
 
 // HostEntry holds the parsed fields of a single Host block in an SSH config
@@ -147,12 +148,14 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var pendingFwdPortless bool
 	var pendingFwdDomain string
 	var pendingFwdExposePort int
+	var pendingFwdHostHeader string
 	inMatch := false
 
 	resetPendingForward := func() {
 		pendingFwdPortless = false
 		pendingFwdDomain = ""
 		pendingFwdExposePort = 0
+		pendingFwdHostHeader = ""
 	}
 
 	for scanner.Scan() {
@@ -181,6 +184,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				if n, err := strconv.Atoi(val); err == nil {
 					pendingFwdExposePort = n
 				}
+			case "forward-host-header":
+				pendingFwdHostHeader = val
 			}
 			continue
 		}
@@ -273,6 +278,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				pf.Portless = pendingFwdPortless
 				pf.Domain = pendingFwdDomain
 				pf.ExposePort = pendingFwdExposePort
+				pf.HostHeader = pendingFwdHostHeader
 				current.PortForwards = append(current.PortForwards, pf)
 			}
 			resetPendingForward()
@@ -348,6 +354,9 @@ func RenderHostBlock(e HostEntry) string {
 		}
 		if pf.ExposePort > 0 {
 			fmt.Fprintf(&b, "    # stm:forward-expose-port=%d\n", pf.ExposePort)
+		}
+		if pf.HostHeader != "" {
+			fmt.Fprintf(&b, "    # stm:forward-host-header=%s\n", pf.HostHeader)
 		}
 		// LocalForward needs a numeric port — use LocalPort if set, otherwise
 		// fall back to RemotePort so the line stays valid for plain `ssh`

@@ -290,6 +290,7 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 			Portless:    pf.Portless,
 			Domain:      pf.Domain,
 			ExposePort:  pf.ExposePort,
+			HostHeader:  pf.HostHeader,
 		})
 	}
 	return e
@@ -321,6 +322,7 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 			Portless:    pf.Portless,
 			Domain:      pf.Domain,
 			ExposePort:  pf.ExposePort,
+			HostHeader:  pf.HostHeader,
 		})
 	}
 	return t

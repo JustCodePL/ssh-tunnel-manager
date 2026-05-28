@@ -38,6 +38,7 @@
   let showAdvanced = !!(tunnel?.proxyCommand || tunnel?.proxyJump);
   let hasIncludeOptions = false;
   let minimized = false;
+  let pfSettingsIndex: number | null = null;
 
   let saving = false;
   let savingLabel = "// saving...";
@@ -125,6 +126,31 @@
     return `stm-${n}.${tunnelSlug}`;
   }
 
+  function looksLikeFQDN(h: string | undefined): boolean {
+    if (!h) return false;
+    const v = h.trim();
+    if (!v) return false;
+    if (v.toLowerCase() === "localhost") return false;
+    // IPv4 check
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(v)) return false;
+    // IPv6 has colons
+    if (v.includes(":")) return false;
+    return v.includes(".");
+  }
+
+  function autoHostHeader(pf: PortForward): string {
+    if (!pf.portless) return "";
+    return looksLikeFQDN(pf.remoteHost) ? pf.remoteHost : "";
+  }
+
+  function openPfSettings(index: number) {
+    pfSettingsIndex = index;
+  }
+
+  function closePfSettings() {
+    pfSettingsIndex = null;
+  }
+
   function togglePortless(index: number) {
     const pf = portForwards[index];
     pf.portless = !pf.portless;
@@ -157,6 +183,7 @@
         ...pf,
         localPort: Number(pf.localPort) || 0,
         exposePort: Number(pf.exposePort) || 0,
+        hostHeader: (pf.hostHeader ?? "").trim() || undefined,
       }))
       .filter((pf) => pf.remotePort > 0 && pf.localPort > 0);
 
@@ -359,6 +386,13 @@
                 class="field-input desc-input"
                 placeholder="description (optional)"
               />
+              <button
+                type="button"
+                class="gear-btn"
+                class:active={pf.hostHeader}
+                on:click={() => openPfSettings(i)}
+                title={pf.hostHeader ? `Host header: ${pf.hostHeader}` : "Forward settings"}
+              >⚙</button>
               <button type="button" class="remove-btn" on:click={() => removePortForward(i)} title="remove">×</button>
             </div>
             <div class="forward-row">
@@ -475,6 +509,48 @@
     </div>
   </div>
 </div>
+
+{#if pfSettingsIndex !== null && portForwards[pfSettingsIndex]}
+  <div class="pf-modal-overlay" on:click|self={closePfSettings}>
+    <div class="pf-modal">
+      <div class="pf-modal-head">
+        <span class="pf-modal-title">forward settings</span>
+        <button class="close-btn" type="button" on:click={closePfSettings} title="Close">×</button>
+      </div>
+      <div class="pf-modal-body">
+        <div class="field">
+          <label class="field-label">host header</label>
+          <input
+            type="text"
+            class="field-input"
+            placeholder={autoHostHeader(portForwards[pfSettingsIndex]) ? `auto: ${autoHostHeader(portForwards[pfSettingsIndex])}` : "(none — Host header passes through)"}
+            bind:value={portForwards[pfSettingsIndex].hostHeader}
+            autocomplete="off"
+            spellcheck="false"
+          />
+          {#if portForwards[pfSettingsIndex].portless}
+            <p class="hint">
+              {#if portForwards[pfSettingsIndex].hostHeader}
+                upstream receives <code>Host: {portForwards[pfSettingsIndex].hostHeader}</code>
+              {:else if autoHostHeader(portForwards[pfSettingsIndex])}
+                empty → auto-rewrites to <code>{autoHostHeader(portForwards[pfSettingsIndex])}</code> (FQDN remote host)
+              {:else}
+                empty → no rewrite. Browser's <code>{portForwards[pfSettingsIndex].domain || "<domain>"}.ssh-local</code> passes through.
+              {/if}
+            </p>
+            <p class="hint">use when a remote reverse proxy (Traefik, nginx, Portainer) routes by Host header. HTTP only.</p>
+          {:else}
+            <p class="hint warning">host header only applies in portless mode</p>
+          {/if}
+        </div>
+      </div>
+      <div class="pf-modal-actions">
+        <button type="button" class="cancel-btn" on:click={() => { if (pfSettingsIndex !== null) { portForwards[pfSettingsIndex].hostHeader = ""; portForwards = [...portForwards]; } }}>[ clear ]</button>
+        <button type="button" class="submit-btn" on:click={closePfSettings}>[ done ]</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if minimized}
   <button class="restore-pill" on:click={restore} title="Restore tunnel form">
@@ -599,6 +675,19 @@
     line-height: 1;
   }
   .remove-btn:hover { color: #ff4444; }
+  .gear-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 4px;
+    flex-shrink: 0;
+    transition: color 0.15s;
+    line-height: 1;
+  }
+  .gear-btn:hover { color: var(--accent); }
+  .gear-btn.active { color: var(--accent); text-shadow: 0 0 4px var(--accent); }
   .desc-input { font-size: 10px; color: var(--muted); }
 
   .port-input.dimmed { opacity: 0.4; }
@@ -723,6 +812,61 @@
   }
   .submit-btn:hover:not(:disabled) { background: rgba(0, 255, 136, 0.1); }
   .submit-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .pf-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pf-modal {
+    width: 90vw;
+    max-width: 420px;
+    background: #0a0a0a;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+  }
+  .pf-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    border-bottom: 1px solid #1a1a1a;
+    background: #111;
+  }
+  .pf-modal-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .pf-modal-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pf-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    background: #0d0d0d;
+  }
+  .hint code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0 4px;
+    border-radius: 2px;
+  }
+  .hint.warning { color: #f97316; }
 
   .restore-pill {
     position: fixed;
