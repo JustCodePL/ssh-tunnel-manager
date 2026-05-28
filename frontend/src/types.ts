@@ -5,7 +5,12 @@ export interface PortForward {
   remoteHost: string;
   remotePort: number;
   description: string;
+  portless?: boolean;
+  domain?: string;
+  exposePort?: number;
 }
+
+export const PORTLESS_TLD = "ssh-local";
 
 export interface TunnelConfig {
   id: string;

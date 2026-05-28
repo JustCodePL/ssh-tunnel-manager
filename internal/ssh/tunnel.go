@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/dns"
 )
 
 const (
@@ -36,6 +37,9 @@ type Tunnel struct {
 	OnConnected   func() // called after SSH dial succeeds, before blocking
 	GetPassphrase PassphraseFunc
 	LogFunc       func(level, msg string) // optional: called for connection events
+	// DNSRegistry is consulted for portless forwards to allocate a loopback
+	// IP and register the *.ssh-local domain. nil disables portless mode.
+	DNSRegistry *dns.Registry
 
 	mu     sync.Mutex
 	client *ssh.Client
@@ -49,8 +53,13 @@ func (t *Tunnel) log(level, msg string) {
 
 // CheckPortConflicts tests whether all local ports for this tunnel are
 // available. Returns a descriptive error if any port is already in use.
+// Portless forwards are skipped — they bind to a freshly allocated loopback
+// IP that cannot collide with anything else on 127.0.0.1.
 func (t *Tunnel) CheckPortConflicts() error {
 	for _, pf := range t.Config.PortForwards {
+		if pf.Portless {
+			continue
+		}
 		addr := fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
@@ -115,6 +124,11 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 
 	// Wait for context cancellation or connection failure
 	<-ctx.Done()
+	// Close the underlying SSH transport so any in-flight SendRequest (in
+	// keepAlive) and Accept/Read calls unblock immediately. Without this,
+	// wg.Wait below can deadlock waiting for keepAlive to notice the ctx
+	// cancellation.
+	_ = client.Close()
 	wg.Wait()
 	return ctx.Err()
 }
@@ -356,12 +370,70 @@ func expandProxyCommand(cmd string, host string, port int, user string) string {
 }
 
 func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.PortForward) {
-	localAddr := fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
-	listener, err := net.Listen("tcp", localAddr)
-	if err != nil {
-		slog.Error("failed to listen on local port",
-			"tunnel", t.Config.Name, "addr", localAddr, "error", err)
-		return
+	var listener net.Listener
+	var localAddr string
+
+	if pf.Portless {
+		if t.DNSRegistry == nil {
+			msg := fmt.Sprintf("Portless forward %q skipped: DNS registry unavailable", pf.Domain)
+			t.log("error", msg)
+			slog.Error("portless forward missing DNS registry", "tunnel", t.Config.Name, "domain", pf.Domain)
+			return
+		}
+		// ExposePort > 0 means the user explicitly chose a different listen
+		// port for this domain (e.g. 80 so a browser doesn't need ":8080").
+		// Otherwise we mirror the remote port so the URL conveniently uses
+		// the standard service port.
+		exposePort := pf.RemotePort
+		if pf.ExposePort > 0 {
+			exposePort = pf.ExposePort
+		}
+
+		// Try to bind, retrying with a different loopback IP when the chosen
+		// one is held by another process (zombie listener from a previous
+		// run, WSL2 grabbing 127.0.1.1, etc.). Each failed IP is blocked for
+		// the rest of this session so we don't loop on it.
+		const maxAttempts = 10
+		var entry dns.Entry
+		var lastErr error
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			e, err := t.DNSRegistry.Allocate(pf.Domain, exposePort)
+			if err != nil {
+				t.log("error", fmt.Sprintf("Portless allocation failed for %q: %v", pf.Domain, err))
+				slog.Error("portless allocation failed", "tunnel", t.Config.Name, "domain", pf.Domain, "error", err)
+				return
+			}
+			addr := fmt.Sprintf("%s:%d", e.IP.String(), exposePort)
+			ln, lnErr := net.Listen("tcp", addr)
+			if lnErr == nil {
+				entry = e
+				listener = ln
+				localAddr = addr
+				break
+			}
+			lastErr = lnErr
+			slog.Warn("portless bind retry", "tunnel", t.Config.Name, "addr", addr, "error", lnErr)
+			t.log("warn", fmt.Sprintf("Portless: %s in use, trying another IP", addr))
+			t.DNSRegistry.Block(e.IP)
+			t.DNSRegistry.Release(pf.Domain)
+		}
+		if listener == nil {
+			t.log("error", fmt.Sprintf("Portless bind failed after %d attempts: %v", maxAttempts, lastErr))
+			slog.Error("portless bind exhausted retries", "tunnel", t.Config.Name, "domain", pf.Domain, "error", lastErr)
+			return
+		}
+		defer t.DNSRegistry.Release(pf.Domain)
+		t.log("info", fmt.Sprintf("Portless: %s.%s → %s", entry.Domain, dns.TLD, localAddr))
+	} else {
+		localAddr = fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
+		ln, err := net.Listen("tcp", localAddr)
+		if err != nil {
+			slog.Error("failed to listen on local port",
+				"tunnel", t.Config.Name, "addr", localAddr, "error", err)
+			t.log("error", fmt.Sprintf("Local port %d in use: %v", pf.LocalPort, err))
+			return
+		}
+		listener = ln
 	}
 	defer listener.Close()
 
@@ -435,6 +507,11 @@ func (t *Tunnel) keepAlive(ctx context.Context, client *ssh.Client) {
 		case <-ticker.C:
 			_, _, err := client.SendRequest("keepalive@openssh.com", true, nil)
 			if err != nil {
+				// Intentional disconnect closes the client; the resulting
+				// SendRequest error is expected, not worth logging.
+				if ctx.Err() != nil {
+					return
+				}
 				t.log("warn", fmt.Sprintf("Keep-alive failed: %v", err))
 				slog.Warn("keep-alive failed", "tunnel", t.Config.Name, "error", err)
 				return

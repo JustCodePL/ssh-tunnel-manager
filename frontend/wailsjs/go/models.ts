@@ -54,6 +54,9 @@ export namespace config {
 	    remoteHost: string;
 	    remotePort: number;
 	    description: string;
+	    portless?: boolean;
+	    domain?: string;
+	    exposePort?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PortForward(source);
@@ -65,6 +68,9 @@ export namespace config {
 	        this.remoteHost = source["remoteHost"];
 	        this.remotePort = source["remotePort"];
 	        this.description = source["description"];
+	        this.portless = source["portless"];
+	        this.domain = source["domain"];
+	        this.exposePort = source["exposePort"];
 	    }
 	}
 	export class TunnelConfig {

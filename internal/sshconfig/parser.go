@@ -10,12 +10,17 @@ import (
 )
 
 // PortForwardEntry defines a single local-to-remote port mapping parsed from
-// a LocalForward directive.
+// a LocalForward directive. Portless/Domain/ExposePort are picked up from
+// "# stm:forward-..." comments placed on the lines immediately above the
+// LocalForward.
 type PortForwardEntry struct {
 	LocalPort   int
 	RemoteHost  string
 	RemotePort  int
 	Description string
+	Portless    bool
+	Domain      string
+	ExposePort  int
 }
 
 // HostEntry holds the parsed fields of a single Host block in an SSH config
@@ -139,7 +144,16 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var metaColor string
 	var metaAutoConnect bool
 	var metaPinned bool
+	var pendingFwdPortless bool
+	var pendingFwdDomain string
+	var pendingFwdExposePort int
 	inMatch := false
+
+	resetPendingForward := func() {
+		pendingFwdPortless = false
+		pendingFwdDomain = ""
+		pendingFwdExposePort = 0
+	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -157,6 +171,16 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaAutoConnect = val == "true"
 			case "pinned":
 				metaPinned = val == "true"
+			case "forward-portless":
+				pendingFwdPortless = val == "true"
+			case "forward-domain":
+				pendingFwdDomain = val
+			case "forward-expose-port", "forward-local-port":
+				// forward-local-port is the legacy key from an earlier
+				// iteration of this feature; accepted for backward compat.
+				if n, err := strconv.Atoi(val); err == nil {
+					pendingFwdExposePort = n
+				}
 			}
 			continue
 		}
@@ -189,6 +213,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaColor = ""
 				metaAutoConnect = false
 				metaPinned = false
+				resetPendingForward()
 				continue
 			}
 
@@ -204,6 +229,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 			metaColor = ""
 			metaAutoConnect = false
 			metaPinned = false
+			resetPendingForward()
 			continue
 		}
 
@@ -225,7 +251,13 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 			continue
 		}
 
-		switch strings.ToLower(key) {
+		lowered := strings.ToLower(key)
+		// Any directive other than LocalForward consumes/drops the pending
+		// per-forward metadata so it doesn't bleed into an unrelated forward.
+		if lowered != "localforward" {
+			resetPendingForward()
+		}
+		switch lowered {
 		case "hostname":
 			current.HostName = val
 		case "port":
@@ -238,8 +270,12 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 			current.IdentityFile = expandTilde(val)
 		case "localforward":
 			if pf, err := parseLocalForward(val); err == nil {
+				pf.Portless = pendingFwdPortless
+				pf.Domain = pendingFwdDomain
+				pf.ExposePort = pendingFwdExposePort
 				current.PortForwards = append(current.PortForwards, pf)
 			}
+			resetPendingForward()
 		case "proxycommand":
 			current.ProxyCommand = val
 		case "proxyjump":
@@ -304,10 +340,26 @@ func RenderHostBlock(e HostEntry) string {
 		fmt.Fprintf(&b, "    ProxyJump %s\n", e.ProxyJump)
 	}
 	for _, pf := range e.PortForwards {
+		if pf.Portless {
+			b.WriteString("    # stm:forward-portless=true\n")
+		}
+		if pf.Domain != "" {
+			fmt.Fprintf(&b, "    # stm:forward-domain=%s\n", pf.Domain)
+		}
+		if pf.ExposePort > 0 {
+			fmt.Fprintf(&b, "    # stm:forward-expose-port=%d\n", pf.ExposePort)
+		}
+		// LocalForward needs a numeric port — use LocalPort if set, otherwise
+		// fall back to RemotePort so the line stays valid for plain `ssh`
+		// users invoking this host from a terminal.
+		writtenLocalPort := pf.LocalPort
+		if writtenLocalPort <= 0 {
+			writtenLocalPort = pf.RemotePort
+		}
 		if pf.Description != "" {
-			fmt.Fprintf(&b, "    LocalForward %d %s:%d # %s\n", pf.LocalPort, pf.RemoteHost, pf.RemotePort, pf.Description)
+			fmt.Fprintf(&b, "    LocalForward %d %s:%d # %s\n", writtenLocalPort, pf.RemoteHost, pf.RemotePort, pf.Description)
 		} else {
-			fmt.Fprintf(&b, "    LocalForward %d %s:%d\n", pf.LocalPort, pf.RemoteHost, pf.RemotePort)
+			fmt.Fprintf(&b, "    LocalForward %d %s:%d\n", writtenLocalPort, pf.RemoteHost, pf.RemotePort)
 		}
 	}
 

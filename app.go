@@ -14,6 +14,7 @@ import (
 
 	"ssh-tunnel-manager/internal/autostart"
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/keychain"
 	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/ssh"
@@ -51,16 +52,26 @@ type App struct {
 	sftpTransferMu sync.Mutex
 	sftpTransfers  map[string]context.CancelFunc
 	sftpNextXferID int
+
+	// Portless DNS: registry of domain → loopback IP, and the embedded DNS
+	// server. The server is started lazily on the first portless connect so
+	// users who never opt in pay zero cost.
+	dnsMu       sync.Mutex
+	dnsRegistry *dns.Registry
+	dnsServer   *dns.Server
 }
 
 // NewApp creates a new App instance.
 func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App {
+	registry := dns.NewRegistry()
 	app := &App{
-		store:       store,
-		prefs:       prefsStore,
-		startHidden: startHidden,
+		store:         store,
+		prefs:         prefsStore,
+		startHidden:   startHidden,
 		logBuf:        make(map[string][]config.LogEntry),
 		sftpTransfers: make(map[string]context.CancelFunc),
+		dnsRegistry:   registry,
+		dnsServer:     dns.NewServer(registry),
 	}
 	app.termMgr = ssh.NewTerminalManager(app.getPassphrase)
 	app.sftpMgr = ssh.NewSFTPManager(app.getPassphrase)
@@ -68,6 +79,7 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		app.emitStatus(event)
 		app.tray.HandleStatusEvent(event)
 	}, app.getPassphrase)
+	app.manager.WithDNSRegistry(registry)
 	app.manager.WithLogEmitter(func(tunnelID, level, msg string) {
 		entry := config.LogEntry{Timestamp: time.Now(), Level: level, Message: msg}
 		app.logMu.Lock()
@@ -131,6 +143,12 @@ func (a *App) shutdown(ctx context.Context) {
 	a.termMgr.CloseAll()
 	a.sftpMgr.CloseAll()
 	a.manager.DisconnectAll()
+	a.dnsMu.Lock()
+	srv := a.dnsServer
+	a.dnsMu.Unlock()
+	if srv != nil {
+		srv.Stop()
+	}
 }
 
 // GetTunnels returns all configured tunnels.
@@ -169,18 +187,55 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 	return nil
 }
 
-// UpdateTunnel updates an existing tunnel configuration.
-// If the name changed, the tunnel is disconnected under the old ID first.
+// UpdateTunnel updates an existing tunnel configuration. If the tunnel is
+// currently active, it is disconnected and reconnected with the new config so
+// edits (port forwards, host, portless settings, etc.) take effect without
+// the user having to toggle the tunnel manually.
 func (a *App) UpdateTunnel(t config.TunnelConfig) error {
-	old, ok := a.store.GetTunnel(t.ID)
-	if ok && old.Name != t.Name {
-		_ = a.manager.Disconnect(t.ID)
+	wasActive := a.isTunnelActive(t.ID)
+	slog.Info("UpdateTunnel", "id", t.ID, "wasActive", wasActive)
+	if wasActive {
+		slog.Info("UpdateTunnel: disconnecting before save", "id", t.ID)
+		_ = a.manager.DisconnectAndWait(t.ID)
+		slog.Info("UpdateTunnel: disconnect complete", "id", t.ID)
 	}
+
 	if err := a.store.UpdateTunnel(t); err != nil {
+		if wasActive {
+			// Best-effort restore on save failure
+			if cfg, ok := a.store.GetTunnel(t.ID); ok {
+				if err := a.manager.Connect(cfg); err != nil {
+					slog.Warn("could not restore tunnel after failed update", "id", t.ID, "error", err)
+				}
+			}
+		}
 		return err
 	}
 	a.tray.RefreshMenu()
+
+	if wasActive {
+		newID := t.Name // store.UpdateTunnel sets ID = Name on rename
+		slog.Info("UpdateTunnel: reconnecting", "id", newID)
+		if err := a.ConnectTunnel(newID); err != nil {
+			slog.Warn("reconnect after update failed", "id", newID, "error", err)
+			return fmt.Errorf("saved config, but reconnect failed: %w", err)
+		}
+		slog.Info("UpdateTunnel: reconnect initiated", "id", newID)
+	}
 	return nil
+}
+
+func (a *App) isTunnelActive(id string) bool {
+	statuses := a.manager.GetStatuses()
+	s, ok := statuses[id]
+	if !ok {
+		return false
+	}
+	switch s.Status {
+	case config.StatusConnected, config.StatusConnecting, config.StatusReconnecting:
+		return true
+	}
+	return false
 }
 
 // DeleteTunnel removes a tunnel by ID. Disconnects it first if running.
@@ -213,7 +268,53 @@ func (a *App) ConnectTunnel(id string) error {
 	if !ok {
 		return &tunnelNotFoundError{id}
 	}
+	if tunnelHasPortless(cfg) {
+		if err := a.ensurePortlessReady(); err != nil {
+			return err
+		}
+	}
 	return a.manager.Connect(cfg)
+}
+
+func tunnelHasPortless(cfg config.TunnelConfig) bool {
+	for _, pf := range cfg.PortForwards {
+		if pf.Portless {
+			return true
+		}
+	}
+	return false
+}
+
+// ensurePortlessReady performs the one-time per-OS admin setup (if not already
+// done) and starts the embedded DNS server. Safe to call repeatedly; each
+// step is idempotent.
+func (a *App) ensurePortlessReady() error {
+	a.dnsMu.Lock()
+	defer a.dnsMu.Unlock()
+
+	if !dns.IsSystemConfigured() {
+		slog.Info("portless: system not configured, prompting for admin setup")
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "portless:setup-started")
+		}
+		err := dns.EnsureSystemConfigured(a.ctx)
+		if a.ctx != nil {
+			payload := map[string]any{"ok": err == nil}
+			if err != nil {
+				payload["error"] = err.Error()
+			}
+			runtime.EventsEmit(a.ctx, "portless:setup-finished", payload)
+		}
+		if err != nil {
+			return fmt.Errorf("portless setup: %w", err)
+		}
+	}
+	if !a.dnsServer.Running() {
+		if err := a.dnsServer.Start(); err != nil {
+			return fmt.Errorf("starting portless DNS server: %w", err)
+		}
+	}
+	return nil
 }
 
 // DisconnectTunnel stops the SSH connection for the given tunnel ID.
@@ -550,6 +651,13 @@ func (a *App) copyToClipboard(text string) error {
 	return runtime.ClipboardSetText(a.ctx, text)
 }
 
+// CopyToClipboard exposes the OS clipboard to the frontend so tunnel-card
+// elements (port forward tags, portless addresses) can copy their value on
+// click.
+func (a *App) CopyToClipboard(text string) error {
+	return a.copyToClipboard(text)
+}
+
 func (a *App) emitStatus(event ssh.StatusEvent) {
 	if a.ctx == nil {
 		return
@@ -784,6 +892,9 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 			RemoteHost:  pf.RemoteHost,
 			RemotePort:  pf.RemotePort,
 			Description: pf.Description,
+			Portless:    pf.Portless,
+			Domain:      pf.Domain,
+			ExposePort:  pf.ExposePort,
 		})
 	}
 	return t
@@ -810,6 +921,9 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 			RemoteHost:  pf.RemoteHost,
 			RemotePort:  pf.RemotePort,
 			Description: pf.Description,
+			Portless:    pf.Portless,
+			Domain:      pf.Domain,
+			ExposePort:  pf.ExposePort,
 		})
 	}
 	return e

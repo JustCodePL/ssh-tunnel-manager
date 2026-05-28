@@ -8,6 +8,7 @@ import (
 	"github.com/energye/systray"
 
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/ssh"
 )
 
@@ -459,11 +460,32 @@ func (t *Tray) addTunnelMenuItem(tc config.TunnelConfig, se ssh.StatusEvent, par
 
 	// Port forward submenu items — copy to clipboard on click
 	for _, pf := range tc.PortForwards {
-		portLabel := fmt.Sprintf("%d", pf.LocalPort)
-		if pf.Description != "" {
-			portLabel = fmt.Sprintf("%d (%s)", pf.LocalPort, pf.Description)
+		var portLabel, clipText string
+		if pf.Portless && pf.Domain != "" {
+			port := pf.RemotePort
+			if pf.ExposePort > 0 {
+				port = pf.ExposePort
+			}
+			host := fmt.Sprintf("%s.%s", pf.Domain, dns.TLD)
+			switch port {
+			case 80:
+				clipText = "http://" + host
+			case 443:
+				clipText = "https://" + host
+			default:
+				clipText = fmt.Sprintf("%s:%d", host, port)
+			}
+			portLabel = clipText
+			if pf.Description != "" {
+				portLabel = fmt.Sprintf("%s (%s)", clipText, pf.Description)
+			}
+		} else {
+			portLabel = fmt.Sprintf("%d", pf.LocalPort)
+			if pf.Description != "" {
+				portLabel = fmt.Sprintf("%d (%s)", pf.LocalPort, pf.Description)
+			}
+			clipText = fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
 		}
-		clipText := fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
 		sub := item.AddSubMenuItem(portLabel, "Copy "+clipText)
 		sub.Click(func() {
 			if t.cb.CopyToClip != nil {

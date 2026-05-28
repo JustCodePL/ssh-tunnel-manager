@@ -21,11 +21,22 @@ const (
 )
 
 // PortForward defines a single local-to-remote port mapping.
+//
+// LocalPort is the bind port for the standard 127.0.0.1 listener and is also
+// what plain `ssh` writes to disk respects. It is preserved across toggles of
+// Portless so the user does not lose their setting when switching modes.
+//
+// When Portless is true, the runtime instead binds on a dynamically allocated
+// 127.0.1.x loopback address at ExposePort (or RemotePort if ExposePort is 0).
+// Domain is published under the .ssh-local TLD by the embedded DNS server.
 type PortForward struct {
 	LocalPort   int    `json:"localPort"`
 	RemoteHost  string `json:"remoteHost"`
 	RemotePort  int    `json:"remotePort"`
 	Description string `json:"description"`
+	Portless    bool   `json:"portless,omitempty"`
+	Domain      string `json:"domain,omitempty"`
+	ExposePort  int    `json:"exposePort,omitempty"`
 }
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.

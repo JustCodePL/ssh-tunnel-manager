@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/dns"
 )
 
 const (
@@ -36,6 +37,7 @@ type Manager struct {
 	emitter       EventEmitter
 	getPassphrase PassphraseFunc
 	logEmitter    func(tunnelID, level, msg string)
+	dnsRegistry   *dns.Registry
 }
 
 // WithLogEmitter sets a callback that receives per-tunnel log entries.
@@ -43,6 +45,14 @@ func (m *Manager) WithLogEmitter(fn func(tunnelID, level, msg string)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logEmitter = fn
+}
+
+// WithDNSRegistry wires the portless DNS registry into every subsequent
+// Tunnel. Forwards that aren't portless ignore it.
+func (m *Manager) WithDNSRegistry(reg *dns.Registry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.dnsRegistry = reg
 }
 
 // isAuthError returns true if the error looks like an SSH authentication failure.
@@ -74,6 +84,7 @@ func isDNSError(err error) bool {
 
 type runningTunnel struct {
 	cancel context.CancelFunc
+	done   chan struct{} // closed when runWithReconnect returns
 	status config.TunnelStatus
 	errMsg string
 }
@@ -98,14 +109,40 @@ func (m *Manager) Connect(cfg config.TunnelConfig) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	rt := &runningTunnel{cancel: cancel, status: config.StatusConnecting}
+	rt := &runningTunnel{cancel: cancel, status: config.StatusConnecting, done: make(chan struct{})}
 	m.tunnels[cfg.ID] = rt
 	m.mu.Unlock()
 
 	m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusConnecting})
 
-	go m.runWithReconnect(ctx, cancel, cfg, rt)
+	go func() {
+		defer close(rt.done)
+		m.runWithReconnect(ctx, cancel, cfg, rt)
+	}()
 
+	return nil
+}
+
+// DisconnectAndWait disconnects the tunnel and blocks until its goroutine has
+// fully exited so listeners, loopback IPs, and DNS registrations are released
+// before the caller proceeds (e.g. immediately reconnecting with new config).
+func (m *Manager) DisconnectAndWait(tunnelID string) error {
+	m.mu.Lock()
+	rt, exists := m.tunnels[tunnelID]
+	if !exists {
+		m.mu.Unlock()
+		return fmt.Errorf("tunnel %q not found in manager", tunnelID)
+	}
+	rt.cancel()
+	rt.status = config.StatusDisconnected
+	rt.errMsg = ""
+	done := rt.done
+	m.mu.Unlock()
+
+	m.emit(StatusEvent{TunnelID: tunnelID, Status: config.StatusDisconnected})
+	if done != nil {
+		<-done
+	}
 	return nil
 }
 
@@ -152,11 +189,13 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 		tunnelID := cfg.ID
 		m.mu.Lock()
 		logEmitter := m.logEmitter
+		dnsRegistry := m.dnsRegistry
 		m.mu.Unlock()
 
 		tun := &Tunnel{
 			Config:        cfg,
 			GetPassphrase: m.getPassphrase,
+			DNSRegistry:   dnsRegistry,
 			OnConnected: func() {
 				m.mu.Lock()
 				rt.status = config.StatusConnected

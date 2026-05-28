@@ -34,6 +34,10 @@ export function ConnectTunnel(arg1) {
   return window['go']['main']['App']['ConnectTunnel'](arg1);
 }
 
+export function CopyToClipboard(arg1) {
+  return window['go']['main']['App']['CopyToClipboard'](arg1);
+}
+
 export function DeleteTunnel(arg1) {
   return window['go']['main']['App']['DeleteTunnel'](arg1);
 }

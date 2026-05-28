@@ -521,6 +521,159 @@ Include `+confDir+`/*.conf
 	}
 }
 
+func TestParsePortlessMetadata(t *testing.T) {
+	input := `Host db-server
+    HostName db.example.com
+    User deploy
+    LocalForward 5432 127.0.0.1:5432
+    # stm:forward-portless=true
+    # stm:forward-domain=db.foo
+    LocalForward 6379 127.0.0.1:6379
+`
+	entries, err := parseString(input)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	pfs := entries[0].PortForwards
+	if len(pfs) != 2 {
+		t.Fatalf("PortForwards = %d, want 2", len(pfs))
+	}
+	if pfs[0].Portless || pfs[0].Domain != "" {
+		t.Errorf("first forward should not be portless: %+v", pfs[0])
+	}
+	if !pfs[1].Portless || pfs[1].Domain != "db.foo" {
+		t.Errorf("second forward = %+v, want portless=true, domain=db.foo", pfs[1])
+	}
+}
+
+func TestPortlessMetadataResetsOnUnrelatedDirective(t *testing.T) {
+	// A pending forward-portless comment must not bleed into a later
+	// LocalForward if any other directive appears in between.
+	input := `Host x
+    # stm:forward-portless=true
+    # stm:forward-domain=db.foo
+    User deploy
+    LocalForward 5432 db:5432
+`
+	entries, err := parseString(input)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := entries[0].PortForwards[0]
+	if pf.Portless || pf.Domain != "" {
+		t.Errorf("forward should have lost stale metadata: %+v", pf)
+	}
+}
+
+func TestRoundTripPortlessWithExposePort(t *testing.T) {
+	// User picks ExposePort=80 so a browser can hit traefik.foo.ssh-local
+	// without :8080 — remote service still runs on 8080. LocalPort stays
+	// independent (used by plain ssh + when portless is toggled off).
+	original := HostEntry{
+		Alias:    "web",
+		HostName: "web.example.com",
+		User:     "deploy",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{LocalPort: 8080, RemoteHost: "127.0.0.1", RemotePort: 8080, Portless: true, Domain: "traefik.web", ExposePort: 80},
+		},
+	}
+	rendered := RenderHostBlock(original)
+	if !strings.Contains(rendered, "# stm:forward-expose-port=80") {
+		t.Errorf("render missing expose-port comment:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "LocalForward 8080 127.0.0.1:8080") {
+		t.Errorf("render should keep LocalPort independent:\n%s", rendered)
+	}
+	parsed, err := parseString(rendered)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := parsed[0].PortForwards[0]
+	if !pf.Portless || pf.Domain != "traefik.web" || pf.LocalPort != 8080 || pf.ExposePort != 80 {
+		t.Errorf("round-trip mismatch: %+v", pf)
+	}
+}
+
+func TestParseLegacyForwardLocalPortKey(t *testing.T) {
+	// Backward compat: an earlier version of this feature wrote
+	// # stm:forward-local-port=80 instead of forward-expose-port.
+	input := `Host web
+    HostName web.example.com
+    # stm:forward-portless=true
+    # stm:forward-domain=traefik.web
+    # stm:forward-local-port=80
+    LocalForward 80 127.0.0.1:8080
+`
+	entries, err := parseString(input)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := entries[0].PortForwards[0]
+	if pf.ExposePort != 80 {
+		t.Errorf("legacy forward-local-port not parsed into ExposePort: %+v", pf)
+	}
+}
+
+func TestRoundTripPortlessNoExposePort(t *testing.T) {
+	// No ExposePort = use remote port. File should NOT contain the comment.
+	original := HostEntry{
+		Alias:    "web",
+		HostName: "web.example.com",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{LocalPort: 6379, RemoteHost: "127.0.0.1", RemotePort: 6379, Portless: true, Domain: "redis.web"},
+		},
+	}
+	rendered := RenderHostBlock(original)
+	if strings.Contains(rendered, "forward-expose-port") {
+		t.Errorf("render should not have expose-port comment when default:\n%s", rendered)
+	}
+	parsed, err := parseString(rendered)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := parsed[0].PortForwards[0]
+	if !pf.Portless || pf.ExposePort != 0 {
+		t.Errorf("round-trip: portless=%v ExposePort=%d, want portless=true ExposePort=0", pf.Portless, pf.ExposePort)
+	}
+}
+
+func TestRoundTripPortless(t *testing.T) {
+	original := HostEntry{
+		Alias:    "db-server",
+		HostName: "db.example.com",
+		User:     "deploy",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{LocalPort: 5432, RemoteHost: "127.0.0.1", RemotePort: 5432, Description: "plain"},
+			{LocalPort: 0, RemoteHost: "127.0.0.1", RemotePort: 6379, Portless: true, Domain: "redis.db", Description: "cache"},
+		},
+	}
+
+	rendered := RenderHostBlock(original)
+	parsed, err := parseString(rendered)
+	if err != nil {
+		t.Fatalf("parse round-trip: %v", err)
+	}
+	if len(parsed) != 1 {
+		t.Fatalf("entries = %d, want 1", len(parsed))
+	}
+	got := parsed[0].PortForwards
+	if len(got) != 2 {
+		t.Fatalf("PortForwards = %d, want 2", len(got))
+	}
+	if got[0].Portless {
+		t.Errorf("first forward = portless, want plain")
+	}
+	if !got[1].Portless || got[1].Domain != "redis.db" || got[1].Description != "cache" {
+		t.Errorf("second forward = %+v, want portless redis.db cache", got[1])
+	}
+}
+
 func TestParseFileSourceFileSet(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")

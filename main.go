@@ -12,6 +12,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/prefs"
 )
 
@@ -22,6 +23,18 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
+
+	// One-shot elevated DNS setup. Triggered when the app relaunches itself
+	// via UAC / sudo / pkexec — we install the OS resolver config and exit.
+	for _, arg := range os.Args[1:] {
+		if arg == dns.SetupArg {
+			if err := dns.RunSetup(); err != nil {
+				slog.Error("portless DNS setup failed", "error", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+	}
 
 	startHidden := false
 	for _, arg := range os.Args[1:] {

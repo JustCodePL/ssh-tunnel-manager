@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { TunnelConfig, TunnelStatus } from "../types";
+  import { PORTLESS_TLD } from "../types";
   import { connectTunnel, disconnectTunnel, deleteTunnel, setTunnelPinned } from "../stores/tunnels";
   import StatusBadge from "./StatusBadge.svelte";
+  import { CopyToClipboard } from "../../wailsjs/go/main/App";
+  import { showToast } from "../stores/toast";
   import { createEventDispatcher } from "svelte";
 
   export let tunnel: TunnelConfig;
@@ -42,6 +45,16 @@
     await setTunnelPinned(tunnel.id, !tunnel.pinned);
   }
 
+  async function handleCopyTag(text: string) {
+    try {
+      await CopyToClipboard(text);
+      showToast(`copied ${text}`, "success");
+    } catch (e) {
+      console.error("clipboard copy failed:", e);
+      showToast("clipboard copy failed", "error");
+    }
+  }
+
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
   $: isConnected = status === "connected";
   $: isError = status === "error";
@@ -69,9 +82,33 @@
       {#if tunnel.portForwards && tunnel.portForwards.length > 0}
         <div class="card-forwards">
           {#each tunnel.portForwards as pf}
-            <span class="forward-tag">
-              {pf.localPort}→{pf.remoteHost}:{pf.remotePort}
-            </span>
+            {#if pf.portless && pf.domain}
+              {@const exposePort = pf.exposePort && pf.exposePort > 0 ? pf.exposePort : pf.remotePort}
+              {@const host = `${pf.domain}.${PORTLESS_TLD}`}
+              {@const addr = exposePort === 80
+                ? `http://${host}`
+                : exposePort === 443
+                  ? `https://${host}`
+                  : `${host}:${exposePort}`}
+              <button
+                type="button"
+                class="forward-tag portless-tag"
+                on:click={() => handleCopyTag(addr)}
+                title="click to copy — portless → {pf.remoteHost}:{pf.remotePort}"
+              >
+                {addr}
+              </button>
+            {:else}
+              {@const addr = `127.0.0.1:${pf.localPort}`}
+              <button
+                type="button"
+                class="forward-tag"
+                on:click={() => handleCopyTag(addr)}
+                title="click to copy {addr} → {pf.remoteHost}:{pf.remotePort}"
+              >
+                {pf.localPort}→{pf.remoteHost}:{pf.remotePort}
+              </button>
+            {/if}
           {/each}
         </div>
       {/if}
@@ -208,6 +245,24 @@
     border: 1px solid var(--border);
     padding: 1px 5px;
     border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .forward-tag:hover {
+    background: var(--surface);
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .forward-tag.portless-tag {
+    color: var(--accent);
+    border-color: rgba(0, 255, 136, 0.4);
+  }
+
+  .forward-tag.portless-tag:hover {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--accent);
   }
 
   .card-actions {

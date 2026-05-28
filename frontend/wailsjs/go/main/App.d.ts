@@ -21,6 +21,8 @@ export function ConnectGroup(arg1:string):Promise<void>;
 
 export function ConnectTunnel(arg1:string):Promise<void>;
 
+export function CopyToClipboard(arg1:string):Promise<void>;
+
 export function DeleteTunnel(arg1:string):Promise<void>;
 
 export function DisconnectGroup(arg1:string):Promise<void>;

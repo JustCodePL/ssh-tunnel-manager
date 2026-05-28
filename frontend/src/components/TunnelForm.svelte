@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { TunnelConfig, PortForward } from "../types";
+  import { PORTLESS_TLD } from "../types";
   import { addTunnel, updateTunnel, tunnels, includedConfigFiles } from "../stores/tunnels";
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, onMount } from "svelte";
+  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 
   export let tunnel: TunnelConfig | null = null;
 
@@ -38,7 +40,21 @@
   let minimized = false;
 
   let saving = false;
+  let savingLabel = "// saving...";
   let error = "";
+
+  onMount(() => {
+    EventsOn("portless:setup-started", () => {
+      savingLabel = "// waiting for admin permission...";
+    });
+    EventsOn("portless:setup-finished", () => {
+      savingLabel = "// saving...";
+    });
+    return () => {
+      EventsOff("portless:setup-started");
+      EventsOff("portless:setup-finished");
+    };
+  });
 
   $: isEdit = tunnel !== null;
   $: hasIncludeOptions = $includedConfigFiles.length > 1;
@@ -69,6 +85,58 @@
     portForwards = portForwards.filter((_, i) => i !== index);
   }
 
+  function slugify(s: string): string {
+    return s
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  // Other portless domains in the app, excluding the forward at the given
+  // index of the current tunnel. Used for uniqueness checks and default
+  // domain generation that avoids collisions.
+  function otherDomains(skipIndex: number): Set<string> {
+    const taken = new Set<string>();
+    for (const t of $tunnels) {
+      if (tunnel && t.id === tunnel.id) continue;
+      for (const pf of t.portForwards ?? []) {
+        if (pf.portless && pf.domain) taken.add(pf.domain.toLowerCase());
+      }
+    }
+    portForwards.forEach((pf, i) => {
+      if (i === skipIndex) return;
+      if (pf.portless && pf.domain) taken.add(pf.domain.toLowerCase());
+    });
+    return taken;
+  }
+
+  function suggestDomain(index: number): string {
+    const tunnelSlug = slugify(name) || "tunnel";
+    const taken = otherDomains(index);
+    if (!taken.has(tunnelSlug)) return tunnelSlug;
+    const desc = portForwards[index]?.description;
+    if (desc) {
+      const candidate = `${slugify(desc)}.${tunnelSlug}`;
+      if (!taken.has(candidate)) return candidate;
+    }
+    let n = 1;
+    while (taken.has(`stm-${n}.${tunnelSlug}`)) n++;
+    return `stm-${n}.${tunnelSlug}`;
+  }
+
+  function togglePortless(index: number) {
+    const pf = portForwards[index];
+    pf.portless = !pf.portless;
+    if (pf.portless) {
+      if (!pf.domain) pf.domain = suggestDomain(index);
+      // Don't auto-fill the local port — for portless, empty means "use
+      // remote port", which is the most common desired behaviour. User can
+      // override (e.g. 80 so a browser doesn't need :8080 in the URL).
+    }
+    portForwards = [...portForwards];
+  }
+
   function minimize() { minimized = true; }
   function restore() { minimized = false; }
   function handleClose() { dispatch("close"); }
@@ -84,9 +152,43 @@
       error = "name cannot contain spaces (used as SSH host alias)";
       return;
     }
-    const validForwards = portForwards.filter(
-      (pf) => pf.localPort > 0 && pf.remotePort > 0
-    );
+    const validForwards = portForwards
+      .map((pf) => ({
+        ...pf,
+        localPort: Number(pf.localPort) || 0,
+        exposePort: Number(pf.exposePort) || 0,
+      }))
+      .filter((pf) => pf.remotePort > 0 && pf.localPort > 0);
+
+    const domainRe = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
+    const seenDomains = new Set<string>();
+    for (const pf of validForwards) {
+      if (!pf.portless) continue;
+      const d = (pf.domain ?? "").trim().toLowerCase();
+      if (!d) {
+        error = "portless forward requires a domain name";
+        return;
+      }
+      if (!domainRe.test(d)) {
+        error = `invalid domain "${d}" — use letters, digits, dashes, dots only`;
+        return;
+      }
+      if (seenDomains.has(d)) {
+        error = `domain "${d}" is used twice in this tunnel`;
+        return;
+      }
+      seenDomains.add(d);
+      for (const t of $tunnels) {
+        if (tunnel && t.id === tunnel.id) continue;
+        for (const opf of t.portForwards ?? []) {
+          if (opf.portless && (opf.domain ?? "").toLowerCase() === d) {
+            error = `domain "${d}" is already used by tunnel "${t.name}"`;
+            return;
+          }
+        }
+      }
+      pf.domain = d;
+    }
 
     saving = true;
     try {
@@ -249,39 +351,73 @@
           <button type="button" class="link-btn" on:click={addPortForward}>+ add</button>
         </div>
         {#each portForwards as pf, i}
-          <div class="forward-row">
-            <input
-              type="number"
-              bind:value={pf.localPort}
-              class="field-input port-input"
-              placeholder="local"
-              min="1"
-              max="65535"
-            />
-            <span class="arrow">→</span>
-            <input
-              type="text"
-              bind:value={pf.remoteHost}
-              class="field-input"
-              placeholder="127.0.0.1"
-            />
-            <span class="colon">:</span>
-            <input
-              type="number"
-              bind:value={pf.remotePort}
-              class="field-input port-input"
-              placeholder="remote"
-              min="1"
-              max="65535"
-            />
-            <button type="button" class="remove-btn" on:click={() => removePortForward(i)}>×</button>
+          <div class="forward-block">
+            <div class="forward-block-head">
+              <input
+                type="text"
+                bind:value={pf.description}
+                class="field-input desc-input"
+                placeholder="description (optional)"
+              />
+              <button type="button" class="remove-btn" on:click={() => removePortForward(i)} title="remove">×</button>
+            </div>
+            <div class="forward-row">
+              <input
+                type="number"
+                bind:value={pf.localPort}
+                class="field-input port-input"
+                placeholder="local"
+                min="1"
+                max="65535"
+                title="local listen port on 127.0.0.1 (used when portless is off, and as fallback for plain ssh from a terminal)"
+              />
+              <span class="arrow">→</span>
+              <input
+                type="text"
+                bind:value={pf.remoteHost}
+                class="field-input"
+                placeholder="127.0.0.1"
+              />
+              <span class="colon">:</span>
+              <input
+                type="number"
+                bind:value={pf.remotePort}
+                class="field-input port-input"
+                placeholder="remote"
+                min="1"
+                max="65535"
+              />
+            </div>
+            <div class="portless-row">
+              <label class="portless-toggle" on:click|preventDefault={() => togglePortless(i)}>
+                <span class="hacker-check small" class:checked={pf.portless}>
+                  {#if pf.portless}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+                </span>
+                <span class="portless-text" class:active={pf.portless}>portless</span>
+              </label>
+              {#if pf.portless}
+                <input
+                  type="text"
+                  bind:value={pf.domain}
+                  class="field-input domain-input"
+                  placeholder="domain"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <span class="tld-suffix">.{PORTLESS_TLD}</span>
+                <span class="port-sep">:</span>
+                <input
+                  type="number"
+                  bind:value={pf.exposePort}
+                  class="field-input expose-input"
+                  placeholder="auto"
+                  min="0"
+                  max="65535"
+                  title="optional — empty/0 = use remote port. Set e.g. 80 so a browser can hit the domain without :port."
+                />
+              {/if}
+            </div>
           </div>
-          <input
-            type="text"
-            bind:value={pf.description}
-            class="field-input desc-input"
-            placeholder="description"
-          />
         {/each}
       </div>
 
@@ -334,7 +470,7 @@
         on:click={handleSubmit}
         disabled={saving}
       >
-        {saving ? "// saving..." : isEdit ? "[ update ]" : "[ add tunnel ]"}
+        {saving ? savingLabel : isEdit ? "[ update ]" : "[ add tunnel ]"}
       </button>
     </div>
   </div>
@@ -428,8 +564,27 @@
     justify-content: center;
   }
 
-  .forwards-header { display: flex; align-items: center; justify-content: space-between; }
-  .forward-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+  .forwards-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .forward-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--border);
+    border-radius: 2px;
+    transition: border-left-color 0.15s;
+  }
+  .forward-block:focus-within { border-left-color: var(--accent); }
+  .forward-block-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .forward-block-head .desc-input { flex: 1; margin: 0; }
+  .forward-row { display: flex; align-items: center; gap: 4px; }
   .port-input { width: 70px; flex-shrink: 0; }
   .arrow, .colon { color: var(--muted); font-size: 11px; flex-shrink: 0; }
   .remove-btn {
@@ -437,13 +592,45 @@
     border: none;
     color: var(--muted);
     cursor: pointer;
-    font-size: 14px;
-    padding: 0 2px;
+    font-size: 16px;
+    padding: 0 4px;
     flex-shrink: 0;
     transition: color 0.15s;
+    line-height: 1;
   }
   .remove-btn:hover { color: #ff4444; }
-  .desc-input { margin-bottom: 4px; font-size: 10px; color: var(--muted); }
+  .desc-input { font-size: 10px; color: var(--muted); }
+
+  .port-input.dimmed { opacity: 0.4; }
+
+  .portless-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .portless-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    user-select: none;
+    color: var(--muted);
+  }
+  .portless-toggle:hover .check-empty { color: var(--text); }
+  .portless-toggle:hover .portless-text:not(.active) { color: var(--text); }
+  .portless-text { transition: color 0.15s; }
+  .portless-text.active { color: var(--accent); }
+  .hacker-check.small { width: 13px; height: 13px; font-size: 11px; }
+  .domain-input { font-size: 10px; flex: 1; min-width: 80px; }
+  .expose-input { font-size: 10px; width: 60px; flex-shrink: 0; }
+  .tld-suffix, .port-sep {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
 
   .link-btn {
     background: transparent;

@@ -6,6 +6,7 @@
   import ImportDialog from "./components/ImportDialog.svelte";
   import PassphraseDialog from "./components/PassphraseDialog.svelte";
   import SettingsPanel from "./components/SettingsPanel.svelte";
+  import ToastContainer from "./components/ToastContainer.svelte";
   import { loadTunnels, initEventListeners, tunnels, exportTunnels } from "./stores/tunnels";
   import { EventsOn } from "../wailsjs/runtime/runtime";
 
@@ -89,6 +90,8 @@
       </div>
     </div>
   {/if}
+
+  <ToastContainer />
 
   {#if passphraseKeyPath}
     <PassphraseDialog
