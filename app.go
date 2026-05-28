@@ -117,6 +117,8 @@ func (a *App) startup(ctx context.Context) {
 		runtime.WindowShow(a.ctx)
 	}
 
+	go a.autoConnectTunnels()
+
 	go func() {
 		info, err := updater.Check(ctx, Version, "JustCodePL/ssh-tunnel-manager")
 		if err != nil {
@@ -133,6 +135,24 @@ func (a *App) startup(ctx context.Context) {
 		runtime.EventsEmit(a.ctx, "updater:update-available", info)
 		a.tray.SetUpdateAvailable(info.LatestVersion)
 	}()
+}
+
+// autoConnectTunnels fires off a Connect for every tunnel marked
+// AutoConnect=true. ConnectTunnel spawns a goroutine per tunnel and returns
+// immediately, so iterating sequentially is fine — the dials run in parallel
+// behind the manager. Portless tunnels share the embedded DNS server; the
+// first one in the loop pays the EnsureSystemConfigured cost, the rest hit
+// the idempotent fast path.
+func (a *App) autoConnectTunnels() {
+	for _, t := range a.store.GetTunnels() {
+		if !t.AutoConnect {
+			continue
+		}
+		slog.Info("auto-connecting tunnel", "id", t.ID, "name", t.Name)
+		if err := a.ConnectTunnel(t.ID); err != nil {
+			slog.Warn("auto-connect failed", "id", t.ID, "error", err)
+		}
+	}
 }
 
 // shutdown is called by Wails when the application is closing.
