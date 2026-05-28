@@ -283,14 +283,15 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 	}
 	for _, pf := range t.PortForwards {
 		e.PortForwards = append(e.PortForwards, sshconfig.PortForwardEntry{
-			LocalPort:   pf.LocalPort,
-			RemoteHost:  pf.RemoteHost,
-			RemotePort:  pf.RemotePort,
-			Description: pf.Description,
-			Portless:    pf.Portless,
-			Domain:      pf.Domain,
-			ExposePort:  pf.ExposePort,
-			HostHeader:  pf.HostHeader,
+			LocalPort:     pf.LocalPort,
+			RemoteHost:    pf.RemoteHost,
+			RemotePort:    pf.RemotePort,
+			Description:   pf.Description,
+			Portless:      pf.Portless,
+			Domain:        pf.Domain,
+			ExposePort:    pf.ExposePort,
+			HostHeader:    pf.HostHeader,
+			HostHeaderOff: pf.HostHeaderOff,
 		})
 	}
 	return e
@@ -315,14 +316,15 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 	}
 	for _, pf := range e.PortForwards {
 		t.PortForwards = append(t.PortForwards, PortForward{
-			LocalPort:   pf.LocalPort,
-			RemoteHost:  pf.RemoteHost,
-			RemotePort:  pf.RemotePort,
-			Description: pf.Description,
-			Portless:    pf.Portless,
-			Domain:      pf.Domain,
-			ExposePort:  pf.ExposePort,
-			HostHeader:  pf.HostHeader,
+			LocalPort:     pf.LocalPort,
+			RemoteHost:    pf.RemoteHost,
+			RemotePort:    pf.RemotePort,
+			Description:   pf.Description,
+			Portless:      pf.Portless,
+			Domain:        pf.Domain,
+			ExposePort:    pf.ExposePort,
+			HostHeader:    pf.HostHeader,
+			HostHeaderOff: pf.HostHeaderOff,
 		})
 	}
 	return t

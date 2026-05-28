@@ -54,6 +54,16 @@ func TestEffectiveHostHeader(t *testing.T) {
 			pf:   config.PortForward{Portless: false, RemoteHost: "dev.mix-dev.com"},
 			want: "",
 		},
+		{
+			name: "HostHeaderOff disables explicit header",
+			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com", HostHeaderOff: true},
+			want: "",
+		},
+		{
+			name: "HostHeaderOff disables FQDN auto-rule",
+			pf:   config.PortForward{Portless: true, RemoteHost: "dev.mix-dev.com", HostHeaderOff: true},
+			want: "",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

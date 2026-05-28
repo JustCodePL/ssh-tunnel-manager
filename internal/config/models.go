@@ -36,15 +36,21 @@ const (
 // behind a host-routing reverse proxy "just works"). Empty + non-FQDN remote
 // keeps raw TCP — the browser's Host header (e.g. db.ssh-local) is sent
 // through unchanged.
+//
+// HostHeaderOff opts out of the rewrite entirely (raw TCP), even when the
+// FQDN auto-rule would otherwise kick in. UI default is the override-on
+// state, so this flag only appears in ~/.ssh/config when the user has
+// explicitly disabled it.
 type PortForward struct {
-	LocalPort   int    `json:"localPort"`
-	RemoteHost  string `json:"remoteHost"`
-	RemotePort  int    `json:"remotePort"`
-	Description string `json:"description"`
-	Portless    bool   `json:"portless,omitempty"`
-	Domain      string `json:"domain,omitempty"`
-	ExposePort  int    `json:"exposePort,omitempty"`
-	HostHeader  string `json:"hostHeader,omitempty"`
+	LocalPort     int    `json:"localPort"`
+	RemoteHost    string `json:"remoteHost"`
+	RemotePort    int    `json:"remotePort"`
+	Description   string `json:"description"`
+	Portless      bool   `json:"portless,omitempty"`
+	Domain        string `json:"domain,omitempty"`
+	ExposePort    int    `json:"exposePort,omitempty"`
+	HostHeader    string `json:"hostHeader,omitempty"`
+	HostHeaderOff bool   `json:"hostHeaderOff,omitempty"`
 }
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.

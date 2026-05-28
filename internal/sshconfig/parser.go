@@ -14,14 +14,15 @@ import (
 // up from "# stm:forward-..." comments placed on the lines immediately above
 // the LocalForward.
 type PortForwardEntry struct {
-	LocalPort   int
-	RemoteHost  string
-	RemotePort  int
-	Description string
-	Portless    bool
-	Domain      string
-	ExposePort  int
-	HostHeader  string
+	LocalPort     int
+	RemoteHost    string
+	RemotePort    int
+	Description   string
+	Portless      bool
+	Domain        string
+	ExposePort    int
+	HostHeader    string
+	HostHeaderOff bool
 }
 
 // HostEntry holds the parsed fields of a single Host block in an SSH config
@@ -149,6 +150,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var pendingFwdDomain string
 	var pendingFwdExposePort int
 	var pendingFwdHostHeader string
+	var pendingFwdHostHeaderOff bool
 	inMatch := false
 
 	resetPendingForward := func() {
@@ -156,6 +158,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 		pendingFwdDomain = ""
 		pendingFwdExposePort = 0
 		pendingFwdHostHeader = ""
+		pendingFwdHostHeaderOff = false
 	}
 
 	for scanner.Scan() {
@@ -186,6 +189,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				}
 			case "forward-host-header":
 				pendingFwdHostHeader = val
+			case "forward-host-header-off":
+				pendingFwdHostHeaderOff = val == "true"
 			}
 			continue
 		}
@@ -279,6 +284,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				pf.Domain = pendingFwdDomain
 				pf.ExposePort = pendingFwdExposePort
 				pf.HostHeader = pendingFwdHostHeader
+				pf.HostHeaderOff = pendingFwdHostHeaderOff
 				current.PortForwards = append(current.PortForwards, pf)
 			}
 			resetPendingForward()
@@ -357,6 +363,9 @@ func RenderHostBlock(e HostEntry) string {
 		}
 		if pf.HostHeader != "" {
 			fmt.Fprintf(&b, "    # stm:forward-host-header=%s\n", pf.HostHeader)
+		}
+		if pf.HostHeaderOff {
+			b.WriteString("    # stm:forward-host-header-off=true\n")
 		}
 		// LocalForward needs a numeric port — use LocalPort if set, otherwise
 		// fall back to RemotePort so the line stays valid for plain `ssh`

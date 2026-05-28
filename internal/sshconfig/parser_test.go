@@ -722,6 +722,44 @@ func TestRenderNoHostHeaderWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestRoundTripHostHeaderOff(t *testing.T) {
+	original := HostEntry{
+		Alias:    "x",
+		HostName: "x.example.com",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{LocalPort: 80, RemoteHost: "dev.example.com", RemotePort: 80, Portless: true, Domain: "x", HostHeaderOff: true},
+		},
+	}
+	rendered := RenderHostBlock(original)
+	if !strings.Contains(rendered, "# stm:forward-host-header-off=true") {
+		t.Errorf("render missing host-header-off comment:\n%s", rendered)
+	}
+	parsed, err := parseString(rendered)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := parsed[0].PortForwards[0]
+	if !pf.HostHeaderOff {
+		t.Errorf("round-trip HostHeaderOff = false, want true")
+	}
+}
+
+func TestRenderNoHostHeaderOffWhenFalse(t *testing.T) {
+	e := HostEntry{
+		Alias:    "x",
+		HostName: "x.example.com",
+		Port:     22,
+		PortForwards: []PortForwardEntry{
+			{LocalPort: 80, RemoteHost: "127.0.0.1", RemotePort: 80, Portless: true, Domain: "x"},
+		},
+	}
+	rendered := RenderHostBlock(e)
+	if strings.Contains(rendered, "forward-host-header-off") {
+		t.Errorf("render should not emit host-header-off comment when default:\n%s", rendered)
+	}
+}
+
 func TestHostHeaderResetBetweenForwards(t *testing.T) {
 	// host-header comment must not bleed into a later LocalForward.
 	input := `Host x

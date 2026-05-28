@@ -143,6 +143,12 @@
     return looksLikeFQDN(pf.remoteHost) ? pf.remoteHost : "";
   }
 
+  function toggleHostHeaderOff(index: number) {
+    const pf = portForwards[index];
+    pf.hostHeaderOff = !pf.hostHeaderOff;
+    portForwards = [...portForwards];
+  }
+
   function openPfSettings(index: number) {
     pfSettingsIndex = index;
   }
@@ -184,6 +190,7 @@
         localPort: Number(pf.localPort) || 0,
         exposePort: Number(pf.exposePort) || 0,
         hostHeader: (pf.hostHeader ?? "").trim() || undefined,
+        hostHeaderOff: pf.hostHeaderOff ? true : undefined,
       }))
       .filter((pf) => pf.remotePort > 0 && pf.localPort > 0);
 
@@ -389,9 +396,9 @@
               <button
                 type="button"
                 class="gear-btn"
-                class:active={pf.hostHeader}
+                class:active={pf.hostHeader || pf.hostHeaderOff}
                 on:click={() => openPfSettings(i)}
-                title={pf.hostHeader ? `Host header: ${pf.hostHeader}` : "Forward settings"}
+                title={pf.hostHeaderOff ? "Host header override: disabled" : (pf.hostHeader ? `Host header: ${pf.hostHeader}` : "Forward settings")}
               >⚙</button>
               <button type="button" class="remove-btn" on:click={() => removePortForward(i)} title="remove">×</button>
             </div>
@@ -519,28 +526,39 @@
       </div>
       <div class="pf-modal-body">
         <div class="field">
-          <label class="field-label">host header</label>
+          <div class="pf-modal-label-row">
+            <label class="pf-modal-label">Host header override</label>
+            <label class="pf-modal-toggle" on:click|preventDefault={() => pfSettingsIndex !== null && toggleHostHeaderOff(pfSettingsIndex)}>
+              <span class="hacker-check small" class:checked={!portForwards[pfSettingsIndex].hostHeaderOff}>
+                {#if !portForwards[pfSettingsIndex].hostHeaderOff}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+              </span>
+              <span class="pf-toggle-text" class:active={!portForwards[pfSettingsIndex].hostHeaderOff}>enabled</span>
+            </label>
+          </div>
           <input
             type="text"
-            class="field-input"
+            class="field-input pf-modal-input"
             placeholder={autoHostHeader(portForwards[pfSettingsIndex]) ? `auto: ${autoHostHeader(portForwards[pfSettingsIndex])}` : "(none — Host header passes through)"}
             bind:value={portForwards[pfSettingsIndex].hostHeader}
+            disabled={portForwards[pfSettingsIndex].hostHeaderOff}
             autocomplete="off"
             spellcheck="false"
           />
-          {#if portForwards[pfSettingsIndex].portless}
-            <p class="hint">
+          {#if portForwards[pfSettingsIndex].hostHeaderOff}
+            <p class="pf-modal-hint">disabled — raw TCP, browser's Host header passes through unchanged</p>
+          {:else if portForwards[pfSettingsIndex].portless}
+            <p class="pf-modal-hint">
               {#if portForwards[pfSettingsIndex].hostHeader}
-                upstream receives <code>Host: {portForwards[pfSettingsIndex].hostHeader}</code>
+                upstream receives <span class="pf-modal-code">Host: {portForwards[pfSettingsIndex].hostHeader}</span>
               {:else if autoHostHeader(portForwards[pfSettingsIndex])}
-                empty → auto-rewrites to <code>{autoHostHeader(portForwards[pfSettingsIndex])}</code> (FQDN remote host)
+                empty → auto-rewrites to <span class="pf-modal-code">{autoHostHeader(portForwards[pfSettingsIndex])}</span> (FQDN remote host)
               {:else}
-                empty → no rewrite. Browser's <code>{portForwards[pfSettingsIndex].domain || "<domain>"}.ssh-local</code> passes through.
+                empty → no rewrite. Browser's <span class="pf-modal-code">{portForwards[pfSettingsIndex].domain || "<domain>"}.ssh-local</span> passes through.
               {/if}
             </p>
-            <p class="hint">use when a remote reverse proxy (Traefik, nginx, Portainer) routes by Host header. HTTP only.</p>
+            <p class="pf-modal-hint">use when a remote reverse proxy (Traefik, nginx, Portainer) routes by Host header. HTTP only.</p>
           {:else}
-            <p class="hint warning">host header only applies in portless mode</p>
+            <p class="pf-modal-hint warning">host header only applies in portless mode</p>
           {/if}
         </div>
       </div>
@@ -859,14 +877,51 @@
     border-top: 1px solid var(--border);
     background: #0d0d0d;
   }
-  .hint code {
+  .pf-modal-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .pf-modal-label {
+    font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
-    color: var(--accent);
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .pf-modal-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    user-select: none;
+    color: var(--muted);
+  }
+  .pf-modal-toggle:hover .check-empty { color: var(--text); }
+  .pf-modal-toggle:hover .pf-toggle-text:not(.active) { color: var(--text); }
+  .pf-toggle-text { transition: color 0.15s; }
+  .pf-toggle-text.active { color: var(--text); }
+  .pf-modal-input { color: var(--text); }
+  .pf-modal-input:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pf-modal-hint {
+    font-size: 10px;
+    color: var(--muted);
+    margin: 6px 0 0;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.4;
+  }
+  .pf-modal-code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
     padding: 0 4px;
     border-radius: 2px;
   }
-  .hint.warning { color: #f97316; }
+  .pf-modal-hint.warning { color: #f97316; }
 
   .restore-pill {
     position: fixed;

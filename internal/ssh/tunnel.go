@@ -477,10 +477,14 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 }
 
 // effectiveHostHeader returns the Host header value to send upstream, or ""
-// to keep raw TCP forwarding. Explicit HostHeader always wins. Otherwise
-// portless + FQDN-looking RemoteHost (e.g. "dev.mix-dev.com") auto-uses the
-// remote host so jumphost-routed services like Portainer "just work".
+// to keep raw TCP forwarding. HostHeaderOff disables the rewrite entirely.
+// Otherwise explicit HostHeader wins; failing that, portless + FQDN-looking
+// RemoteHost (e.g. "dev.mix-dev.com") auto-uses the remote host so
+// jumphost-routed services like Portainer "just work".
 func effectiveHostHeader(pf config.PortForward) string {
+	if pf.HostHeaderOff {
+		return ""
+	}
 	if pf.HostHeader != "" {
 		return pf.HostHeader
 	}
