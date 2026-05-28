@@ -518,7 +518,7 @@
 </div>
 
 {#if pfSettingsIndex !== null && portForwards[pfSettingsIndex]}
-  <div class="pf-modal-overlay" on:click|self={closePfSettings}>
+  <div class="pf-modal-overlay" on:mousedown|self={closePfSettings}>
     <div class="pf-modal">
       <div class="pf-modal-head">
         <span class="pf-modal-title">forward settings</span>
