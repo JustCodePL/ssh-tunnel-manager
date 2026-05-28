@@ -17,6 +17,11 @@ const (
 	initialBackoff = 1 * time.Second
 	maxBackoff     = 60 * time.Second
 	backoffFactor  = 2.0
+	// disconnectTimeout caps how long DisconnectAndWait blocks waiting for the
+	// tunnel's goroutine to fully exit. Tunnel.Connect already has its own
+	// shorter shutdown timeout; this is a belt-and-suspenders bound so the
+	// UpdateTunnel flow (which the UI awaits) cannot wedge.
+	disconnectTimeout = 10 * time.Second
 )
 
 // StatusEvent is emitted when a tunnel's status changes.
@@ -141,7 +146,12 @@ func (m *Manager) DisconnectAndWait(tunnelID string) error {
 
 	m.emit(StatusEvent{TunnelID: tunnelID, Status: config.StatusDisconnected})
 	if done != nil {
-		<-done
+		select {
+		case <-done:
+		case <-time.After(disconnectTimeout):
+			slog.Warn("DisconnectAndWait timed out; returning anyway",
+				"tunnel", tunnelID, "timeout", disconnectTimeout)
+		}
 	}
 	return nil
 }

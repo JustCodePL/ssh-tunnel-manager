@@ -27,6 +27,12 @@ import (
 const (
 	keepAliveInterval = 30 * time.Second
 	keepAliveTimeout  = 10 * time.Second
+	// shutdownTimeout caps how long Tunnel.Connect waits for its port-forward
+	// and keep-alive goroutines to finish after ctx is cancelled and the SSH
+	// client has been closed. If we hit this, we log a warning and return so
+	// the UI ("saving..." spinner during UpdateTunnel) doesn't lock up. Stray
+	// goroutines wake up and clean themselves up shortly after.
+	shutdownTimeout = 5 * time.Second
 )
 
 // PassphraseFunc is called when an encrypted key needs a passphrase.
@@ -132,7 +138,23 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 	// wg.Wait below can deadlock waiting for keepAlive to notice the ctx
 	// cancellation.
 	_ = client.Close()
-	wg.Wait()
+
+	// Bounded wait — portless forwards in HTTP-proxy mode can occasionally
+	// take a moment to drain in-flight requests, and on Windows Accept on
+	// 127.0.1.x loopback IPs has been observed to stall briefly after the
+	// listener is closed. Don't let that block the caller (UpdateTunnel save
+	// → UI spinner) forever.
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(shutdownTimeout):
+		slog.Warn("tunnel shutdown timed out; goroutines may finish later",
+			"tunnel", t.Config.Name, "timeout", shutdownTimeout)
+	}
 	return ctx.Err()
 }
 
@@ -525,8 +547,31 @@ func (t *Tunnel) serveHTTPProxy(ctx context.Context, client *ssh.Client, listene
 			req.Host = hostHeader
 		},
 		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, addr string) (net.Conn, error) {
-				return client.Dial("tcp", addr)
+			// ssh.Client.Dial has no ctx variant, so we race it against the
+			// caller's ctx. On disconnect (Server.Close cancels in-flight req
+			// contexts), an open SSH channel dial returns promptly instead of
+			// holding up shutdown.
+			DialContext: func(dialCtx context.Context, _, addr string) (net.Conn, error) {
+				type result struct {
+					c   net.Conn
+					err error
+				}
+				ch := make(chan result, 1)
+				go func() {
+					c, err := client.Dial("tcp", addr)
+					ch <- result{c, err}
+				}()
+				select {
+				case r := <-ch:
+					return r.c, r.err
+				case <-dialCtx.Done():
+					go func() {
+						if r := <-ch; r.c != nil {
+							r.c.Close()
+						}
+					}()
+					return nil, dialCtx.Err()
+				}
 			},
 			DisableKeepAlives: true,
 		},
