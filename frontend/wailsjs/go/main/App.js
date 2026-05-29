@@ -6,6 +6,10 @@ export function AddTunnel(arg1) {
   return window['go']['main']['App']['AddTunnel'](arg1);
 }
 
+export function AuthorizePrivilegedBind(arg1) {
+  return window['go']['main']['App']['AuthorizePrivilegedBind'](arg1);
+}
+
 export function CancelSFTPTransfer(arg1) {
   return window['go']['main']['App']['CancelSFTPTransfer'](arg1);
 }

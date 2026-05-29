@@ -16,6 +16,7 @@ import (
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/keychain"
+	"ssh-tunnel-manager/internal/netcap"
 	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/ssh"
 	"ssh-tunnel-manager/internal/sshconfig"
@@ -95,6 +96,20 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 				"entry":    entry,
 			})
 		}
+	})
+	app.manager.WithBindErrorEmitter(func(e ssh.PortlessBindError) {
+		// A log line alone isn't enough — desktop users don't read journalctl.
+		// Surface it both as an in-app banner and a desktop notification.
+		if app.ctx != nil {
+			runtime.EventsEmit(app.ctx, "portless:bind-failed", e)
+		}
+		title := "Portless forward failed"
+		body := e.Message
+		if e.NeedsCapability {
+			title = "Portless needs permission"
+			body = e.Message + " Open the app to authorize."
+		}
+		app.tray.Notify(title, body)
 	})
 	app.tray = tray.New(tray.Callbacks{
 		ShowWindow: func() { app.showWindow() },
@@ -294,6 +309,29 @@ func (a *App) ConnectTunnel(id string) error {
 		}
 	}
 	return a.manager.Connect(cfg)
+}
+
+// AuthorizePrivilegedBind grants this binary CAP_NET_BIND_SERVICE (Linux only)
+// via a one-time PolicyKit prompt, so portless forwards can bind privileged
+// ports like :80. If tunnelID is non-empty, the tunnel is reconnected
+// afterwards so the previously-failed forward comes up without manual steps.
+func (a *App) AuthorizePrivilegedBind(tunnelID string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locating current executable: %w", err)
+	}
+	if err := netcap.Authorize(a.ctx, exe); err != nil {
+		return err
+	}
+	slog.Info("portless: CAP_NET_BIND_SERVICE granted", "exe", exe)
+
+	if tunnelID == "" {
+		return nil
+	}
+	// The SSH connection may still be up with only the portless listener dead,
+	// so a clean disconnect + reconnect is the reliable way to re-bind.
+	_ = a.manager.DisconnectAndWait(tunnelID)
+	return a.ConnectTunnel(tunnelID)
 }
 
 func tunnelHasPortless(cfg config.TunnelConfig) bool {

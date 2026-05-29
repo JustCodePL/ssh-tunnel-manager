@@ -110,6 +110,13 @@ func (t *Tray) HandleStatusEvent(event ssh.StatusEvent) {
 	}
 }
 
+// Notify sends a desktop notification. Used for out-of-band events that aren't
+// a status transition (e.g. a portless forward failing to bind a privileged
+// port on Linux).
+func (t *Tray) Notify(title, body string) {
+	notify(title, body)
+}
+
 // SetUpdateAvailable stores the version and rebuilds the menu to show an update item.
 func (t *Tray) SetUpdateAvailable(version string) {
 	t.mu.Lock()

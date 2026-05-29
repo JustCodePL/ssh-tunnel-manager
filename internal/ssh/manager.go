@@ -35,6 +35,21 @@ type StatusEvent struct {
 // The App layer wires this to Wails runtime.EventsEmit.
 type EventEmitter func(event StatusEvent)
 
+// PortlessBindError describes a portless forward that failed to bind its local
+// listener. NeedsCapability flags the Linux privileged-port case, where
+// SetcapCommand holds the exact command to grant CAP_NET_BIND_SERVICE.
+type PortlessBindError struct {
+	TunnelID        string `json:"tunnelId"`
+	Domain          string `json:"domain"`
+	Port            int    `json:"port"`
+	Message         string `json:"message"`
+	NeedsCapability bool   `json:"needsCapability"`
+	SetcapCommand   string `json:"setcapCommand,omitempty"`
+}
+
+// BindErrorEmitter is called when a portless forward can't bind its listener.
+type BindErrorEmitter func(err PortlessBindError)
+
 // Manager tracks running tunnels, one goroutine per tunnel.
 type Manager struct {
 	mu            sync.Mutex
@@ -42,7 +57,15 @@ type Manager struct {
 	emitter       EventEmitter
 	getPassphrase PassphraseFunc
 	logEmitter    func(tunnelID, level, msg string)
+	bindErrEmit   BindErrorEmitter
 	dnsRegistry   *dns.Registry
+}
+
+// WithBindErrorEmitter sets a callback that receives portless bind failures.
+func (m *Manager) WithBindErrorEmitter(fn BindErrorEmitter) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.bindErrEmit = fn
 }
 
 // WithLogEmitter sets a callback that receives per-tunnel log entries.
@@ -199,6 +222,7 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 		tunnelID := cfg.ID
 		m.mu.Lock()
 		logEmitter := m.logEmitter
+		bindErrEmit := m.bindErrEmit
 		dnsRegistry := m.dnsRegistry
 		m.mu.Unlock()
 
@@ -206,6 +230,7 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 			Config:        cfg,
 			GetPassphrase: m.getPassphrase,
 			DNSRegistry:   dnsRegistry,
+			OnBindError:   bindErrEmit,
 			OnConnected: func() {
 				m.mu.Lock()
 				rt.status = config.StatusConnected

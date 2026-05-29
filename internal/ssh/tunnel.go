@@ -3,6 +3,7 @@ package ssh
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -16,12 +17,14 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
+	"ssh-tunnel-manager/internal/netcap"
 )
 
 const (
@@ -46,6 +49,10 @@ type Tunnel struct {
 	OnConnected   func() // called after SSH dial succeeds, before blocking
 	GetPassphrase PassphraseFunc
 	LogFunc       func(level, msg string) // optional: called for connection events
+	// OnBindError is called when a portless forward cannot bind its listener.
+	// The App layer surfaces it to the user (banner + tray) — most importantly
+	// the Linux privileged-port case that needs CAP_NET_BIND_SERVICE.
+	OnBindError func(PortlessBindError)
 	// DNSRegistry is consulted for portless forwards to allocate a loopback
 	// IP and register the *.ssh-local domain. nil disables portless mode.
 	DNSRegistry *dns.Registry
@@ -394,6 +401,42 @@ func expandProxyCommand(cmd string, host string, port int, user string) string {
 	return b.String()
 }
 
+// reportBindError logs a portless bind failure and notifies the App layer.
+// The Linux privileged-port case (EACCES on a port below
+// net.ipv4.ip_unprivileged_port_start) gets a specific, actionable message
+// naming CAP_NET_BIND_SERVICE and the exact setcap command for this binary.
+func (t *Tunnel) reportBindError(pf config.PortForward, port int, lastErr error) {
+	be := PortlessBindError{
+		TunnelID: t.Config.ID,
+		Domain:   pf.Domain,
+		Port:     port,
+	}
+
+	if errors.Is(lastErr, syscall.EACCES) && netcap.IsPrivilegedPort(port) {
+		selfPath, err := os.Executable()
+		if err != nil {
+			selfPath = "ssh-tunnel-manager"
+		}
+		be.NeedsCapability = true
+		be.SetcapCommand = netcap.SetcapCommand(selfPath)
+		be.Message = fmt.Sprintf(
+			"Portless %q can't bind privileged port %d — on Linux this needs the %s capability.",
+			pf.Domain, port, netcap.CapName)
+		t.log("error", be.Message+" Grant it once: "+be.SetcapCommand)
+		slog.Error("portless bind denied: missing CAP_NET_BIND_SERVICE",
+			"tunnel", t.Config.Name, "domain", pf.Domain, "port", port, "setcap", be.SetcapCommand)
+	} else {
+		be.Message = fmt.Sprintf("Portless bind failed for %q: %v", pf.Domain, lastErr)
+		t.log("error", be.Message)
+		slog.Error("portless bind exhausted retries",
+			"tunnel", t.Config.Name, "domain", pf.Domain, "error", lastErr)
+	}
+
+	if t.OnBindError != nil {
+		t.OnBindError(be)
+	}
+}
+
 func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.PortForward) {
 	var listener net.Listener
 	var localAddr string
@@ -437,14 +480,20 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 				break
 			}
 			lastErr = lnErr
+			// A privileged-port permission error is not the loopback IP's fault
+			// — every IP will fail the same way. Stop retrying immediately and
+			// let the EACCES handler below explain the capability requirement.
+			if errors.Is(lnErr, syscall.EACCES) && netcap.IsPrivilegedPort(exposePort) {
+				t.DNSRegistry.Release(pf.Domain)
+				break
+			}
 			slog.Warn("portless bind retry", "tunnel", t.Config.Name, "addr", addr, "error", lnErr)
 			t.log("warn", fmt.Sprintf("Portless: %s in use, trying another IP", addr))
 			t.DNSRegistry.Block(e.IP)
 			t.DNSRegistry.Release(pf.Domain)
 		}
 		if listener == nil {
-			t.log("error", fmt.Sprintf("Portless bind failed after %d attempts: %v", maxAttempts, lastErr))
-			slog.Error("portless bind exhausted retries", "tunnel", t.Config.Name, "domain", pf.Domain, "error", lastErr)
+			t.reportBindError(pf, exposePort, lastErr)
 			return
 		}
 		defer t.DNSRegistry.Release(pf.Domain)
