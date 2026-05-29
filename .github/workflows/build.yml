@@ -212,14 +212,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # actions/checkout v4 does not download annotated-tag objects by
-          # default — without this, %(contents) falls back to the tagged
-          # commit's subject and the release body ends up showing the last
-          # commit message instead of the tag annotation.
-          fetch-tags: true
 
       - name: Extract release notes from tag message
         run: |
+          # actions/checkout resolves the workflow's tag ref by force-fetching
+          # the tagged commit into refs/tags/<tag>, which clobbers the annotated
+          # tag object with a lightweight ref. %(contents) on a lightweight tag
+          # yields the commit subject, so the release body would otherwise show
+          # the last commit message. Re-fetch the annotated tag object first.
+          git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
           git tag -l --format='%(contents)' "${{ github.ref_name }}" > release-notes.md
           cat release-notes.md
 
