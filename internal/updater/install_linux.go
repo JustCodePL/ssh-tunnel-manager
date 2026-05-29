@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"ssh-tunnel-manager/internal/netcap"
 )
 
 const platformAsset = "ssh-tunnel-manager-linux-amd64.tar.gz"
@@ -49,6 +51,15 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 		return fmt.Errorf("locating current executable: %w", err)
 	}
 
+	// Capabilities are an attribute of the inode, so the freshly extracted
+	// binary has empty caps. If the running binary had CAP_NET_BIND_SERVICE
+	// (granted for portless mode), portless privileged-port binds would
+	// silently break after the swap. Remember whether to restore it.
+	hadBindCap, err := netcap.HasBindServiceCapability(currentPath)
+	if err != nil {
+		slog.Warn("updater: could not read current binary capabilities", "error", err)
+	}
+
 	backupPath := currentPath + ".backup"
 	if err := os.Rename(currentPath, backupPath); err != nil {
 		return fmt.Errorf("backing up current binary: %w", err)
@@ -67,7 +78,27 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 	defer os.Remove(backupPath)
 
 	slog.Info("updater: binary replaced", "path", currentPath)
+
+	if hadBindCap {
+		restorePrivilegedBindCapability(ctx, currentPath)
+	}
 	return nil
+}
+
+// restorePrivilegedBindCapability re-grants CAP_NET_BIND_SERVICE to the
+// freshly installed binary so portless mode keeps working after an update.
+// Best-effort: with PolicyKit's auth_admin_keep the user may not even be
+// prompted within the same session. If it fails (e.g. headless, no pkexec),
+// we log a clear warning — the next failed portless bind surfaces the
+// actionable banner with the setcap command.
+func restorePrivilegedBindCapability(ctx context.Context, path string) {
+	if err := netcap.Authorize(ctx, path); err != nil {
+		slog.Warn("updater: could not restore CAP_NET_BIND_SERVICE after update; "+
+			"portless privileged-port binds will need re-authorization",
+			"path", path, "setcap", netcap.SetcapCommand(path), "error", err)
+		return
+	}
+	slog.Info("updater: restored CAP_NET_BIND_SERVICE on updated binary", "path", path)
 }
 
 // extractBinary extracts the ssh-tunnel-manager binary from the tar.gz at

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/keychain"
+	"ssh-tunnel-manager/internal/netcap"
 	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/ssh"
 	"ssh-tunnel-manager/internal/sshconfig"
@@ -95,6 +97,20 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 				"entry":    entry,
 			})
 		}
+	})
+	app.manager.WithBindErrorEmitter(func(e ssh.PortlessBindError) {
+		// A log line alone isn't enough — desktop users don't read journalctl.
+		// Surface it both as an in-app banner and a desktop notification.
+		if app.ctx != nil {
+			runtime.EventsEmit(app.ctx, "portless:bind-failed", e)
+		}
+		title := "Portless forward failed"
+		body := e.Message
+		if e.NeedsCapability {
+			title = "Portless needs permission"
+			body = e.Message + " Open the app to authorize."
+		}
+		app.tray.Notify(title, body)
 	})
 	app.tray = tray.New(tray.Callbacks{
 		ShowWindow: func() { app.showWindow() },
@@ -294,6 +310,45 @@ func (a *App) ConnectTunnel(id string) error {
 		}
 	}
 	return a.manager.Connect(cfg)
+}
+
+// AuthorizePrivilegedBind grants this binary CAP_NET_BIND_SERVICE (Linux only)
+// via a one-time PolicyKit prompt, so portless forwards can bind privileged
+// ports like :80.
+//
+// It deliberately does NOT reconnect afterwards: Linux applies file
+// capabilities only at execve(), so the already-running process cannot use the
+// freshly granted capability. The caller must restart the app (RestartApp) for
+// it to take effect — the frontend prompts for this on success.
+func (a *App) AuthorizePrivilegedBind() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locating current executable: %w", err)
+	}
+	if err := netcap.Authorize(a.ctx, exe); err != nil {
+		return err
+	}
+	slog.Info("portless: CAP_NET_BIND_SERVICE granted; restart required to apply", "exe", exe)
+	return nil
+}
+
+// RestartApp relaunches a fresh instance of the app and quits the current one.
+// Used after granting CAP_NET_BIND_SERVICE so the new process inherits the
+// file capability at execve() time.
+func (a *App) RestartApp() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locating current executable: %w", err)
+	}
+	cmd := exec.Command(exe)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("relaunching app: %w", err)
+	}
+	slog.Info("relaunching app", "exe", exe, "pid", cmd.Process.Pid)
+	a.quit()
+	return nil
 }
 
 func tunnelHasPortless(cfg config.TunnelConfig) bool {

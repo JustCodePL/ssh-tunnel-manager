@@ -38,6 +38,23 @@ Get the latest release from the [Releases page](https://github.com/JustCodePL/ss
 
 **Linux** — extract the binary to `~/.local/bin/` or `/usr/local/bin/` and run it. For autostart, enable *Start on login* in Settings.
 
+#### Portless mode on Linux (privileged ports)
+
+Portless forwards reach a service over a `*.ssh-local` domain instead of a `127.0.0.1:port` pair. When a forward binds a **privileged port** (below `1024`, e.g. `:80`), Linux requires the `CAP_NET_BIND_SERVICE` capability on the binary — unprivileged processes are otherwise denied with `bind: permission denied`. macOS and Windows have no such restriction, so this only applies to Linux.
+
+You have two ways to grant it:
+
+- **In-app (recommended).** The first time a privileged-port portless forward fails to bind, a banner appears with an **[ AUTHORIZE ]** button. Clicking it runs `pkexec setcap` and you approve the PolicyKit dialog once. Linux only applies a file capability at process start, so the banner then offers **[ RESTART NOW ]** — after the restart the forward binds normally.
+- **Manually.** Run the command shown in the banner (and logged), pointing at your installed binary:
+
+  ```sh
+  sudo setcap 'cap_net_bind_service=+ep' ~/.local/bin/ssh-tunnel-manager
+  ```
+
+> **Re-apply after updates.** Capabilities are an attribute of the binary's inode, so an in-app update that replaces the binary drops the capability. The updater detects this and tries to restore it automatically (you may see one more PolicyKit prompt); if that fails — e.g. on a headless box without `pkexec` — the next failed bind shows the banner again with the exact `setcap` command.
+>
+> Distro packagers installing to a system path can ship `build/linux/pl.justcode.ssh-tunnel-manager.policy` to `/usr/share/polkit-1/actions/` for a friendlier authorization prompt.
+
 ## Usage
 
 ### System Tray
