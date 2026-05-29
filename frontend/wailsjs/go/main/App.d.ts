@@ -7,7 +7,9 @@ import {main} from '../models';
 
 export function AddTunnel(arg1:config.TunnelConfig):Promise<void>;
 
-export function AuthorizePrivilegedBind(arg1:string):Promise<void>;
+export function AuthorizePrivilegedBind():Promise<void>;
+
+export function RestartApp():Promise<void>;
 
 export function CancelSFTPTransfer(arg1:string):Promise<boolean>;
 

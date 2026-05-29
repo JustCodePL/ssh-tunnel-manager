@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -313,9 +314,13 @@ func (a *App) ConnectTunnel(id string) error {
 
 // AuthorizePrivilegedBind grants this binary CAP_NET_BIND_SERVICE (Linux only)
 // via a one-time PolicyKit prompt, so portless forwards can bind privileged
-// ports like :80. If tunnelID is non-empty, the tunnel is reconnected
-// afterwards so the previously-failed forward comes up without manual steps.
-func (a *App) AuthorizePrivilegedBind(tunnelID string) error {
+// ports like :80.
+//
+// It deliberately does NOT reconnect afterwards: Linux applies file
+// capabilities only at execve(), so the already-running process cannot use the
+// freshly granted capability. The caller must restart the app (RestartApp) for
+// it to take effect — the frontend prompts for this on success.
+func (a *App) AuthorizePrivilegedBind() error {
 	exe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("locating current executable: %w", err)
@@ -323,15 +328,27 @@ func (a *App) AuthorizePrivilegedBind(tunnelID string) error {
 	if err := netcap.Authorize(a.ctx, exe); err != nil {
 		return err
 	}
-	slog.Info("portless: CAP_NET_BIND_SERVICE granted", "exe", exe)
+	slog.Info("portless: CAP_NET_BIND_SERVICE granted; restart required to apply", "exe", exe)
+	return nil
+}
 
-	if tunnelID == "" {
-		return nil
+// RestartApp relaunches a fresh instance of the app and quits the current one.
+// Used after granting CAP_NET_BIND_SERVICE so the new process inherits the
+// file capability at execve() time.
+func (a *App) RestartApp() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locating current executable: %w", err)
 	}
-	// The SSH connection may still be up with only the portless listener dead,
-	// so a clean disconnect + reconnect is the reliable way to re-bind.
-	_ = a.manager.DisconnectAndWait(tunnelID)
-	return a.ConnectTunnel(tunnelID)
+	cmd := exec.Command(exe)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("relaunching app: %w", err)
+	}
+	slog.Info("relaunching app", "exe", exe, "pid", cmd.Process.Pid)
+	a.quit()
+	return nil
 }
 
 func tunnelHasPortless(cfg config.TunnelConfig) bool {

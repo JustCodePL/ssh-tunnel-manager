@@ -44,7 +44,7 @@ Portless forwards reach a service over a `*.ssh-local` domain instead of a `127.
 
 You have two ways to grant it:
 
-- **In-app (recommended).** The first time a privileged-port portless forward fails to bind, a banner appears with an **[ AUTHORIZE ]** button. Clicking it runs `pkexec setcap` and you approve the PolicyKit dialog once. The forward then reconnects automatically.
+- **In-app (recommended).** The first time a privileged-port portless forward fails to bind, a banner appears with an **[ AUTHORIZE ]** button. Clicking it runs `pkexec setcap` and you approve the PolicyKit dialog once. Linux only applies a file capability at process start, so the banner then offers **[ RESTART NOW ]** — after the restart the forward binds normally.
 - **Manually.** Run the command shown in the banner (and logged), pointing at your installed binary:
 
   ```sh
