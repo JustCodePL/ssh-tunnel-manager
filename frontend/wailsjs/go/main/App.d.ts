@@ -73,9 +73,13 @@ export function SFTPMkdir(arg1:string,arg2:string):Promise<void>;
 
 export function SFTPPickUploadFiles(arg1:string,arg2:string):Promise<main.SFTPUploadPick>;
 
+export function SFTPReadText(arg1:string,arg2:string,arg3:boolean):Promise<ssh.TextFileResult>;
+
 export function SFTPRename(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SFTPUploadFiles(arg1:string,arg2:Array<string>,arg3:string):Promise<number>;
+
+export function SFTPWriteText(arg1:string,arg2:string,arg3:string,arg4:number):Promise<main.SFTPWriteResult>;
 
 export function SelectFile():Promise<string>;
 

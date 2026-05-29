@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -350,6 +351,130 @@ func (p *progressWriter) flush() {
 // error if it doesn't exist. Used to detect upload name conflicts.
 func (s *SFTPSession) StatRemote(remoteDir, name string) (os.FileInfo, error) {
 	return s.sftpc.Stat(path.Join(remoteDir, name))
+}
+
+const (
+	// maxEditableSize is the soft cap above which a file is not opened for
+	// editing unless the user forces it.
+	maxEditableSize = 5 << 20 // 5 MiB
+	// hardEditableSize is the absolute cap; files above this are never loaded
+	// into the editor regardless of force.
+	hardEditableSize = 50 << 20 // 50 MiB
+	// binarySniffBytes is how many leading bytes are scanned for NUL bytes to
+	// decide whether a file looks binary.
+	binarySniffBytes = 8192
+)
+
+// TextFileResult carries the contents (and metadata) of a remote file opened
+// for in-app editing. When the file is refused without force, Content is empty
+// and either Binary or TooLarge is set so the UI can offer to open it anyway.
+type TextFileResult struct {
+	Content  string    `json:"content"`
+	ModTime  time.Time `json:"modTime"`
+	Size     int64     `json:"size"`
+	Mode     string    `json:"mode"`
+	Binary   bool      `json:"binary"`
+	TooLarge bool      `json:"tooLarge"`
+}
+
+// ReadText loads a remote file as UTF-8 text for editing. When force is false
+// the file is not read if it looks binary or exceeds maxEditableSize; the
+// returned flags say which. Files above hardEditableSize are always refused.
+func (s *SFTPSession) ReadText(remotePath string, force bool) (*TextFileResult, error) {
+	st, err := s.sftpc.Stat(remotePath)
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", remotePath, err)
+	}
+	if st.IsDir() {
+		return nil, fmt.Errorf("%s is a directory", remotePath)
+	}
+	res := &TextFileResult{
+		ModTime: st.ModTime(),
+		Size:    st.Size(),
+		Mode:    st.Mode().String(),
+	}
+	if st.Size() > hardEditableSize {
+		return nil, fmt.Errorf("%s is %d bytes, too large to edit", remotePath, st.Size())
+	}
+	if !force && st.Size() > maxEditableSize {
+		res.TooLarge = true
+		return res, nil
+	}
+
+	f, err := s.sftpc.Open(remotePath)
+	if err != nil {
+		return nil, fmt.Errorf("opening %s: %w", remotePath, err)
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", remotePath, err)
+	}
+	if !force && looksBinary(data) {
+		res.Binary = true
+		return res, nil
+	}
+	res.Content = string(data)
+	return res, nil
+}
+
+// looksBinary reports whether the leading bytes contain a NUL, the usual
+// heuristic for distinguishing binary files from text.
+func looksBinary(data []byte) bool {
+	n := len(data)
+	if n > binarySniffBytes {
+		n = binarySniffBytes
+	}
+	return bytes.IndexByte(data[:n], 0) >= 0
+}
+
+// WriteText saves edited content back to remotePath. When expectModTime is
+// non-zero and the remote file's modification time no longer matches (compared
+// at second granularity), no write happens and changed is true so the caller
+// can warn about a concurrent modification. The content is written to a temp
+// sibling file and renamed into place so a failed write can't truncate the
+// original, and the original file's mode is preserved. Returns the file's new
+// modification time on success.
+func (s *SFTPSession) WriteText(remotePath, content string, expectModTime time.Time) (changed bool, modTime time.Time, err error) {
+	mode := os.FileMode(0o644)
+	if st, statErr := s.sftpc.Stat(remotePath); statErr == nil {
+		mode = st.Mode().Perm()
+		if !expectModTime.IsZero() && st.ModTime().Unix() != expectModTime.Unix() {
+			return true, st.ModTime(), nil
+		}
+	}
+
+	tmpPath := fmt.Sprintf("%s.stm-%d.tmp", remotePath, time.Now().UnixNano())
+	f, err := s.sftpc.Create(tmpPath)
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("creating temp %s: %w", tmpPath, err)
+	}
+	if _, err := f.Write([]byte(content)); err != nil {
+		_ = f.Close()
+		_ = s.sftpc.Remove(tmpPath)
+		return false, time.Time{}, fmt.Errorf("writing %s: %w", tmpPath, err)
+	}
+	if err := f.Close(); err != nil {
+		_ = s.sftpc.Remove(tmpPath)
+		return false, time.Time{}, fmt.Errorf("closing %s: %w", tmpPath, err)
+	}
+	_ = s.sftpc.Chmod(tmpPath, mode)
+
+	// Prefer the atomic POSIX rename (replaces the target in one step); fall
+	// back to remove + rename for servers without the OpenSSH extension.
+	if err := s.sftpc.PosixRename(tmpPath, remotePath); err != nil {
+		_ = s.sftpc.Remove(remotePath)
+		if err2 := s.sftpc.Rename(tmpPath, remotePath); err2 != nil {
+			_ = s.sftpc.Remove(tmpPath)
+			return false, time.Time{}, fmt.Errorf("renaming %s -> %s: %w", tmpPath, remotePath, err2)
+		}
+	}
+
+	var newMod time.Time
+	if st, statErr := s.sftpc.Stat(remotePath); statErr == nil {
+		newMod = st.ModTime()
+	}
+	return false, newMod, nil
 }
 
 // Mkdir creates a new directory at the given remote path.

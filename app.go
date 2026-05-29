@@ -635,6 +635,45 @@ func (a *App) SFTPRename(sessionID, oldPath, newPath string) error {
 	return s.Rename(oldPath, newPath)
 }
 
+// SFTPReadText loads a remote file as text for in-app editing. When force is
+// false the file is not returned if it looks binary or exceeds the edit size
+// limit; the result's Binary/TooLarge flags say which, so the UI can offer to
+// open it anyway.
+func (a *App) SFTPReadText(sessionID, remotePath string, force bool) (*ssh.TextFileResult, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	return s.ReadText(remotePath, force)
+}
+
+// SFTPWriteResult reports the outcome of SFTPWriteText. Conflict is true when
+// the remote file changed since it was opened and nothing was written.
+type SFTPWriteResult struct {
+	Conflict bool      `json:"conflict"`
+	ModTime  time.Time `json:"modTime"`
+}
+
+// SFTPWriteText writes edited content back to a remote file. expectModTimeMs
+// is the modification time (Unix milliseconds) observed when the file was
+// opened; pass 0 to skip the check and overwrite unconditionally. If the
+// remote file has changed since, no write happens and Conflict is true.
+func (a *App) SFTPWriteText(sessionID, remotePath, content string, expectModTimeMs int64) (*SFTPWriteResult, error) {
+	s, ok := a.sftpMgr.GetSession(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("SFTP session %s not found", sessionID)
+	}
+	var expect time.Time
+	if expectModTimeMs != 0 {
+		expect = time.UnixMilli(expectModTimeMs)
+	}
+	changed, modTime, err := s.WriteText(remotePath, content, expect)
+	if err != nil {
+		return nil, err
+	}
+	return &SFTPWriteResult{Conflict: changed, ModTime: modTime}, nil
+}
+
 func (a *App) showWindow() {
 	if a.ctx != nil {
 		runtime.WindowShow(a.ctx)

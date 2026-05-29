@@ -29,6 +29,40 @@
   let error = "";
   let minimized = false;
   let statusMsg = "";
+  // The file currently open in the editor, shown either as a side-by-side
+  // pane (default) or popped out into a standalone window. The editor component
+  // (and CodeMirror) is loaded lazily the first time it's needed so it doesn't
+  // weigh on app startup.
+  let editing: FileEntry | null = null;
+  let editorWindowed = false;
+  let editorMinimized = false;
+  let TextEditorComp: typeof import("./TextEditor.svelte").default | null = null;
+  let editorRef: { openFile: (path: string, name: string) => void } | null = null;
+
+  async function openEditor(e: FileEntry) {
+    if (e.isDir || e.isLink) return;
+    if (!TextEditorComp) {
+      TextEditorComp = (await import("./TextEditor.svelte")).default;
+    }
+    editorMinimized = false;
+    if (!editing) {
+      // First open: the editor loads this file on mount.
+      editing = e;
+      return;
+    }
+    if (editing.path === e.path) return; // already open; just un-minimized above
+    // Editor already open with another file — delegate so it can guard any
+    // unsaved edits before switching.
+    editorRef?.openFile(e.path, e.name);
+  }
+
+  function handleEditorFileOpened(ev: CustomEvent<{ path: string; name: string }>) {
+    // The switch target is always a row in the current listing, so keep the
+    // parent's record pointed at that entry. The editor owns the displayed
+    // name/path regardless, so a miss here is harmless.
+    const found = entries.find((x) => x.path === ev.detail.path);
+    if (found) editing = found;
+  }
 
   interface ProgressState {
     transferId: string;
@@ -176,7 +210,25 @@
   async function openEntry(e: FileEntry) {
     if (e.isDir || e.isLink) {
       await navigate(e.path);
+    } else {
+      await openEditor(e);
     }
+  }
+
+  function handleEditorSaved() {
+    void refresh();
+  }
+
+  function handleEditorClose() {
+    editing = null;
+    editorMinimized = false;
+    editorWindowed = false;
+  }
+
+  function toggleEditorWindow() {
+    editorWindowed = !editorWindowed;
+    // Minimize only applies to the windowed editor; docking clears it.
+    if (!editorWindowed) editorMinimized = false;
   }
 
   async function goUp() {
@@ -394,6 +446,7 @@
     {/if}
 
     <div class="fb-body">
+      <div class="file-panel">
       {#if loading}
         <div class="msg">loading...</div>
       {:else if entries.length === 0 && (cwd === "/" || cwd === "")}
@@ -432,12 +485,17 @@
                       <span class="icon">{e.isLink ? "↪" : "▸"}</span>{e.name}{e.isDir ? "/" : ""}
                     </button>
                   {:else}
-                    <span class="name-static"><span class="icon">·</span>{e.name}</span>
+                    <button class="name-btn" on:dblclick={() => openEntry(e)} on:click={() => openEntry(e)} title="Open in editor">
+                      <span class="icon">·</span>{e.name}
+                    </button>
                   {/if}
                 </td>
                 <td class="col-size">{e.isDir ? "—" : formatSize(e.size)}</td>
                 <td class="col-mtime">{formatDate(e.modTime)}</td>
                 <td class="col-actions">
+                  {#if !e.isDir && !e.isLink}
+                    <button class="act-btn" on:click={() => openEditor(e)} title="Edit as text">edit</button>
+                  {/if}
                   {#if !e.isLink}
                     <button
                       class="act-btn"
@@ -452,6 +510,27 @@
             {/each}
           </tbody>
         </table>
+      {/if}
+      </div>
+
+      {#if editing && TextEditorComp}
+        <div class="editor-pane" class:windowed={editorWindowed}>
+          <svelte:component
+            this={TextEditorComp}
+            bind:this={editorRef}
+            {sessionId}
+            path={editing.path}
+            name={editing.name}
+            windowed={editorWindowed}
+            minimized={editorMinimized}
+            on:saved={handleEditorSaved}
+            on:close={handleEditorClose}
+            on:togglewindow={toggleEditorWindow}
+            on:minimize={() => (editorMinimized = true)}
+            on:restore={() => (editorMinimized = false)}
+            on:fileopened={handleEditorFileOpened}
+          />
+        </div>
       {/if}
     </div>
   </div>
@@ -551,7 +630,12 @@
   .progress-track { height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden; }
   .progress-fill { height: 100%; background: linear-gradient(90deg, #00d4ff, #00ff88); transition: width 100ms linear; }
 
-  .fb-body { flex: 1; overflow: auto; }
+  .fb-body { flex: 1; display: flex; flex-direction: row; min-height: 0; }
+  .file-panel { flex: 1 1 0; overflow: auto; min-width: 0; }
+  .editor-pane { flex: 0 0 55%; min-width: 0; display: flex; }
+  /* When the editor is popped out into its own window, the pane must not
+     reserve split space; the editor positions itself as a fixed overlay. */
+  .editor-pane.windowed { display: contents; }
   .msg { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00d4ff; padding: 20px; }
   .msg.dim { color: #666; }
 
@@ -567,11 +651,10 @@
   .col-name { width: auto; }
   .col-size { width: 90px; color: #888; text-align: right; }
   .col-mtime { width: 150px; color: #888; }
-  .col-actions { width: 110px; text-align: right; white-space: nowrap; }
+  .col-actions { width: 160px; text-align: right; white-space: nowrap; }
 
   .name-btn { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-align: left; }
   .name-btn:hover { color: #00ff88; text-decoration: underline; }
-  .name-static { color: #ccc; }
   .icon { display: inline-block; width: 14px; color: #666; }
   tr.dir .icon { color: #00d4ff; }
 

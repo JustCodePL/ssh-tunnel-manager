@@ -138,12 +138,20 @@ export function SFTPPickUploadFiles(arg1, arg2) {
   return window['go']['main']['App']['SFTPPickUploadFiles'](arg1, arg2);
 }
 
+export function SFTPReadText(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SFTPReadText'](arg1, arg2, arg3);
+}
+
 export function SFTPRename(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPRename'](arg1, arg2, arg3);
 }
 
 export function SFTPUploadFiles(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPUploadFiles'](arg1, arg2, arg3);
+}
+
+export function SFTPWriteText(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SFTPWriteText'](arg1, arg2, arg3, arg4);
 }
 
 export function SelectFile() {

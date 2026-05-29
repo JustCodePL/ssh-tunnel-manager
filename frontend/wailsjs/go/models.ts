@@ -168,6 +168,39 @@ export namespace main {
 	        this.conflicts = source["conflicts"];
 	    }
 	}
+	export class SFTPWriteResult {
+	    conflict: boolean;
+	    // Go type: time
+	    modTime: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new SFTPWriteResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.conflict = source["conflict"];
+	        this.modTime = this.convertValues(source["modTime"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 
@@ -196,6 +229,47 @@ export namespace ssh {
 	        this.isDir = source["isDir"];
 	        this.isLink = source["isLink"];
 	        this.modTime = this.convertValues(source["modTime"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TextFileResult {
+	    content: string;
+	    // Go type: time
+	    modTime: any;
+	    size: number;
+	    mode: string;
+	    binary: boolean;
+	    tooLarge: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TextFileResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.content = source["content"];
+	        this.modTime = this.convertValues(source["modTime"], null);
+	        this.size = source["size"];
+	        this.mode = source["mode"];
+	        this.binary = source["binary"];
+	        this.tooLarge = source["tooLarge"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
