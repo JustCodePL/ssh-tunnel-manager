@@ -30,27 +30,28 @@ const (
 // 127.0.1.x loopback address at ExposePort (or RemotePort if ExposePort is 0).
 // Domain is published under the .ssh-local TLD by the embedded DNS server.
 //
-// HostHeader, when set, switches the portless forward to HTTP-aware mode and
-// rewrites the request Host header before sending upstream. Empty + RemoteHost
-// that looks like an FQDN auto-uses RemoteHost as the header (so a Portainer
-// behind a host-routing reverse proxy "just works"). Empty + non-FQDN remote
-// keeps raw TCP — the browser's Host header (e.g. db.ssh-local) is sent
-// through unchanged.
+// HostHeaderOn opts in to HTTP-aware mode for a portless forward: the request
+// Host header is rewritten before being sent upstream. It is OFF by default —
+// the rewrite caused unexpected breakage for plain TCP / non-HTTP services, so
+// it only happens when the user explicitly enables it on a forward.
 //
-// HostHeaderOff opts out of the rewrite entirely (raw TCP), even when the
-// FQDN auto-rule would otherwise kick in. UI default is the override-on
-// state, so this flag only appears in ~/.ssh/config when the user has
-// explicitly disabled it.
+// When HostHeaderOn is set, HostHeader (if non-empty) is the literal value sent
+// upstream. If HostHeader is empty and RemoteHost looks like an FQDN
+// (e.g. "dev.mix-dev.com"), RemoteHost is used automatically so a service
+// behind a host-routing reverse proxy (Traefik, nginx, Portainer) "just works".
+//
+// When HostHeaderOn is false (the default), the forward is raw TCP: the
+// browser's Host header (e.g. db.ssh-local) passes through unchanged.
 type PortForward struct {
-	LocalPort     int    `json:"localPort"`
-	RemoteHost    string `json:"remoteHost"`
-	RemotePort    int    `json:"remotePort"`
-	Description   string `json:"description"`
-	Portless      bool   `json:"portless,omitempty"`
-	Domain        string `json:"domain,omitempty"`
-	ExposePort    int    `json:"exposePort,omitempty"`
-	HostHeader    string `json:"hostHeader,omitempty"`
-	HostHeaderOff bool   `json:"hostHeaderOff,omitempty"`
+	LocalPort    int    `json:"localPort"`
+	RemoteHost   string `json:"remoteHost"`
+	RemotePort   int    `json:"remotePort"`
+	Description  string `json:"description"`
+	Portless     bool   `json:"portless,omitempty"`
+	Domain       string `json:"domain,omitempty"`
+	ExposePort   int    `json:"exposePort,omitempty"`
+	HostHeader   string `json:"hostHeader,omitempty"`
+	HostHeaderOn bool   `json:"hostHeaderOn,omitempty"`
 }
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.

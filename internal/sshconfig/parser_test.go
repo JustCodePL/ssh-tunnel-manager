@@ -684,12 +684,13 @@ func TestRoundTripPortlessHostHeader(t *testing.T) {
 		Port:     22,
 		PortForwards: []PortForwardEntry{
 			{
-				LocalPort:  9000,
-				RemoteHost: "10.0.0.5",
-				RemotePort: 9000,
-				Portless:   true,
-				Domain:     "portainer.dev",
-				HostHeader: "dev.mix-dev.com",
+				LocalPort:    9000,
+				RemoteHost:   "10.0.0.5",
+				RemotePort:   9000,
+				Portless:     true,
+				Domain:       "portainer.dev",
+				HostHeader:   "dev.mix-dev.com",
+				HostHeaderOn: true,
 			},
 		},
 	}
@@ -704,6 +705,33 @@ func TestRoundTripPortlessHostHeader(t *testing.T) {
 	pf := parsed[0].PortForwards[0]
 	if pf.HostHeader != "dev.mix-dev.com" {
 		t.Errorf("round-trip HostHeader = %q, want %q", pf.HostHeader, "dev.mix-dev.com")
+	}
+	if !pf.HostHeaderOn {
+		t.Errorf("round-trip HostHeaderOn = false, want true")
+	}
+}
+
+func TestParseLegacyHostHeaderEnablesRewrite(t *testing.T) {
+	// Configs written before the rewrite became opt-in only carry the
+	// header value (no -on flag). Reading them must still enable the rewrite
+	// so existing setups don't silently revert to raw TCP.
+	input := `Host x
+    HostName x.example.com
+    # stm:forward-portless=true
+    # stm:forward-domain=a
+    # stm:forward-host-header=upstream.example.com
+    LocalForward 8080 10.0.0.1:8080
+`
+	entries, err := parseString(input)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pf := entries[0].PortForwards[0]
+	if pf.HostHeader != "upstream.example.com" {
+		t.Errorf("HostHeader = %q, want %q", pf.HostHeader, "upstream.example.com")
+	}
+	if !pf.HostHeaderOn {
+		t.Errorf("legacy explicit header should set HostHeaderOn=true")
 	}
 }
 
@@ -722,41 +750,46 @@ func TestRenderNoHostHeaderWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestRoundTripHostHeaderOff(t *testing.T) {
+func TestRoundTripHostHeaderOn(t *testing.T) {
+	// Enabled with no explicit value: the FQDN auto-rule applies at runtime,
+	// so only the -on flag is persisted.
 	original := HostEntry{
 		Alias:    "x",
 		HostName: "x.example.com",
 		Port:     22,
 		PortForwards: []PortForwardEntry{
-			{LocalPort: 80, RemoteHost: "dev.example.com", RemotePort: 80, Portless: true, Domain: "x", HostHeaderOff: true},
+			{LocalPort: 80, RemoteHost: "dev.example.com", RemotePort: 80, Portless: true, Domain: "x", HostHeaderOn: true},
 		},
 	}
 	rendered := RenderHostBlock(original)
-	if !strings.Contains(rendered, "# stm:forward-host-header-off=true") {
-		t.Errorf("render missing host-header-off comment:\n%s", rendered)
+	if !strings.Contains(rendered, "# stm:forward-host-header-on=true") {
+		t.Errorf("render missing host-header-on comment:\n%s", rendered)
 	}
 	parsed, err := parseString(rendered)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 	pf := parsed[0].PortForwards[0]
-	if !pf.HostHeaderOff {
-		t.Errorf("round-trip HostHeaderOff = false, want true")
+	if !pf.HostHeaderOn {
+		t.Errorf("round-trip HostHeaderOn = false, want true")
 	}
 }
 
-func TestRenderNoHostHeaderOffWhenFalse(t *testing.T) {
+func TestRenderNoHostHeaderWhenOff(t *testing.T) {
+	// Disabled is the default: neither the -on flag nor a leftover header
+	// value should be persisted (the value would otherwise re-enable the
+	// rewrite via the legacy-migration rule on the next read).
 	e := HostEntry{
 		Alias:    "x",
 		HostName: "x.example.com",
 		Port:     22,
 		PortForwards: []PortForwardEntry{
-			{LocalPort: 80, RemoteHost: "127.0.0.1", RemotePort: 80, Portless: true, Domain: "x"},
+			{LocalPort: 80, RemoteHost: "127.0.0.1", RemotePort: 80, Portless: true, Domain: "x", HostHeader: "leftover.example.com"},
 		},
 	}
 	rendered := RenderHostBlock(e)
-	if strings.Contains(rendered, "forward-host-header-off") {
-		t.Errorf("render should not emit host-header-off comment when default:\n%s", rendered)
+	if strings.Contains(rendered, "forward-host-header") {
+		t.Errorf("render should not emit any host-header comment when off:\n%s", rendered)
 	}
 }
 

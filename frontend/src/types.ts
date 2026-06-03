@@ -9,7 +9,7 @@ export interface PortForward {
   domain?: string;
   exposePort?: number;
   hostHeader?: string;
-  hostHeaderOff?: boolean;
+  hostHeaderOn?: boolean;
 }
 
 export const PORTLESS_TLD = "ssh-local";

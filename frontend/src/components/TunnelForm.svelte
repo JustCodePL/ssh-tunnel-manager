@@ -143,9 +143,9 @@
     return looksLikeFQDN(pf.remoteHost) ? pf.remoteHost : "";
   }
 
-  function toggleHostHeaderOff(index: number) {
+  function toggleHostHeaderOn(index: number) {
     const pf = portForwards[index];
-    pf.hostHeaderOff = !pf.hostHeaderOff;
+    pf.hostHeaderOn = !pf.hostHeaderOn;
     portForwards = [...portForwards];
   }
 
@@ -190,7 +190,7 @@
         localPort: Number(pf.localPort) || 0,
         exposePort: Number(pf.exposePort) || 0,
         hostHeader: (pf.hostHeader ?? "").trim() || undefined,
-        hostHeaderOff: pf.hostHeaderOff ? true : undefined,
+        hostHeaderOn: pf.hostHeaderOn ? true : undefined,
       }))
       .filter((pf) => pf.remotePort > 0 && pf.localPort > 0);
 
@@ -396,9 +396,9 @@
               <button
                 type="button"
                 class="gear-btn"
-                class:active={pf.hostHeader || pf.hostHeaderOff}
+                class:active={pf.hostHeaderOn}
                 on:click={() => openPfSettings(i)}
-                title={pf.hostHeaderOff ? "Host header override: disabled" : (pf.hostHeader ? `Host header: ${pf.hostHeader}` : "Forward settings")}
+                title={pf.hostHeaderOn ? (pf.hostHeader ? `Host header: ${pf.hostHeader}` : "Host header rewrite: on") : "Forward settings"}
               >⚙</button>
               <button type="button" class="remove-btn" on:click={() => removePortForward(i)} title="remove">×</button>
             </div>
@@ -528,11 +528,11 @@
         <div class="field">
           <div class="pf-modal-label-row">
             <label class="pf-modal-label">Host header override</label>
-            <label class="pf-modal-toggle" on:click|preventDefault={() => pfSettingsIndex !== null && toggleHostHeaderOff(pfSettingsIndex)}>
-              <span class="hacker-check small" class:checked={!portForwards[pfSettingsIndex].hostHeaderOff}>
-                {#if !portForwards[pfSettingsIndex].hostHeaderOff}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+            <label class="pf-modal-toggle" on:click|preventDefault={() => pfSettingsIndex !== null && toggleHostHeaderOn(pfSettingsIndex)}>
+              <span class="hacker-check small" class:checked={portForwards[pfSettingsIndex].hostHeaderOn}>
+                {#if portForwards[pfSettingsIndex].hostHeaderOn}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
               </span>
-              <span class="pf-toggle-text" class:active={!portForwards[pfSettingsIndex].hostHeaderOff}>enabled</span>
+              <span class="pf-toggle-text" class:active={portForwards[pfSettingsIndex].hostHeaderOn}>{portForwards[pfSettingsIndex].hostHeaderOn ? "enabled" : "disabled"}</span>
             </label>
           </div>
           <input
@@ -540,12 +540,12 @@
             class="field-input pf-modal-input"
             placeholder={autoHostHeader(portForwards[pfSettingsIndex]) ? `auto: ${autoHostHeader(portForwards[pfSettingsIndex])}` : "(none — Host header passes through)"}
             bind:value={portForwards[pfSettingsIndex].hostHeader}
-            disabled={portForwards[pfSettingsIndex].hostHeaderOff}
+            disabled={!portForwards[pfSettingsIndex].hostHeaderOn}
             autocomplete="off"
             spellcheck="false"
           />
-          {#if portForwards[pfSettingsIndex].hostHeaderOff}
-            <p class="pf-modal-hint">disabled — raw TCP, browser's Host header passes through unchanged</p>
+          {#if !portForwards[pfSettingsIndex].hostHeaderOn}
+            <p class="pf-modal-hint">off (default) — raw TCP, browser's Host header passes through unchanged. Enable only if a remote reverse proxy needs it.</p>
           {:else if portForwards[pfSettingsIndex].portless}
             <p class="pf-modal-hint">
               {#if portForwards[pfSettingsIndex].hostHeader}

@@ -58,7 +58,7 @@ export namespace config {
 	    domain?: string;
 	    exposePort?: number;
 	    hostHeader?: string;
-	    hostHeaderOff?: boolean;
+	    hostHeaderOn?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new PortForward(source);
@@ -74,7 +74,7 @@ export namespace config {
 	        this.domain = source["domain"];
 	        this.exposePort = source["exposePort"];
 	        this.hostHeader = source["hostHeader"];
-	        this.hostHeaderOff = source["hostHeaderOff"];
+	        this.hostHeaderOn = source["hostHeaderOn"];
 	    }
 	}
 	export class TunnelConfig {

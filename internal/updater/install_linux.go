@@ -11,7 +11,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"ssh-tunnel-manager/internal/netcap"
@@ -82,7 +84,31 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 	if hadBindCap {
 		restorePrivilegedBindCapability(ctx, currentPath)
 	}
+
+	// Unlike macOS (relaunches the .app via `open`) and Windows (the NSIS
+	// installer restarts the app), nothing else brings the app back on Linux.
+	// The caller quits the old process right after this returns, so without an
+	// explicit relaunch the user is left staring at no window — or, with
+	// close-to-tray, at the still-running old binary reporting the old version.
+	// Spawn the freshly installed binary, detached so it survives the quit.
+	relaunch(currentPath)
 	return nil
+}
+
+// relaunch starts a new, detached instance of the updated binary. Best-effort:
+// on failure the user just relaunches manually, so we log rather than fail the
+// (already successful) install.
+func relaunch(path string) {
+	cmd := exec.Command(path)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	// New session so the child is not torn down when the parent quits.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		slog.Warn("updater: failed to relaunch after update; restart manually", "path", path, "error", err)
+		return
+	}
+	slog.Info("updater: relaunched updated binary", "path", path, "pid", cmd.Process.Pid)
 }
 
 // restorePrivilegedBindCapability re-grants CAP_NET_BIND_SERVICE to the

@@ -20,48 +20,48 @@ func TestEffectiveHostHeader(t *testing.T) {
 		want string
 	}{
 		{
-			name: "explicit overrides everything",
+			name: "off by default ignores explicit header",
 			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com"},
-			want: "custom.example.com",
+			want: "",
 		},
 		{
-			name: "explicit works even without portless",
-			pf:   config.PortForward{Portless: false, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com"},
-			want: "custom.example.com",
-		},
-		{
-			name: "portless + FQDN remote auto-rewrites",
+			name: "off by default ignores FQDN auto-rule",
 			pf:   config.PortForward{Portless: true, RemoteHost: "dev.mix-dev.com"},
+			want: "",
+		},
+		{
+			name: "on + explicit overrides everything",
+			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com", HostHeaderOn: true},
+			want: "custom.example.com",
+		},
+		{
+			name: "on + explicit works even without portless",
+			pf:   config.PortForward{Portless: false, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com", HostHeaderOn: true},
+			want: "custom.example.com",
+		},
+		{
+			name: "on + portless + FQDN remote auto-rewrites",
+			pf:   config.PortForward{Portless: true, RemoteHost: "dev.mix-dev.com", HostHeaderOn: true},
 			want: "dev.mix-dev.com",
 		},
 		{
-			name: "portless + IPv4 remote keeps raw TCP",
-			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1"},
+			name: "on + portless + IPv4 remote keeps raw TCP",
+			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1", HostHeaderOn: true},
 			want: "",
 		},
 		{
-			name: "portless + localhost keeps raw TCP",
-			pf:   config.PortForward{Portless: true, RemoteHost: "localhost"},
+			name: "on + portless + localhost keeps raw TCP",
+			pf:   config.PortForward{Portless: true, RemoteHost: "localhost", HostHeaderOn: true},
 			want: "",
 		},
 		{
-			name: "portless + single-label remote keeps raw TCP",
-			pf:   config.PortForward{Portless: true, RemoteHost: "internal-db"},
+			name: "on + portless + single-label remote keeps raw TCP",
+			pf:   config.PortForward{Portless: true, RemoteHost: "internal-db", HostHeaderOn: true},
 			want: "",
 		},
 		{
-			name: "non-portless + FQDN remote stays raw TCP",
-			pf:   config.PortForward{Portless: false, RemoteHost: "dev.mix-dev.com"},
-			want: "",
-		},
-		{
-			name: "HostHeaderOff disables explicit header",
-			pf:   config.PortForward{Portless: true, RemoteHost: "10.0.0.1", HostHeader: "custom.example.com", HostHeaderOff: true},
-			want: "",
-		},
-		{
-			name: "HostHeaderOff disables FQDN auto-rule",
-			pf:   config.PortForward{Portless: true, RemoteHost: "dev.mix-dev.com", HostHeaderOff: true},
+			name: "on + non-portless + FQDN remote stays raw TCP",
+			pf:   config.PortForward{Portless: false, RemoteHost: "dev.mix-dev.com", HostHeaderOn: true},
 			want: "",
 		},
 	}
