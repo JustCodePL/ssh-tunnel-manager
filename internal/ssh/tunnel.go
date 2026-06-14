@@ -169,6 +169,53 @@ func (t *Tunnel) buildSSHConfig() (*ssh.ClientConfig, error) {
 	return buildClientConfig(t.Config, t.GetPassphrase)
 }
 
+// runCommandTimeout caps how long RunCommand waits before giving up and
+// closing the session, so a hung remote command (or a wedged channel) can't
+// block a UI-driven poll indefinitely.
+const runCommandTimeout = 8 * time.Second
+
+// RunCommand opens a new session on the tunnel's live SSH client, runs cmd,
+// and returns its combined stdout+stderr. It returns an error if the tunnel is
+// not currently connected. The command is bounded by runCommandTimeout.
+func (t *Tunnel) RunCommand(ctx context.Context, cmd string) (string, error) {
+	t.mu.Lock()
+	client := t.client
+	t.mu.Unlock()
+	if client == nil {
+		return "", errors.New("tunnel is not connected")
+	}
+
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("opening session: %w", err)
+	}
+	defer session.Close()
+
+	type result struct {
+		out []byte
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		out, err := session.CombinedOutput(cmd)
+		ch <- result{out, err}
+	}()
+
+	select {
+	case r := <-ch:
+		if r.err != nil {
+			return string(r.out), fmt.Errorf("running %q: %w", cmd, r.err)
+		}
+		return string(r.out), nil
+	case <-ctx.Done():
+		_ = session.Close()
+		return "", ctx.Err()
+	case <-time.After(runCommandTimeout):
+		_ = session.Close()
+		return "", fmt.Errorf("running %q: timed out after %s", cmd, runCommandTimeout)
+	}
+}
+
 // dial establishes an SSH client connection using the appropriate method:
 // ProxyCommand, ProxyJump, or direct TCP dial.
 func (t *Tunnel) dial(ctx context.Context, sshConfig *ssh.ClientConfig) (*ssh.Client, error) {

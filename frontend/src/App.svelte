@@ -9,6 +9,8 @@
   import ToastContainer from "./components/ToastContainer.svelte";
   import PortlessBindBanner from "./components/PortlessBindBanner.svelte";
   import { loadTunnels, initEventListeners, tunnels, exportTunnels } from "./stores/tunnels";
+  import { loadShowResourceStats } from "./stores/prefs";
+  import { loadSavedCapabilities } from "./stores/capabilities";
   import { EventsOn } from "../wailsjs/runtime/runtime";
 
   let showImport = false;
@@ -20,6 +22,8 @@
   onMount(() => {
     initEventListeners();
     loadTunnels();
+    loadShowResourceStats();
+    loadSavedCapabilities();
 
     EventsOn("passphrase:request", (keyPath: string) => {
       passphraseKeyPath = keyPath;

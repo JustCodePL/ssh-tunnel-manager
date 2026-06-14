@@ -10,10 +10,6 @@ export function AuthorizePrivilegedBind() {
   return window['go']['main']['App']['AuthorizePrivilegedBind']();
 }
 
-export function RestartApp() {
-  return window['go']['main']['App']['RestartApp']();
-}
-
 export function CancelSFTPTransfer(arg1) {
   return window['go']['main']['App']['CancelSFTPTransfer'](arg1);
 }
@@ -78,8 +74,32 @@ export function GetCurrentVersion() {
   return window['go']['main']['App']['GetCurrentVersion']();
 }
 
+export function GetDiskUsage(arg1) {
+  return window['go']['main']['App']['GetDiskUsage'](arg1);
+}
+
 export function GetIncludedConfigFiles() {
   return window['go']['main']['App']['GetIncludedConfigFiles']();
+}
+
+export function GetProcessStats(arg1) {
+  return window['go']['main']['App']['GetProcessStats'](arg1);
+}
+
+export function GetSavedCapabilities() {
+  return window['go']['main']['App']['GetSavedCapabilities']();
+}
+
+export function GetServerCapabilities(arg1) {
+  return window['go']['main']['App']['GetServerCapabilities'](arg1);
+}
+
+export function GetServerStats(arg1) {
+  return window['go']['main']['App']['GetServerStats'](arg1);
+}
+
+export function GetShowResourceStats() {
+  return window['go']['main']['App']['GetShowResourceStats']();
 }
 
 export function GetTunnelLogs(arg1) {
@@ -106,6 +126,14 @@ export function InstallUpdate() {
   return window['go']['main']['App']['InstallUpdate']();
 }
 
+export function ListDockerContainers(arg1) {
+  return window['go']['main']['App']['ListDockerContainers'](arg1);
+}
+
+export function OpenCommandTerminal(arg1, arg2) {
+  return window['go']['main']['App']['OpenCommandTerminal'](arg1, arg2);
+}
+
 export function OpenSFTP(arg1) {
   return window['go']['main']['App']['OpenSFTP'](arg1);
 }
@@ -120,6 +148,10 @@ export function RenameGroup(arg1, arg2) {
 
 export function ResizeTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResizeTerminal'](arg1, arg2, arg3);
+}
+
+export function RestartApp() {
+  return window['go']['main']['App']['RestartApp']();
 }
 
 export function SFTPDelete(arg1, arg2) {
@@ -178,6 +210,10 @@ export function SetCloseToTray(arg1) {
   return window['go']['main']['App']['SetCloseToTray'](arg1);
 }
 
+export function SetShowResourceStats(arg1) {
+  return window['go']['main']['App']['SetShowResourceStats'](arg1);
+}
+
 export function SetTunnelPinned(arg1, arg2) {
   return window['go']['main']['App']['SetTunnelPinned'](arg1, arg2);
 }
@@ -192,4 +228,8 @@ export function TerminalWrite(arg1, arg2) {
 
 export function UpdateTunnel(arg1) {
   return window['go']['main']['App']['UpdateTunnel'](arg1);
+}
+
+export function VerifyTool(arg1, arg2) {
+  return window['go']['main']['App']['VerifyTool'](arg1, arg2);
 }

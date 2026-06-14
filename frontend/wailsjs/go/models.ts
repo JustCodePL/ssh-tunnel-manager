@@ -293,6 +293,171 @@ export namespace ssh {
 
 }
 
+export namespace sysstats {
+	
+	export class CPUCore {
+	    name: string;
+	    percent: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CPUCore(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.percent = source["percent"];
+	    }
+	}
+	export class Capabilities {
+	    docker: boolean;
+	    htop: boolean;
+	    os: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Capabilities(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.docker = source["docker"];
+	        this.htop = source["htop"];
+	        this.os = source["os"];
+	    }
+	}
+	export class DiskMount {
+	    filesystem: string;
+	    total: number;
+	    used: number;
+	    avail: number;
+	    usePercent: number;
+	    mountPoint: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiskMount(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.filesystem = source["filesystem"];
+	        this.total = source["total"];
+	        this.used = source["used"];
+	        this.avail = source["avail"];
+	        this.usePercent = source["usePercent"];
+	        this.mountPoint = source["mountPoint"];
+	    }
+	}
+	export class DockerContainer {
+	    id: string;
+	    name: string;
+	    image: string;
+	    status: string;
+	    state: string;
+	    ports: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerContainer(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.image = source["image"];
+	        this.status = source["status"];
+	        this.state = source["state"];
+	        this.ports = source["ports"];
+	    }
+	}
+	export class ProcessInfo {
+	    pid: number;
+	    user: string;
+	    cpu: number;
+	    mem: number;
+	    command: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProcessInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.pid = source["pid"];
+	        this.user = source["user"];
+	        this.cpu = source["cpu"];
+	        this.mem = source["mem"];
+	        this.command = source["command"];
+	    }
+	}
+	export class ProcessStats {
+	    cores: CPUCore[];
+	    memTotal: number;
+	    memUsed: number;
+	    swapTotal: number;
+	    swapUsed: number;
+	    load1: number;
+	    load5: number;
+	    load15: number;
+	    uptimeSeconds: number;
+	    processes: ProcessInfo[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProcessStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cores = this.convertValues(source["cores"], CPUCore);
+	        this.memTotal = source["memTotal"];
+	        this.memUsed = source["memUsed"];
+	        this.swapTotal = source["swapTotal"];
+	        this.swapUsed = source["swapUsed"];
+	        this.load1 = source["load1"];
+	        this.load5 = source["load5"];
+	        this.load15 = source["load15"];
+	        this.uptimeSeconds = source["uptimeSeconds"];
+	        this.processes = this.convertValues(source["processes"], ProcessInfo);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ServerStats {
+	    cpuPercent: number;
+	    memTotal: number;
+	    memUsed: number;
+	    hasCPU: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ServerStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cpuPercent = source["cpuPercent"];
+	        this.memTotal = source["memTotal"];
+	        this.memUsed = source["memUsed"];
+	        this.hasCPU = source["hasCPU"];
+	    }
+	}
+
+}
+
 export namespace updater {
 	
 	export class UpdateInfo {

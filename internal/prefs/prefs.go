@@ -10,19 +10,33 @@ import (
 	"sync"
 )
 
+// HostTools records which optional remote tools were detected for a tunnel, so
+// the monitoring buttons can be shown immediately on reconnect without
+// re-probing. It is refreshed when a button is clicked and the tool is
+// re-verified (host reinstalled, tool removed, etc.).
+type HostTools struct {
+	Docker bool   `json:"docker"`
+	Htop   bool   `json:"htop"`
+	OS     string `json:"os,omitempty"`
+}
+
 // Prefs holds user-configurable application preferences.
 type Prefs struct {
-	CloseToTray  bool `json:"closeToTray"`
-	WindowWidth  int  `json:"windowWidth,omitempty"`
-	WindowHeight int  `json:"windowHeight,omitempty"`
+	CloseToTray       bool `json:"closeToTray"`
+	WindowWidth       int  `json:"windowWidth,omitempty"`
+	WindowHeight      int  `json:"windowHeight,omitempty"`
+	ShowResourceStats bool `json:"showResourceStats"`
+	// HostTools is keyed by tunnel ID.
+	HostTools map[string]HostTools `json:"hostTools,omitempty"`
 }
 
 // defaultPrefs returns a Prefs with sensible defaults.
 func defaultPrefs() Prefs {
 	return Prefs{
-		CloseToTray:  true,
-		WindowWidth:  900,
-		WindowHeight: 600,
+		CloseToTray:       true,
+		WindowWidth:       900,
+		WindowHeight:      600,
+		ShowResourceStats: true,
 	}
 }
 

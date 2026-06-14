@@ -2,6 +2,7 @@
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
   import { GetAutostart, SetAutostart, GetCloseToTray, SetCloseToTray, GetCurrentVersion, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
   import { EventsOn } from "../../wailsjs/runtime/runtime";
+  import { showResourceStats, setShowResourceStats } from "../stores/prefs";
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -69,6 +70,15 @@
     }
   }
 
+  async function toggleResourceStats() {
+    const newValue = !$showResourceStats;
+    try {
+      await setShowResourceStats(newValue);
+    } catch (e: any) {
+      console.error("Failed to set resource stats:", e);
+    }
+  }
+
   async function checkForUpdate() {
     checkingUpdate = true;
     updateError = "";
@@ -131,6 +141,16 @@
           <span class="checkbox-text" class:active={closeToTray}>hide to tray on close</span>
         </label>
       {/if}
+    </div>
+
+    <div class="settings-section">
+      <div class="section-label">monitoring</div>
+      <label class="checkbox-label" on:click|preventDefault={toggleResourceStats}>
+        <span class="hacker-check" class:checked={$showResourceStats}>
+          {#if $showResourceStats}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+        </span>
+        <span class="checkbox-text" class:active={$showResourceStats}>show cpu/ram widget on active tunnels</span>
+      </label>
     </div>
 
     <div class="settings-section">

@@ -3,7 +3,13 @@
   import { PORTLESS_TLD } from "../types";
   import { connectTunnel, disconnectTunnel, deleteTunnel, setTunnelPinned } from "../stores/tunnels";
   import StatusBadge from "./StatusBadge.svelte";
+  import ResourceWidget from "./ResourceWidget.svelte";
+  import DiskWindow from "./DiskWindow.svelte";
+  import DockerWindow from "./DockerWindow.svelte";
+  import MonitorWindow from "./MonitorWindow.svelte";
   import { CopyToClipboard } from "../../wailsjs/go/main/App";
+  import { showResourceStats } from "../stores/prefs";
+  import { capabilities, ensureCapabilities, verifyTool, type ToolName } from "../stores/capabilities";
   import { showToast } from "../stores/toast";
   import { createEventDispatcher } from "svelte";
 
@@ -13,6 +19,29 @@
   const dispatch = createEventDispatcher<{ edit: TunnelConfig; logs: TunnelConfig; terminal: TunnelConfig; files: TunnelConfig }>();
 
   let actionLoading = false;
+
+  let showDisk = false;
+  let showDocker = false;
+  let showHtop = false;
+
+  // Tool buttons are driven by persisted capabilities, so they stay stable
+  // across reconnects (and app restarts) without re-probing. capsKnown means
+  // we've probed this host at least once, so its monitoring buttons stay
+  // visible even while disconnected (disabled until reconnected).
+  $: caps = $capabilities[tunnel.id] ?? { docker: false, htop: false };
+  $: capsKnown = !!$capabilities[tunnel.id];
+
+  // Open a tool window, but re-verify with `command -v` first. If the probe
+  // ran and the tool is gone (host reinstalled), notify and hide the button.
+  // A probe error (connection issue) is NOT treated as "missing".
+  async function openTool(tool: ToolName, open: () => void) {
+    const result = await verifyTool(tunnel.id, tool);
+    if (result === "absent") {
+      showToast(`${tool} is no longer available on this host`, "error");
+      return;
+    }
+    open();
+  }
 
   async function handleConnect() {
     actionLoading = true;
@@ -58,6 +87,16 @@
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
   $: isConnected = status === "connected";
   $: isError = status === "error";
+
+  // Probe + persist tools on the first connect to this host; close any open
+  // monitoring windows when the connection drops.
+  $: if (isConnected) {
+    ensureCapabilities(tunnel.id);
+  } else {
+    showDisk = false;
+    showDocker = false;
+    showHtop = false;
+  }
 </script>
 
 <div
@@ -74,6 +113,9 @@
         <StatusBadge {status} />
       </div>
       <div class="card-host">{tunnel.user}@{tunnel.host}:{tunnel.port}</div>
+      {#if isConnected && $showResourceStats}
+        <ResourceWidget tunnelId={tunnel.id} />
+      {/if}
       {#if tunnel.sourceFileLabel || tunnel.sourceFile}
         <div class="card-source">
           config file: {tunnel.sourceFileLabel ?? tunnel.sourceFile}
@@ -141,11 +183,45 @@
       <button class="action-btn secondary" on:click={() => dispatch("logs", tunnel)}>logs</button>
       <button class="action-btn secondary" on:click={() => dispatch("terminal", tunnel)}>term</button>
       <button class="action-btn secondary" on:click={() => dispatch("files", tunnel)}>files</button>
+      {#if isConnected || capsKnown}
+        <button
+          class="action-btn secondary"
+          on:click={() => (showDisk = true)}
+          disabled={!isConnected}
+          title={isConnected ? "" : "connect to view"}
+        >disk</button>
+      {/if}
+      {#if caps.docker}
+        <button
+          class="action-btn secondary"
+          on:click={() => openTool("docker", () => (showDocker = true))}
+          disabled={!isConnected}
+          title={isConnected ? "" : "connect to view"}
+        >docker</button>
+      {/if}
+      {#if caps.htop}
+        <button
+          class="action-btn secondary"
+          on:click={() => openTool("htop", () => (showHtop = true))}
+          disabled={!isConnected}
+          title={isConnected ? "" : "connect to view"}
+        >htop</button>
+      {/if}
       <button class="action-btn secondary" on:click={() => dispatch("edit", tunnel)}>edit</button>
       <button class="action-btn danger" on:click={handleDelete}>del</button>
     </div>
   </div>
 </div>
+
+{#if showDisk}
+  <DiskWindow {tunnel} on:close={() => (showDisk = false)} />
+{/if}
+{#if showDocker}
+  <DockerWindow {tunnel} on:close={() => (showDocker = false)} />
+{/if}
+{#if showHtop}
+  <MonitorWindow {tunnel} on:close={() => (showHtop = false)} />
+{/if}
 
 <style>
   .tunnel-card {

@@ -21,6 +21,7 @@ import (
 	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/ssh"
 	"ssh-tunnel-manager/internal/sshconfig"
+	"ssh-tunnel-manager/internal/sysstats"
 	"ssh-tunnel-manager/internal/tray"
 	"ssh-tunnel-manager/internal/updater"
 )
@@ -49,6 +50,11 @@ type App struct {
 	logMu  sync.Mutex
 	logBuf map[string][]config.LogEntry
 
+	// Per-tunnel previous CPU sample, so GetServerStats can compute CPU usage
+	// percentage from the delta between successive polls.
+	statsMu sync.Mutex
+	lastCPU map[string]sysstats.CPUSample
+
 	// Active SFTP transfers, keyed by transferID — supports multiple
 	// concurrent transfers per session.
 	sftpTransferMu sync.Mutex
@@ -71,6 +77,7 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		prefs:         prefsStore,
 		startHidden:   startHidden,
 		logBuf:        make(map[string][]config.LogEntry),
+		lastCPU:       make(map[string]sysstats.CPUSample),
 		sftpTransfers: make(map[string]context.CancelFunc),
 		dnsRegistry:   registry,
 		dnsServer:     dns.NewServer(registry),
@@ -1125,6 +1132,235 @@ type tunnelNotFoundError struct {
 
 func (e *tunnelNotFoundError) Error() string {
 	return "tunnel not found: " + e.id
+}
+
+// statsCommandTimeout bounds the per-call SSH command run for monitoring so a
+// slow remote can't stall a UI poll.
+const statsCommandTimeout = 8 * time.Second
+
+// runRemote runs a shell command on the live SSH client of a connected tunnel.
+func (a *App) runRemote(tunnelID, cmd string) (string, error) {
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, statsCommandTimeout)
+	defer cancel()
+	return a.manager.RunCommand(ctx, tunnelID, cmd)
+}
+
+// GetServerStats returns a CPU/RAM snapshot for a connected tunnel's remote
+// host. CPU percentage is derived from the delta against the previous poll, so
+// the first call after connecting reports HasCPU=false.
+func (a *App) GetServerStats(tunnelID string) (sysstats.ServerStats, error) {
+	out, err := a.runRemote(tunnelID, "cat /proc/stat; echo ---; cat /proc/meminfo")
+	if err != nil {
+		return sysstats.ServerStats{}, err
+	}
+
+	parts := strings.SplitN(out, "---", 2)
+	var statPart, memPart string
+	statPart = parts[0]
+	if len(parts) == 2 {
+		memPart = parts[1]
+	}
+
+	cur := sysstats.ParseCPUSample(statPart)
+	totalKB, availKB := sysstats.ParseMeminfo(memPart)
+
+	a.statsMu.Lock()
+	prev := a.lastCPU[tunnelID]
+	a.lastCPU[tunnelID] = cur
+	a.statsMu.Unlock()
+
+	stats := sysstats.ServerStats{
+		MemTotal: totalKB * 1024,
+		MemUsed:  (totalKB - availKB) * 1024,
+	}
+	if prev.Valid() && cur.Valid() {
+		stats.CPUPercent = sysstats.CPUPercent(prev, cur)
+		stats.HasCPU = true
+	}
+	return stats, nil
+}
+
+// GetProcessStats returns an htop-like snapshot (per-core CPU, memory/swap,
+// load, uptime, top processes) for a connected tunnel's host. CPU percentages
+// come from two /proc/stat reads taken 0.6s apart within the same command, so
+// the values are accurate on the first call.
+func (a *App) GetProcessStats(tunnelID string) (sysstats.ProcessStats, error) {
+	const cmd = `cat /proc/stat; echo @@@; sleep 0.6; cat /proc/stat; echo @@@; ` +
+		`cat /proc/meminfo; echo @@@; cat /proc/loadavg; echo @@@; cat /proc/uptime; echo @@@; ` +
+		`LANG=C ps -eo pid,user:32,pcpu,pmem,comm --sort=-pcpu 2>/dev/null | head -n 41`
+	out, err := a.runRemote(tunnelID, cmd)
+	if err != nil {
+		return sysstats.ProcessStats{}, err
+	}
+	parts := strings.Split(out, "@@@")
+	if len(parts) < 6 {
+		return sysstats.ProcessStats{}, fmt.Errorf("unexpected monitor output (got %d sections)", len(parts))
+	}
+	return sysstats.BuildProcessStats(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]), nil
+}
+
+// GetServerCapabilities detects which optional tools (docker, htop) are present
+// on the remote host and its OS, and persists the result so the buttons can be
+// shown immediately on future connections without re-probing. The frontend
+// calls this only on the first connection to a tunnel.
+func (a *App) GetServerCapabilities(tunnelID string) (sysstats.Capabilities, error) {
+	const cmd = `command -v docker >/dev/null 2>&1 && echo docker; ` +
+		`command -v htop >/dev/null 2>&1 && echo htop; uname -s`
+	out, err := a.runRemote(tunnelID, cmd)
+	if err != nil {
+		return sysstats.Capabilities{}, err
+	}
+	c := sysstats.ParseCapabilities(out)
+	if err := a.saveCapabilities(tunnelID, c); err != nil {
+		slog.Warn("failed to persist host capabilities", "tunnel", tunnelID, "error", err)
+	}
+	return c, nil
+}
+
+// GetSavedCapabilities returns the persisted per-tunnel tool capabilities so
+// the frontend can render the monitoring buttons immediately at startup.
+func (a *App) GetSavedCapabilities() map[string]sysstats.Capabilities {
+	p := a.prefs.Get()
+	out := make(map[string]sysstats.Capabilities, len(p.HostTools))
+	for id, t := range p.HostTools {
+		out[id] = sysstats.Capabilities{Docker: t.Docker, Htop: t.Htop, OS: t.OS}
+	}
+	return out
+}
+
+// VerifyTool re-checks whether a tool (docker/htop) is still present on the
+// remote host with a `command -v` probe, and updates the persisted record.
+//
+// The returned bool reflects presence ONLY when error is nil. A non-nil error
+// means the probe itself could not run (connection lost, etc.) and the caller
+// must NOT interpret that as the tool being absent.
+func (a *App) VerifyTool(tunnelID, tool string) (bool, error) {
+	switch tool {
+	case "docker", "htop":
+	default:
+		return false, fmt.Errorf("unknown tool %q", tool)
+	}
+	cmd := fmt.Sprintf("command -v %s >/dev/null 2>&1 && echo yes || echo no", tool)
+	out, err := a.runRemote(tunnelID, cmd)
+	if err != nil {
+		return false, err
+	}
+	present := strings.Contains(out, "yes")
+	a.updateSavedTool(tunnelID, tool, present)
+	return present, nil
+}
+
+// saveCapabilities persists a full capability record for a tunnel.
+func (a *App) saveCapabilities(tunnelID string, c sysstats.Capabilities) error {
+	p := a.prefs.Get()
+	p.HostTools = cloneHostTools(p.HostTools)
+	p.HostTools[tunnelID] = prefs.HostTools{Docker: c.Docker, Htop: c.Htop, OS: c.OS}
+	return a.prefs.Set(p)
+}
+
+// updateSavedTool flips a single tool's presence in the persisted record.
+func (a *App) updateSavedTool(tunnelID, tool string, present bool) {
+	p := a.prefs.Get()
+	p.HostTools = cloneHostTools(p.HostTools)
+	rec := p.HostTools[tunnelID]
+	switch tool {
+	case "docker":
+		rec.Docker = present
+	case "htop":
+		rec.Htop = present
+	}
+	p.HostTools[tunnelID] = rec
+	if err := a.prefs.Set(p); err != nil {
+		slog.Warn("failed to persist tool verification", "tunnel", tunnelID, "tool", tool, "error", err)
+	}
+}
+
+// cloneHostTools returns a shallow copy so we never mutate the map shared with
+// the prefs store (prefs.Get returns the map header by value).
+func cloneHostTools(m map[string]prefs.HostTools) map[string]prefs.HostTools {
+	nm := make(map[string]prefs.HostTools, len(m)+1)
+	for k, v := range m {
+		nm[k] = v
+	}
+	return nm
+}
+
+// GetDiskUsage returns all real filesystem mounts on a connected tunnel's host.
+func (a *App) GetDiskUsage(tunnelID string) ([]sysstats.DiskMount, error) {
+	out, err := a.runRemote(tunnelID, "df -P -B1")
+	if err != nil {
+		return nil, err
+	}
+	mounts := sysstats.ParseDf(out)
+	if mounts == nil {
+		mounts = []sysstats.DiskMount{}
+	}
+	return mounts, nil
+}
+
+// ListDockerContainers returns all docker containers on a connected tunnel's
+// host. If docker is present but not usable (daemon down, permission denied),
+// the error carries docker's own message for display.
+func (a *App) ListDockerContainers(tunnelID string) ([]sysstats.DockerContainer, error) {
+	out, err := a.runRemote(tunnelID, "docker ps -a --format '{{json .}}'")
+	if err != nil {
+		msg := strings.TrimSpace(out)
+		if msg != "" {
+			return nil, fmt.Errorf("%s", msg)
+		}
+		return nil, err
+	}
+	containers := sysstats.ParseDockerPs(out)
+	if containers == nil {
+		containers = []sysstats.DockerContainer{}
+	}
+	return containers, nil
+}
+
+// OpenCommandTerminal opens an interactive PTY running a single command (e.g.
+// htop) for the given tunnel, reusing the terminal event plumbing.
+func (a *App) OpenCommandTerminal(tunnelID, command string) (string, error) {
+	cfg, ok := a.store.GetTunnel(tunnelID)
+	if !ok {
+		return "", &tunnelNotFoundError{tunnelID}
+	}
+	sessionID, err := a.termMgr.OpenCommandSession(cfg, command,
+		func(sessionID, data string) {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "terminal:output", map[string]any{
+					"sessionId": sessionID,
+					"data":      data,
+				})
+			}
+		},
+		func(sessionID string) {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "terminal:closed", map[string]any{
+					"sessionId": sessionID,
+				})
+			}
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("opening %q for %s: %w", command, cfg.Name, err)
+	}
+	return sessionID, nil
+}
+
+// GetShowResourceStats reports whether the inline CPU/RAM widget is enabled.
+func (a *App) GetShowResourceStats() bool {
+	return a.prefs.Get().ShowResourceStats
+}
+
+// SetShowResourceStats enables or disables the inline CPU/RAM widget.
+func (a *App) SetShowResourceStats(enabled bool) error {
+	p := a.prefs.Get()
+	p.ShowResourceStats = enabled
+	return a.prefs.Set(p)
 }
 
 // GetCloseToTray returns whether the window close button hides to tray (true)

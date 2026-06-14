@@ -2,12 +2,16 @@
   import { onMount, onDestroy } from "svelte";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
-  import { OpenTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
+  import { OpenTerminal, OpenCommandTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
   import { EventsOn, EventsOff, ClipboardGetText, ClipboardSetText } from "../../wailsjs/runtime/runtime";
   import type { TunnelConfig } from "../types";
   import { createEventDispatcher } from "svelte";
 
   export let tunnel: TunnelConfig;
+  // When set, run this command in the PTY (e.g. "htop") instead of a login
+  // shell. label overrides the window/pill title prefix ("terminal" by default).
+  export let command: string = "";
+  export let label: string = "terminal";
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let termEl: HTMLDivElement;
@@ -73,7 +77,9 @@
     });
 
     try {
-      sessionId = await OpenTerminal(tunnel.id);
+      sessionId = command
+        ? await OpenCommandTerminal(tunnel.id, command)
+        : await OpenTerminal(tunnel.id);
       loading = false;
       // Fit again now that we have a session, to send correct initial size
       setTimeout(() => {
@@ -136,7 +142,7 @@
 <div class="terminal-overlay" class:hidden={minimized}>
   <div class="terminal-window">
     <div class="terminal-titlebar">
-      <span class="terminal-title">terminal — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
+      <span class="terminal-title">{label} — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
       <div class="titlebar-actions">
         <button class="title-btn minimize-btn" on:click={minimize} title="Minimize">−</button>
         <button class="close-btn" on:click={handleClose} title="Close">×</button>
@@ -157,7 +163,7 @@
 {#if minimized}
   <button class="restore-pill" on:click={restore} title="Restore terminal">
     <span class="pill-icon">▢</span>
-    <span class="pill-text">terminal — {tunnel.name}</span>
+    <span class="pill-text">{label} — {tunnel.name}</span>
     <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
   </button>
 {/if}

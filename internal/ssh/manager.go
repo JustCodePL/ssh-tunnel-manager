@@ -115,6 +115,7 @@ type runningTunnel struct {
 	done   chan struct{} // closed when runWithReconnect returns
 	status config.TunnelStatus
 	errMsg string
+	tun    *Tunnel // current Tunnel for the active attempt; used by RunCommand
 }
 
 // NewManager creates a Manager with the given event callback.
@@ -245,6 +246,9 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 				logEmitter(tunnelID, level, msg)
 			}
 		}
+		m.mu.Lock()
+		rt.tun = tun
+		m.mu.Unlock()
 		err := tun.Connect(ctx)
 
 		if ctx.Err() != nil {
@@ -351,6 +355,29 @@ func (m *Manager) GetStatuses() map[string]StatusEvent {
 		}
 	}
 	return out
+}
+
+// RunCommand runs a command on the live SSH client of a connected tunnel and
+// returns its combined output. It errors if the tunnel is unknown or not
+// currently connected.
+func (m *Manager) RunCommand(ctx context.Context, tunnelID, cmd string) (string, error) {
+	m.mu.Lock()
+	rt, exists := m.tunnels[tunnelID]
+	if !exists {
+		m.mu.Unlock()
+		return "", fmt.Errorf("tunnel %q not found in manager", tunnelID)
+	}
+	if rt.status != config.StatusConnected {
+		m.mu.Unlock()
+		return "", fmt.Errorf("tunnel %q is not connected", tunnelID)
+	}
+	tun := rt.tun
+	m.mu.Unlock()
+
+	if tun == nil {
+		return "", fmt.Errorf("tunnel %q has no active connection", tunnelID)
+	}
+	return tun.RunCommand(ctx, cmd)
 }
 
 func (m *Manager) emit(event StatusEvent) {

@@ -85,6 +85,18 @@ func NewTerminalManager(getPassphrase PassphraseFunc) *TerminalManager {
 // OpenSession establishes a new SSH connection and opens an interactive PTY shell.
 // emitFn is called with output data; closedFn is called when the session ends.
 func (tm *TerminalManager) OpenSession(cfg config.TunnelConfig, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
+	return tm.openSession(cfg, "", emitFn, closedFn)
+}
+
+// OpenCommandSession is like OpenSession but runs command in the PTY instead of
+// a login shell — used for full-screen TUI tools such as htop.
+func (tm *TerminalManager) OpenCommandSession(cfg config.TunnelConfig, command string, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
+	return tm.openSession(cfg, command, emitFn, closedFn)
+}
+
+// openSession opens an interactive PTY session. If command is empty it starts a
+// login shell; otherwise it runs command in the PTY.
+func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
 	// Build SSH client config (reuse same logic as Tunnel)
 	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase)
 	if err != nil {
@@ -137,10 +149,18 @@ func (tm *TerminalManager) OpenSession(cfg config.TunnelConfig, emitFn func(sess
 		return "", fmt.Errorf("creating stderr pipe: %w", err)
 	}
 
-	if err := session.Shell(); err != nil {
-		session.Close()
-		client.Close()
-		return "", fmt.Errorf("starting shell: %w", err)
+	if command == "" {
+		if err := session.Shell(); err != nil {
+			session.Close()
+			client.Close()
+			return "", fmt.Errorf("starting shell: %w", err)
+		}
+	} else {
+		if err := session.Start(command); err != nil {
+			session.Close()
+			client.Close()
+			return "", fmt.Errorf("starting command %q: %w", command, err)
+		}
 	}
 
 	tm.mu.Lock()
