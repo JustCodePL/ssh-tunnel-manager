@@ -169,9 +169,10 @@ func (t *Tunnel) buildSSHConfig() (*ssh.ClientConfig, error) {
 	return buildClientConfig(t.Config, t.GetPassphrase)
 }
 
-// runCommandTimeout caps how long RunCommand waits before giving up and
-// closing the session, so a hung remote command (or a wedged channel) can't
-// block a UI-driven poll indefinitely.
+// runCommandTimeout is a fallback cap for RunCommand callers that pass a
+// context without a deadline, so a hung remote command can't block forever.
+// Callers that need a specific budget (e.g. slow docker commands) set their own
+// deadline on the context, which takes precedence over this fallback.
 const runCommandTimeout = 8 * time.Second
 
 // RunCommand opens a new session on the tunnel's live SSH client, runs cmd,
@@ -196,10 +197,19 @@ func (t *Tunnel) RunCommand(ctx context.Context, cmd string) (string, error) {
 		err error
 	}
 	ch := make(chan result, 1)
+	start := time.Now()
 	go func() {
 		out, err := session.CombinedOutput(cmd)
 		ch <- result{out, err}
 	}()
+
+	// Honor the caller's context deadline; only fall back to runCommandTimeout
+	// when the context carries none (a nil channel blocks forever in select, so
+	// the fallback case is inert when a deadline is present).
+	var fallback <-chan time.Time
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		fallback = time.After(runCommandTimeout)
+	}
 
 	select {
 	case r := <-ch:
@@ -209,8 +219,8 @@ func (t *Tunnel) RunCommand(ctx context.Context, cmd string) (string, error) {
 		return string(r.out), nil
 	case <-ctx.Done():
 		_ = session.Close()
-		return "", ctx.Err()
-	case <-time.After(runCommandTimeout):
+		return "", fmt.Errorf("running %q: %w (after %s)", cmd, ctx.Err(), time.Since(start).Round(time.Second))
+	case <-fallback:
 		_ = session.Close()
 		return "", fmt.Errorf("running %q: timed out after %s", cmd, runCommandTimeout)
 	}

@@ -1,4 +1,4 @@
-import { writable, get } from "svelte/store";
+import { writable } from "svelte/store";
 import { GetSavedCapabilities, GetServerCapabilities, VerifyTool } from "../../wailsjs/go/main/App";
 
 export type ToolName = "docker" | "htop";
@@ -24,17 +24,17 @@ export async function loadSavedCapabilities(): Promise<void> {
 }
 
 /**
- * ensureCapabilities probes + persists a host's tools the first time we connect
- * to it. If we already have a record (persisted or freshly probed) it does
- * nothing, so the buttons stay stable across reconnects.
+ * refreshCapabilities re-probes + persists a host's tools on every connect, so
+ * tools installed (or removed) since the last connection are picked up. The
+ * backend persists the fresh result. On a probe error (connection still
+ * settling) the existing record is left untouched so buttons don't disappear.
  */
-export async function ensureCapabilities(tunnelId: string): Promise<void> {
-  if (get(capabilities)[tunnelId]) return;
+export async function refreshCapabilities(tunnelId: string): Promise<void> {
   try {
     const c = await GetServerCapabilities(tunnelId);
     capabilities.update((m) => ({ ...m, [tunnelId]: { docker: c.docker, htop: c.htop } }));
   } catch (e) {
-    // Connection still settling — leave it unprobed; we'll try next connect.
+    // Connection still settling — keep any existing record; we'll try next connect.
   }
 }
 

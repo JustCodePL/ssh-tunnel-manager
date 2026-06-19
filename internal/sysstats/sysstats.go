@@ -42,7 +42,8 @@ type DiskMount struct {
 	MountPoint string  `json:"mountPoint"`
 }
 
-// DockerContainer is one row from `docker ps`.
+// DockerContainer is one row from `docker ps`, optionally enriched with live
+// usage from `docker stats` (running containers only; empty otherwise).
 type DockerContainer struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
@@ -50,6 +51,10 @@ type DockerContainer struct {
 	Status string `json:"status"`
 	State  string `json:"state"`
 	Ports  string `json:"ports"`
+
+	CPUPercent string `json:"cpuPercent"`
+	MemPercent string `json:"memPercent"`
+	MemUsage   string `json:"memUsage"`
 }
 
 // Capabilities reports which optional tools are available on the remote host.
@@ -224,6 +229,203 @@ func ParseDockerPs(s string) []DockerContainer {
 		})
 	}
 	return out
+}
+
+// DockerPortMapping is one published-port binding from `docker inspect`.
+type DockerPortMapping struct {
+	ContainerPort string `json:"containerPort"` // e.g. "80/tcp"
+	HostIP        string `json:"hostIp"`
+	HostPort      string `json:"hostPort"`
+}
+
+// DockerMount is one bind/volume mount from `docker inspect`.
+type DockerMount struct {
+	Type        string `json:"type"`
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+	Mode        string `json:"mode"`
+}
+
+// DockerContainerDetails is the expanded view of a single container, combining
+// `docker inspect` metadata with optional live `docker stats` usage.
+type DockerContainerDetails struct {
+	ID           string              `json:"id"`
+	Name         string              `json:"name"`
+	Image        string              `json:"image"`
+	State        string              `json:"state"`
+	Status       string              `json:"status"`
+	Created      string              `json:"created"`
+	Command      string              `json:"command"`
+	RestartCount int                 `json:"restartCount"`
+	Ports        []DockerPortMapping `json:"ports"`
+	Mounts       []DockerMount       `json:"mounts"`
+	Networks     []string            `json:"networks"`
+	Env          []string            `json:"env"`
+
+	// Usage fields are populated from `docker stats` (running containers only).
+	HasStats   bool   `json:"hasStats"`
+	CPUPercent string `json:"cpuPercent"`
+	MemUsage   string `json:"memUsage"`
+	MemPercent string `json:"memPercent"`
+	NetIO      string `json:"netIO"`
+	BlockIO    string `json:"blockIO"`
+	PIDs       string `json:"pids"`
+}
+
+// dockerInspectLine mirrors the subset of `docker inspect --format '{{json .}}'`
+// output that we surface in the detail view.
+type dockerInspectLine struct {
+	ID           string   `json:"Id"`
+	Name         string   `json:"Name"`
+	Created      string   `json:"Created"`
+	RestartCount int      `json:"RestartCount"`
+	Path         string   `json:"Path"`
+	Args         []string `json:"Args"`
+	State        struct {
+		Status string `json:"Status"`
+		Health *struct {
+			Status string `json:"Status"`
+		} `json:"Health"`
+	} `json:"State"`
+	Config struct {
+		Image string   `json:"Image"`
+		Env   []string `json:"Env"`
+		Cmd   []string `json:"Cmd"`
+	} `json:"Config"`
+	NetworkSettings struct {
+		Ports map[string][]struct {
+			HostIP   string `json:"HostIp"`
+			HostPort string `json:"HostPort"`
+		} `json:"Ports"`
+		Networks map[string]json.RawMessage `json:"Networks"`
+	} `json:"NetworkSettings"`
+	Mounts []struct {
+		Type        string `json:"Type"`
+		Source      string `json:"Source"`
+		Destination string `json:"Destination"`
+		Mode        string `json:"Mode"`
+	} `json:"Mounts"`
+}
+
+// dockerStatsLine mirrors `docker stats --no-stream --format '{{json .}}'`.
+type dockerStatsLine struct {
+	Name     string `json:"Name"`
+	CPUPerc  string `json:"CPUPerc"`
+	MemUsage string `json:"MemUsage"`
+	MemPerc  string `json:"MemPerc"`
+	NetIO    string `json:"NetIO"`
+	BlockIO  string `json:"BlockIO"`
+	PIDs     string `json:"PIDs"`
+}
+
+// MergeDockerStats parses the multi-line output of
+// `docker stats --no-stream --format '{{json .}}'` and fills CPU/mem usage into
+// the matching containers (matched by name). Containers without a stats line
+// (e.g. stopped) are left unchanged.
+func MergeDockerStats(containers []DockerContainer, statsOutput string) {
+	byName := make(map[string]dockerStatsLine)
+	for _, line := range strings.Split(statsOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var st dockerStatsLine
+		if err := json.Unmarshal([]byte(line), &st); err != nil {
+			continue
+		}
+		if st.Name != "" {
+			byName[st.Name] = st
+		}
+	}
+	for i := range containers {
+		if st, ok := byName[containers[i].Name]; ok {
+			containers[i].CPUPercent = st.CPUPerc
+			containers[i].MemPercent = st.MemPerc
+			containers[i].MemUsage = st.MemUsage
+		}
+	}
+}
+
+// ParseDockerInspect parses a single-object `docker inspect --format '{{json .}}'`
+// payload into details. Port mappings, mounts, networks and the launch command
+// are extracted; usage fields are left zero (populated separately from stats).
+// Returns ok=false if the payload doesn't parse.
+func ParseDockerInspect(s string) (DockerContainerDetails, bool) {
+	var d dockerInspectLine
+	if err := json.Unmarshal([]byte(strings.TrimSpace(s)), &d); err != nil {
+		return DockerContainerDetails{}, false
+	}
+
+	det := DockerContainerDetails{
+		ID:           d.ID,
+		Name:         strings.TrimPrefix(d.Name, "/"),
+		Image:        d.Config.Image,
+		State:        d.State.Status,
+		Created:      d.Created,
+		RestartCount: d.RestartCount,
+		Command:      strings.TrimSpace(d.Path + " " + strings.Join(d.Args, " ")),
+	}
+
+	for cport, bindings := range d.NetworkSettings.Ports {
+		if len(bindings) == 0 {
+			// Exposed but unpublished port.
+			det.Ports = append(det.Ports, DockerPortMapping{ContainerPort: cport})
+			continue
+		}
+		for _, b := range bindings {
+			det.Ports = append(det.Ports, DockerPortMapping{
+				ContainerPort: cport,
+				HostIP:        b.HostIP,
+				HostPort:      b.HostPort,
+			})
+		}
+	}
+	sort.Slice(det.Ports, func(i, j int) bool {
+		return det.Ports[i].ContainerPort < det.Ports[j].ContainerPort
+	})
+
+	for _, m := range d.Mounts {
+		det.Mounts = append(det.Mounts, DockerMount{
+			Type:        m.Type,
+			Source:      m.Source,
+			Destination: m.Destination,
+			Mode:        m.Mode,
+		})
+	}
+
+	for name := range d.NetworkSettings.Networks {
+		det.Networks = append(det.Networks, name)
+	}
+	sort.Strings(det.Networks)
+
+	det.Env = d.Config.Env
+
+	return det, true
+}
+
+// ParseDockerStats parses the first valid line of
+// `docker stats --no-stream --format '{{json .}}'` and merges the usage figures
+// into det, setting HasStats. A non-running container with all-zero output is
+// still merged; callers decide whether to request stats at all.
+func ParseDockerStats(s string, det *DockerContainerDetails) {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var st dockerStatsLine
+		if err := json.Unmarshal([]byte(line), &st); err != nil {
+			continue
+		}
+		det.HasStats = true
+		det.CPUPercent = st.CPUPerc
+		det.MemUsage = st.MemUsage
+		det.MemPercent = st.MemPerc
+		det.NetIO = st.NetIO
+		det.BlockIO = st.BlockIO
+		det.PIDs = st.PIDs
+		return
+	}
 }
 
 // CPUCore is one CPU's busy percentage. Name is "cpu" for the aggregate or

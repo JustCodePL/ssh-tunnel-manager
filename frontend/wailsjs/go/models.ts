@@ -354,6 +354,9 @@ export namespace sysstats {
 	    status: string;
 	    state: string;
 	    ports: string;
+	    cpuPercent: string;
+	    memPercent: string;
+	    memUsage: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DockerContainer(source);
@@ -367,8 +370,113 @@ export namespace sysstats {
 	        this.status = source["status"];
 	        this.state = source["state"];
 	        this.ports = source["ports"];
+	        this.cpuPercent = source["cpuPercent"];
+	        this.memPercent = source["memPercent"];
+	        this.memUsage = source["memUsage"];
 	    }
 	}
+	export class DockerMount {
+	    type: string;
+	    source: string;
+	    destination: string;
+	    mode: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerMount(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.source = source["source"];
+	        this.destination = source["destination"];
+	        this.mode = source["mode"];
+	    }
+	}
+	export class DockerPortMapping {
+	    containerPort: string;
+	    hostIp: string;
+	    hostPort: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerPortMapping(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.containerPort = source["containerPort"];
+	        this.hostIp = source["hostIp"];
+	        this.hostPort = source["hostPort"];
+	    }
+	}
+	export class DockerContainerDetails {
+	    id: string;
+	    name: string;
+	    image: string;
+	    state: string;
+	    status: string;
+	    created: string;
+	    command: string;
+	    restartCount: number;
+	    ports: DockerPortMapping[];
+	    mounts: DockerMount[];
+	    networks: string[];
+	    env: string[];
+	    hasStats: boolean;
+	    cpuPercent: string;
+	    memUsage: string;
+	    memPercent: string;
+	    netIO: string;
+	    blockIO: string;
+	    pids: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerContainerDetails(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.image = source["image"];
+	        this.state = source["state"];
+	        this.status = source["status"];
+	        this.created = source["created"];
+	        this.command = source["command"];
+	        this.restartCount = source["restartCount"];
+	        this.ports = this.convertValues(source["ports"], DockerPortMapping);
+	        this.mounts = this.convertValues(source["mounts"], DockerMount);
+	        this.networks = source["networks"];
+	        this.env = source["env"];
+	        this.hasStats = source["hasStats"];
+	        this.cpuPercent = source["cpuPercent"];
+	        this.memUsage = source["memUsage"];
+	        this.memPercent = source["memPercent"];
+	        this.netIO = source["netIO"];
+	        this.blockIO = source["blockIO"];
+	        this.pids = source["pids"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	export class ProcessInfo {
 	    pid: number;
 	    user: string;

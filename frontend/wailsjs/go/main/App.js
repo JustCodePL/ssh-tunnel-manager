@@ -78,6 +78,10 @@ export function GetDiskUsage(arg1) {
   return window['go']['main']['App']['GetDiskUsage'](arg1);
 }
 
+export function GetDockerContainerDetails(arg1, arg2) {
+  return window['go']['main']['App']['GetDockerContainerDetails'](arg1, arg2);
+}
+
 export function GetIncludedConfigFiles() {
   return window['go']['main']['App']['GetIncludedConfigFiles']();
 }
@@ -126,8 +130,8 @@ export function InstallUpdate() {
   return window['go']['main']['App']['InstallUpdate']();
 }
 
-export function ListDockerContainers(arg1) {
-  return window['go']['main']['App']['ListDockerContainers'](arg1);
+export function ListDockerContainers(arg1, arg2) {
+  return window['go']['main']['App']['ListDockerContainers'](arg1, arg2);
 }
 
 export function OpenCommandTerminal(arg1, arg2) {

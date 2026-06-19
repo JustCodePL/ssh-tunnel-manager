@@ -16,6 +16,21 @@
   let minimized = false;
   let timer: ReturnType<typeof setInterval> | null = null;
 
+  type SortKey = "cpu" | "mem" | "name" | "pid";
+  let sortBy: SortKey = "cpu";
+
+  // Processes are already in memory, so sorting is a pure client-side reorder.
+  $: sortedProcesses = stats ? sortProcesses(stats.processes) : [];
+
+  function sortProcesses(list: sysstats.ProcessInfo[]): sysstats.ProcessInfo[] {
+    const arr = [...list];
+    if (sortBy === "mem") arr.sort((a, b) => b.mem - a.mem || a.command.localeCompare(b.command));
+    else if (sortBy === "name") arr.sort((a, b) => a.command.localeCompare(b.command));
+    else if (sortBy === "pid") arr.sort((a, b) => a.pid - b.pid);
+    else arr.sort((a, b) => b.cpu - a.cpu || a.command.localeCompare(b.command));
+    return arr;
+  }
+
   async function refresh() {
     try {
       stats = await GetProcessStats(tunnel.id);
@@ -119,9 +134,18 @@
           {/if}
         </div>
 
-        <div class="section-title">processes <span class="muted">(by cpu)</span></div>
+        <div class="section-title proc-title">
+          <span>processes</span>
+          <span class="sortbar">
+            <span class="sort-label">sort</span>
+            <button class="sort-btn" class:active={sortBy === "cpu"} on:click={() => (sortBy = "cpu")}>cpu</button>
+            <button class="sort-btn" class:active={sortBy === "mem"} on:click={() => (sortBy = "mem")}>mem</button>
+            <button class="sort-btn" class:active={sortBy === "name"} on:click={() => (sortBy = "name")}>name</button>
+            <button class="sort-btn" class:active={sortBy === "pid"} on:click={() => (sortBy = "pid")}>pid</button>
+          </span>
+        </div>
         <div class="procs">
-          {#each stats.processes as p (p.pid)}
+          {#each sortedProcesses as p (p.pid)}
             <div class="proc-card">
               <div class="proc-head">
                 <span class="proc-cmd" title={p.command}>{p.command}</span>
@@ -179,6 +203,12 @@
 
   .section-title { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent2); margin: 12px 0 6px; border-bottom: 1px solid #1a1a1a; padding-bottom: 3px; }
   .section-title .muted { color: var(--muted); }
+  .proc-title { display: flex; align-items: center; justify-content: space-between; }
+  .sortbar { display: flex; align-items: center; gap: 5px; }
+  .sort-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 2px; }
+  .sort-btn { background: none; border: 1px solid #1a1a1a; color: var(--muted); font-family: "JetBrains Mono", monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 2px; cursor: pointer; }
+  .sort-btn:hover { color: #00d4ff; border-color: #333; }
+  .sort-btn.active { color: #00ff88; border-color: #00ff88; }
 
   .cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px 12px; }
   .core { display: flex; align-items: center; gap: 6px; font-size: 10px; }

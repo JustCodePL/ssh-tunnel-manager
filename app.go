@@ -1138,13 +1138,24 @@ func (e *tunnelNotFoundError) Error() string {
 // slow remote can't stall a UI poll.
 const statsCommandTimeout = 8 * time.Second
 
+// dockerCommandTimeout is much more generous than statsCommandTimeout: `docker
+// ps`, `inspect` and `stats` talk to the docker daemon, which can be very slow
+// to respond on small/loaded VPSes (cold daemon, swapping) and easily exceeds
+// the 8s monitoring budget.
+const dockerCommandTimeout = 45 * time.Second
+
 // runRemote runs a shell command on the live SSH client of a connected tunnel.
 func (a *App) runRemote(tunnelID, cmd string) (string, error) {
+	return a.runRemoteTimeout(tunnelID, cmd, statsCommandTimeout)
+}
+
+// runRemoteTimeout is runRemote with a caller-supplied command timeout.
+func (a *App) runRemoteTimeout(tunnelID, cmd string, timeout time.Duration) (string, error) {
 	ctx := a.ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx, cancel := context.WithTimeout(ctx, statsCommandTimeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	return a.manager.RunCommand(ctx, tunnelID, cmd)
 }
@@ -1205,8 +1216,8 @@ func (a *App) GetProcessStats(tunnelID string) (sysstats.ProcessStats, error) {
 
 // GetServerCapabilities detects which optional tools (docker, htop) are present
 // on the remote host and its OS, and persists the result so the buttons can be
-// shown immediately on future connections without re-probing. The frontend
-// calls this only on the first connection to a tunnel.
+// shown immediately on future connections. The frontend calls this on every
+// connect so tools installed (or removed) since last time are detected.
 func (a *App) GetServerCapabilities(tunnelID string) (sysstats.Capabilities, error) {
 	const cmd = `command -v docker >/dev/null 2>&1 && echo docker; ` +
 		`command -v htop >/dev/null 2>&1 && echo htop; uname -s`
@@ -1305,8 +1316,12 @@ func (a *App) GetDiskUsage(tunnelID string) ([]sysstats.DiskMount, error) {
 // ListDockerContainers returns all docker containers on a connected tunnel's
 // host. If docker is present but not usable (daemon down, permission denied),
 // the error carries docker's own message for display.
-func (a *App) ListDockerContainers(tunnelID string) ([]sysstats.DockerContainer, error) {
-	out, err := a.runRemote(tunnelID, "docker ps -a --format '{{json .}}'")
+//
+// When withStats is true the rows are enriched with live CPU/RAM usage via
+// `docker stats`, which is comparatively slow; callers should request it only
+// when needed (e.g. sorting by CPU/RAM) so the plain listing stays fast.
+func (a *App) ListDockerContainers(tunnelID string, withStats bool) ([]sysstats.DockerContainer, error) {
+	out, err := a.runRemoteTimeout(tunnelID, "docker ps -a --format '{{json .}}'", dockerCommandTimeout)
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if msg != "" {
@@ -1318,7 +1333,54 @@ func (a *App) ListDockerContainers(tunnelID string) ([]sysstats.DockerContainer,
 	if containers == nil {
 		containers = []sysstats.DockerContainer{}
 	}
+
+	// Live usage is best-effort: a stats failure (or no running containers)
+	// just leaves the usage fields empty.
+	if withStats {
+		if statsOut, statsErr := a.runRemoteTimeout(tunnelID,
+			"docker stats --no-stream --format '{{json .}}'", dockerCommandTimeout); statsErr == nil {
+			sysstats.MergeDockerStats(containers, statsOut)
+		}
+	}
+
 	return containers, nil
+}
+
+// GetDockerContainerDetails returns the expanded view of a single container:
+// inspect metadata (ports, mounts, networks, command) plus live usage from
+// `docker stats` when the container is running. containerID may be a container
+// ID or name.
+func (a *App) GetDockerContainerDetails(tunnelID, containerID string) (sysstats.DockerContainerDetails, error) {
+	id := shellSingleQuote(containerID)
+	out, err := a.runRemoteTimeout(tunnelID, "docker inspect --format '{{json .}}' "+id, dockerCommandTimeout)
+	if err != nil {
+		msg := strings.TrimSpace(out)
+		if msg != "" {
+			return sysstats.DockerContainerDetails{}, fmt.Errorf("%s", msg)
+		}
+		return sysstats.DockerContainerDetails{}, err
+	}
+
+	det, ok := sysstats.ParseDockerInspect(out)
+	if !ok {
+		return sysstats.DockerContainerDetails{}, fmt.Errorf("could not parse container details")
+	}
+
+	if det.State == "running" {
+		// Usage is best-effort; a stats failure shouldn't hide the metadata.
+		if statsOut, statsErr := a.runRemoteTimeout(tunnelID,
+			"docker stats --no-stream --format '{{json .}}' "+id, dockerCommandTimeout); statsErr == nil {
+			sysstats.ParseDockerStats(statsOut, &det)
+		}
+	}
+
+	return det, nil
+}
+
+// shellSingleQuote wraps s in single quotes for safe interpolation into a remote
+// shell command, escaping any embedded single quotes.
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // OpenCommandTerminal opens an interactive PTY running a single command (e.g.

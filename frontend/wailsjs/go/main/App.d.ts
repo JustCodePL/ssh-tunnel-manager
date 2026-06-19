@@ -44,6 +44,8 @@ export function GetCurrentVersion():Promise<string>;
 
 export function GetDiskUsage(arg1:string):Promise<Array<sysstats.DiskMount>>;
 
+export function GetDockerContainerDetails(arg1:string,arg2:string):Promise<sysstats.DockerContainerDetails>;
+
 export function GetIncludedConfigFiles():Promise<Array<config.ConfigFileInfo>>;
 
 export function GetProcessStats(arg1:string):Promise<sysstats.ProcessStats>;
@@ -68,7 +70,7 @@ export function ImportTunnels(arg1:string,arg2:Array<string>):Promise<number>;
 
 export function InstallUpdate():Promise<void>;
 
-export function ListDockerContainers(arg1:string):Promise<Array<sysstats.DockerContainer>>;
+export function ListDockerContainers(arg1:string,arg2:boolean):Promise<Array<sysstats.DockerContainer>>;
 
 export function OpenCommandTerminal(arg1:string,arg2:string):Promise<string>;
 

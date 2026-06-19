@@ -106,6 +106,101 @@ garbage line
 	}
 }
 
+func TestParseDockerInspect(t *testing.T) {
+	const out = `{
+	  "Id": "abc123def456",
+	  "Created": "2026-06-01T10:00:00Z",
+	  "Name": "/web",
+	  "RestartCount": 3,
+	  "Path": "nginx",
+	  "Args": ["-g", "daemon off;"],
+	  "State": {"Status": "running"},
+	  "Config": {"Image": "nginx:latest", "Env": ["FOO=bar", "BAZ=qux"]},
+	  "NetworkSettings": {
+	    "Ports": {
+	      "80/tcp": [{"HostIp": "0.0.0.0", "HostPort": "8080"}],
+	      "443/tcp": null
+	    },
+	    "Networks": {"bridge": {}, "app_net": {}}
+	  },
+	  "Mounts": [
+	    {"Type": "bind", "Source": "/srv/data", "Destination": "/data", "Mode": "rw"}
+	  ]
+	}`
+
+	det, ok := ParseDockerInspect(out)
+	if !ok {
+		t.Fatalf("ParseDockerInspect returned ok=false")
+	}
+	if det.Name != "web" {
+		t.Errorf("Name = %q, want web (leading slash stripped)", det.Name)
+	}
+	if det.Image != "nginx:latest" || det.State != "running" || det.RestartCount != 3 {
+		t.Errorf("basic fields wrong: %+v", det)
+	}
+	if det.Command != "nginx -g daemon off;" {
+		t.Errorf("Command = %q", det.Command)
+	}
+	if len(det.Ports) != 2 {
+		t.Fatalf("got %d ports, want 2: %+v", len(det.Ports), det.Ports)
+	}
+	// Sorted by container port: "443/tcp" < "80/tcp" lexically.
+	if det.Ports[0].ContainerPort != "443/tcp" || det.Ports[0].HostPort != "" {
+		t.Errorf("port0 (exposed, unpublished) wrong: %+v", det.Ports[0])
+	}
+	if det.Ports[1].ContainerPort != "80/tcp" || det.Ports[1].HostPort != "8080" {
+		t.Errorf("port1 wrong: %+v", det.Ports[1])
+	}
+	if len(det.Mounts) != 1 || det.Mounts[0].Destination != "/data" {
+		t.Errorf("mounts wrong: %+v", det.Mounts)
+	}
+	if len(det.Networks) != 2 || det.Networks[0] != "app_net" || det.Networks[1] != "bridge" {
+		t.Errorf("networks wrong (want sorted): %+v", det.Networks)
+	}
+	if len(det.Env) != 2 {
+		t.Errorf("env wrong: %+v", det.Env)
+	}
+	if det.HasStats {
+		t.Errorf("HasStats should be false before ParseDockerStats")
+	}
+}
+
+func TestParseDockerStats(t *testing.T) {
+	const out = `{"BlockIO":"1.2MB / 0B","CPUPerc":"0.50%","MemPerc":"1.50%","MemUsage":"15MiB / 2GiB","NetIO":"1kB / 2kB","PIDs":"5"}`
+	det := DockerContainerDetails{State: "running"}
+	ParseDockerStats(out, &det)
+	if !det.HasStats {
+		t.Fatalf("HasStats = false, want true")
+	}
+	if det.CPUPercent != "0.50%" || det.MemPercent != "1.50%" || det.PIDs != "5" {
+		t.Errorf("stats wrong: %+v", det)
+	}
+
+	// No valid line -> HasStats stays false.
+	var det2 DockerContainerDetails
+	ParseDockerStats("\n  \n", &det2)
+	if det2.HasStats {
+		t.Errorf("HasStats should remain false for empty input")
+	}
+}
+
+func TestMergeDockerStats(t *testing.T) {
+	containers := []DockerContainer{
+		{Name: "web", State: "running"},
+		{Name: "db", State: "exited"},
+	}
+	const stats = `{"Name":"web","CPUPerc":"12.50%","MemPerc":"3.40%","MemUsage":"68MiB / 2GiB"}
+garbage
+`
+	MergeDockerStats(containers, stats)
+	if containers[0].CPUPercent != "12.50%" || containers[0].MemPercent != "3.40%" || containers[0].MemUsage != "68MiB / 2GiB" {
+		t.Errorf("web usage not merged: %+v", containers[0])
+	}
+	if containers[1].CPUPercent != "" {
+		t.Errorf("stopped container should have no usage: %+v", containers[1])
+	}
+}
+
 func TestBuildProcessStats(t *testing.T) {
 	const stat1 = `cpu  100 0 50 800 50 0 0 0 0 0
 cpu0 50 0 25 400 25 0 0 0 0 0

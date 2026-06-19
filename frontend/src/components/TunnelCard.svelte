@@ -9,7 +9,7 @@
   import MonitorWindow from "./MonitorWindow.svelte";
   import { CopyToClipboard } from "../../wailsjs/go/main/App";
   import { showResourceStats } from "../stores/prefs";
-  import { capabilities, ensureCapabilities, verifyTool, type ToolName } from "../stores/capabilities";
+  import { capabilities, refreshCapabilities, verifyTool, type ToolName } from "../stores/capabilities";
   import { showToast } from "../stores/toast";
   import { createEventDispatcher } from "svelte";
 
@@ -88,10 +88,11 @@
   $: isConnected = status === "connected";
   $: isError = status === "error";
 
-  // Probe + persist tools on the first connect to this host; close any open
-  // monitoring windows when the connection drops.
+  // Re-probe + persist tools on every connect so newly installed tools (e.g.
+  // docker) are detected; close any open monitoring windows when the
+  // connection drops.
   $: if (isConnected) {
-    ensureCapabilities(tunnel.id);
+    refreshCapabilities(tunnel.id);
   } else {
     showDisk = false;
     showDocker = false;
