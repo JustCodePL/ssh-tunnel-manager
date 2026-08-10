@@ -187,31 +187,13 @@ footer a:hover,
 }
 
 .github-mark {
-  position: relative;
-  width: 15px;
-  height: 15px;
-  border-radius: 50% 50% 45% 45%;
+  display: block;
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
   background: currentColor;
-}
-
-.github-mark::before,
-.github-mark::after {
-  position: absolute;
-  top: -2px;
-  width: 7px;
-  height: 7px;
-  background: currentColor;
-  content: "";
-}
-
-.github-mark::before {
-  left: 1px;
-  transform: rotate(18deg);
-}
-
-.github-mark::after {
-  right: 1px;
-  transform: rotate(-18deg);
+  -webkit-mask: url("assets/icons/github.svg") center / contain no-repeat;
+  mask: url("assets/icons/github.svg") center / contain no-repeat;
 }
 
 .button {
@@ -930,29 +912,25 @@ h2 {
   background: currentColor;
 }
 
-.apple-icon {
-  position: relative;
-  font-size: 60px;
-  line-height: 1;
+.apple-icon,
+.linux-icon {
+  background: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
-.apple-icon::before {
-  position: absolute;
-  top: 3px;
-  width: 12px;
-  height: 6px;
-  transform: rotate(-35deg);
-  border-radius: 70% 20%;
-  background: currentColor;
-  content: "";
+.apple-icon {
+  -webkit-mask-image: url("assets/icons/apple.svg");
+  mask-image: url("assets/icons/apple.svg");
 }
 
 .linux-icon {
-  border: 2px solid currentColor;
-  border-radius: 50% 50% 42% 42%;
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 800;
+  -webkit-mask-image: url("assets/icons/linux.svg");
+  mask-image: url("assets/icons/linux.svg");
 }
 
 .platform-card h3 {
