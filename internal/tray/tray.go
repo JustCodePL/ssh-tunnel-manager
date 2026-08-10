@@ -28,6 +28,7 @@ type Tray struct {
 	cb Callbacks
 
 	mu            sync.Mutex
+	menuMu        sync.Mutex // serializes ResetMenu and the complete menu rebuild
 	statuses      map[string]ssh.StatusEvent
 	updateVersion string // set when an update is available
 	endFunc       func() // called to tear down systray
@@ -142,7 +143,6 @@ func (t *Tray) onReady() {
 	// Do NOT set SetOnRClick — let the library default to ShowMenu() which
 	// is called directly from wndProc on the message loop thread, avoiding
 	// the extra callback indirection that can cause issues on Windows.
-	
 
 	t.updateIcon()
 	t.rebuildMenu()
@@ -201,6 +201,13 @@ func (t *Tray) updateIcon() {
 // Tunnels with a Group are placed under group submenus; ungrouped tunnels
 // appear at the top level.
 func (t *Tray) rebuildMenu() {
+	// Status events are emitted by independent tunnel goroutines, so several
+	// rebuilds can arrive concurrently. ResetMenu followed by AddMenuItem calls
+	// is not atomic; interleaving two rebuilds leaves duplicate and partially
+	// ordered entries in the native menu (particularly visible on macOS).
+	t.menuMu.Lock()
+	defer t.menuMu.Unlock()
+
 	systray.ResetMenu()
 
 	// Tunnel items — grouped

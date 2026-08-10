@@ -64,6 +64,8 @@ export function GetTunnelStatuses():Promise<Record<string, ssh.StatusEvent>>;
 
 export function GetTunnels():Promise<Array<config.TunnelConfig>>;
 
+export function GetUpdateChannel():Promise<string>;
+
 export function ImportPreview(arg1:string):Promise<Array<config.TunnelConfig>>;
 
 export function ImportTunnels(arg1:string,arg2:Array<string>):Promise<number>;
@@ -115,6 +117,8 @@ export function SetCloseToTray(arg1:boolean):Promise<void>;
 export function SetShowResourceStats(arg1:boolean):Promise<void>;
 
 export function SetTunnelPinned(arg1:string,arg2:boolean):Promise<void>;
+
+export function SetUpdateChannel(arg1:string):Promise<void>;
 
 export function SubmitPassphrase(arg1:string):Promise<void>;
 

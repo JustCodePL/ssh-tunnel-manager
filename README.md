@@ -105,7 +105,17 @@ The app uses public-key authentication only. Point the *Key file* field at your 
 
 ### Auto-Update
 
-On every startup the app silently checks GitHub Releases. If a newer version is found:
+On every startup the app silently checks GitHub Releases. The update channel can
+be selected in **Settings → Updates**:
+
+- **Stable** (default) receives full releases only
+- **Beta** receives prereleases as well as full releases, so a beta installation
+  automatically advances to the final stable build when it is published
+
+Switching back to Stable never downgrades the application. A beta build remains
+installed until a newer stable version is available.
+
+If a newer version is found:
 
 - A blue dot appears on the Settings gear icon in the manager window
 - An **⬆ Update to vX.Y.Z** item appears in the tray menu
@@ -171,13 +181,30 @@ Output lands in `build/bin/`.
 
 ### Version
 
-The version is read from `wails.json → info.productVersion` and embedded at compile time. To release a new version:
+Local builds use `wails.json → info.productVersion`. Release builds inject the
+full tag version into the application and keep the operating-system package
+version numeric for Windows and macOS.
 
-1. Update `productVersion` in `wails.json`
-2. Commit: `git commit -am "chore: bump version to 1.x.x"`
-3. Tag: `git tag v1.x.x && git push origin v1.x.x`
+To publish a stable release:
 
-GitHub Actions picks up the tag, injects the version into the build, and publishes a GitHub Release with all platform artifacts automatically.
+1. Commit the release changes
+2. Create an annotated tag such as `v1.1.0`
+3. Push the tag: `git push origin v1.1.0`
+
+To publish a beta release, use an annotated SemVer prerelease tag:
+
+```bash
+git tag -a v1.1.0-beta.1 -m "Describe the beta fixes"
+git push origin v1.1.0-beta.1
+```
+
+Subsequent betas increment the suffix (`beta.2`, `beta.3`, …). Promote a tested
+beta by tagging the chosen commit with the matching stable version, for example
+`v1.1.0` after `v1.1.0-beta.3`.
+
+GitHub Actions accepts only `vMAJOR.MINOR.PATCH` and
+`vMAJOR.MINOR.PATCH-beta.N`, builds all platform artifacts, and marks beta tags
+as GitHub prereleases without replacing the latest stable release.
 
 ## Project Structure
 

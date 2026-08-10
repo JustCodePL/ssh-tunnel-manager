@@ -22,10 +22,11 @@ type HostTools struct {
 
 // Prefs holds user-configurable application preferences.
 type Prefs struct {
-	CloseToTray       bool `json:"closeToTray"`
-	WindowWidth       int  `json:"windowWidth,omitempty"`
-	WindowHeight      int  `json:"windowHeight,omitempty"`
-	ShowResourceStats bool `json:"showResourceStats"`
+	CloseToTray       bool   `json:"closeToTray"`
+	WindowWidth       int    `json:"windowWidth,omitempty"`
+	WindowHeight      int    `json:"windowHeight,omitempty"`
+	ShowResourceStats bool   `json:"showResourceStats"`
+	UpdateChannel     string `json:"updateChannel"`
 	// HostTools is keyed by tunnel ID.
 	HostTools map[string]HostTools `json:"hostTools,omitempty"`
 }
@@ -37,6 +38,7 @@ func defaultPrefs() Prefs {
 		WindowWidth:       900,
 		WindowHeight:      600,
 		ShowResourceStats: true,
+		UpdateChannel:     "stable",
 	}
 }
 
@@ -78,6 +80,7 @@ func (s *Store) Get() Prefs {
 func (s *Store) Set(p Prefs) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	normalizePrefs(&p)
 	s.prefs = p
 	return s.save()
 }
@@ -94,7 +97,14 @@ func (s *Store) load() error {
 	if err := json.Unmarshal(data, &s.prefs); err != nil {
 		return fmt.Errorf("parsing prefs: %w", err)
 	}
+	normalizePrefs(&s.prefs)
 	return nil
+}
+
+func normalizePrefs(p *Prefs) {
+	if p.UpdateChannel != "stable" && p.UpdateChannel != "beta" {
+		p.UpdateChannel = "stable"
+	}
 }
 
 func (s *Store) save() error {

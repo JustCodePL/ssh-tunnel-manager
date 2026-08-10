@@ -32,6 +32,10 @@
     EventsOn("updater:update-available", () => {
       updateAvailable = true;
     });
+
+    EventsOn("updater:update-cleared", () => {
+      updateAvailable = false;
+    });
   });
 
   async function handleExport() {

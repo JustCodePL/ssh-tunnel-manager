@@ -19,6 +19,8 @@ const TLD = "ssh-local"
 // 127.0.1.1 through 127.0.1.254 — 254 concurrent portless forwards.
 var loopbackBase = net.IPv4(127, 0, 1, 1)
 
+const loopbackPoolSize = 254
+
 // Entry describes a single live portless forward registered with the DNS
 // server. Domain is the user-facing name (without the .ssh-local suffix).
 type Entry struct {
@@ -129,9 +131,8 @@ func (r *Registry) All() []Entry {
 
 func (r *Registry) findFreeIPLocked() net.IP {
 	// Walk 127.0.1.1 .. 127.0.1.254
-	base := loopbackBase.To4()
-	for i := 0; i < 254; i++ {
-		ip := net.IPv4(base[0], base[1], base[2], base[3]+byte(i)).To4()
+	for i := 0; i < loopbackPoolSize; i++ {
+		ip := loopbackIP(i)
 		key := ip.String()
 		if r.allocated[key] || r.blocked[key] {
 			continue
@@ -139,6 +140,11 @@ func (r *Registry) findFreeIPLocked() net.IP {
 		return ip
 	}
 	return nil
+}
+
+func loopbackIP(index int) net.IP {
+	base := loopbackBase.To4()
+	return net.IPv4(base[0], base[1], base[2], base[3]+byte(index)).To4()
 }
 
 func normalizeDomain(d string) string {

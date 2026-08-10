@@ -1,0 +1,221 @@
+const REPOSITORY = "JustCodePL/ssh-tunnel-manager";
+const RELEASES_URL = `https://github.com/${REPOSITORY}/releases`;
+const API_URL = `https://api.github.com/repos/${REPOSITORY}/releases`;
+const PAGE_SIZE = 100;
+const INITIAL_RELEASE_COUNT = 6;
+
+let releases = [];
+let activeFilter = "stable";
+let visibleReleaseCount = INITIAL_RELEASE_COUNT;
+
+const releaseList = document.querySelector("#release-list");
+const loadMoreButton = document.querySelector("#load-more");
+const filterButtons = document.querySelectorAll("[data-filter]");
+
+function detectPlatform() {
+  const source = `${navigator.userAgentData?.platform || ""} ${navigator.platform || ""} ${navigator.userAgent || ""}`.toLowerCase();
+  if (source.includes("win")) return "windows";
+  if (source.includes("mac")) return "mac";
+  if (source.includes("linux")) return "linux";
+  return "other";
+}
+
+function classifyAsset(name) {
+  const value = name.toLowerCase();
+  if (value.includes("installer") && value.endsWith(".exe")) return { label: "Windows · instalator", platform: "windows" };
+  if (value.includes("windows") && value.endsWith(".zip")) return { label: "Windows · portable", platform: "windows" };
+  if (value.includes("darwin-arm64") || value.includes("macos-arm64")) return { label: "macOS · Apple Silicon", platform: "mac" };
+  if (value.includes("darwin-amd64") || value.includes("macos-amd64")) return { label: "macOS · Intel", platform: "mac" };
+  if (value.includes("darwin") || value.includes("macos")) return { label: "macOS", platform: "mac" };
+  if (value.includes("linux")) return { label: "Linux · x64", platform: "linux" };
+  return { label: name, platform: "other" };
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function cleanReleaseBody(body) {
+  if (!body) return "Szczegóły zmian są dostępne na stronie wydania.";
+
+  const cleaned = body
+    .replace(/<!--.*?-->/gs, " ")
+    .replace(/```.*?```/gs, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/[*_`>#]/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return "Szczegóły zmian są dostępne na stronie wydania.";
+  return cleaned.length > 175 ? `${cleaned.slice(0, 172).trim()}…` : cleaned;
+}
+
+function titleForRelease(release) {
+  if (release.prerelease) return "Wydanie testowe";
+  if (release.name && release.name !== release.tag_name) return release.name;
+  return release === releases.find((item) => !item.prerelease) ? "Najnowsze wydanie stabilne" : "Wydanie stabilne";
+}
+
+function createReleaseRow(release) {
+  const row = document.createElement("article");
+  row.className = "release-row";
+
+  const version = document.createElement("div");
+  version.className = "release-version";
+  const versionLink = document.createElement("a");
+  versionLink.href = release.html_url;
+  versionLink.target = "_blank";
+  versionLink.rel = "noreferrer";
+  versionLink.textContent = release.tag_name;
+  version.append(versionLink);
+
+  const badge = document.createElement("span");
+  badge.className = `release-badge${release.prerelease ? " beta" : ""}`;
+  badge.textContent = release.prerelease ? "BETA" : release === releases.find((item) => !item.prerelease) ? "LATEST" : "STABLE";
+  version.append(badge);
+
+  const description = document.createElement("div");
+  description.className = "release-description";
+  const title = document.createElement("h3");
+  title.textContent = titleForRelease(release);
+  const summary = document.createElement("p");
+  summary.textContent = cleanReleaseBody(release.body);
+  const date = document.createElement("time");
+  date.className = "release-date";
+  date.dateTime = release.published_at;
+  date.textContent = formatDate(release.published_at);
+  description.append(title, summary, date);
+
+  const assets = document.createElement("div");
+  assets.className = "release-assets";
+  const orderedAssets = [...release.assets].sort((left, right) => {
+    const detected = detectPlatform();
+    return Number(classifyAsset(right.name).platform === detected) - Number(classifyAsset(left.name).platform === detected);
+  });
+
+  orderedAssets.forEach((asset) => {
+    const metadata = classifyAsset(asset.name);
+    const link = document.createElement("a");
+    link.className = "asset-button";
+    link.href = asset.browser_download_url;
+    link.setAttribute("aria-label", `Pobierz ${metadata.label}, wersja ${release.tag_name}`);
+    const icon = document.createElement("span");
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "↓";
+    link.append(icon, document.createTextNode(metadata.label));
+    assets.append(link);
+  });
+
+  if (!orderedAssets.length) {
+    const link = document.createElement("a");
+    link.className = "asset-button";
+    link.href = release.html_url;
+    link.textContent = "Zobacz pliki wydania ↗";
+    assets.append(link);
+  }
+
+  row.append(version, description, assets);
+  return row;
+}
+
+function filteredReleases() {
+  return activeFilter === "stable" ? releases.filter((release) => !release.prerelease) : releases;
+}
+
+function renderReleases() {
+  const filtered = filteredReleases();
+  const visible = filtered.slice(0, visibleReleaseCount);
+  releaseList.replaceChildren(...visible.map(createReleaseRow));
+  releaseList.setAttribute("aria-busy", "false");
+  loadMoreButton.hidden = visible.length >= filtered.length;
+}
+
+function updateLatestDownloads(latest) {
+  document.querySelector("#latest-label").textContent = `Najnowsza stabilna wersja ${latest.tag_name}`;
+
+  document.querySelectorAll(".asset-download[data-asset]").forEach((link) => {
+    const asset = latest.assets.find((item) => item.name === link.dataset.asset);
+    if (asset) link.href = asset.browser_download_url;
+  });
+
+  const platform = detectPlatform();
+  const preferred = {
+    windows: "ssh-tunnel-manager-amd64-installer.exe",
+    mac: "ssh-tunnel-manager-darwin-arm64.dmg",
+    linux: "ssh-tunnel-manager-linux-amd64.tar.gz",
+  }[platform];
+  const preferredAsset = latest.assets.find((asset) => asset.name === preferred);
+
+  const labels = {
+    windows: `Pobierz dla Windows · ${latest.tag_name}`,
+    mac: `Pobierz dla macOS · ${latest.tag_name}`,
+    linux: `Pobierz dla Linux · ${latest.tag_name}`,
+    other: `Pobierz aplikację · ${latest.tag_name}`,
+  };
+
+  document.querySelectorAll(".download-auto").forEach((link) => {
+    link.href = preferredAsset?.browser_download_url || latest.html_url;
+    link.querySelector(".auto-download-label").textContent = labels[platform];
+  });
+}
+
+async function fetchAllReleases() {
+  const collected = [];
+  for (let page = 1; page <= 3; page += 1) {
+    const response = await fetch(`${API_URL}?per_page=${PAGE_SIZE}&page=${page}`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
+    const pageItems = await response.json();
+    collected.push(...pageItems.filter((release) => !release.draft));
+    if (pageItems.length < PAGE_SIZE) break;
+  }
+  return collected;
+}
+
+async function initializeReleases() {
+  try {
+    releases = await fetchAllReleases();
+    const latest = releases.find((release) => !release.prerelease);
+    if (latest) updateLatestDownloads(latest);
+    renderReleases();
+  } catch (error) {
+    console.error("Could not load GitHub releases", error);
+    releaseList.setAttribute("aria-busy", "false");
+    releaseList.innerHTML = `
+      <p class="release-error">
+        Nie udało się teraz pobrać historii wydań. Wszystkie wersje i pliki instalacyjne
+        znajdziesz bezpośrednio w <a href="${RELEASES_URL}">GitHub Releases</a>.
+      </p>`;
+    loadMoreButton.hidden = true;
+  }
+}
+
+filterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    activeFilter = button.dataset.filter;
+    visibleReleaseCount = INITIAL_RELEASE_COUNT;
+    filterButtons.forEach((item) => {
+      const isActive = item === button;
+      item.classList.toggle("active", isActive);
+      item.setAttribute("aria-pressed", String(isActive));
+    });
+    renderReleases();
+  });
+});
+
+loadMoreButton.addEventListener("click", () => {
+  visibleReleaseCount += INITIAL_RELEASE_COUNT;
+  renderReleases();
+});
+
+document.querySelector("#current-year").textContent = new Date().getFullYear();
+initializeReleases();

@@ -43,8 +43,12 @@ type App struct {
 	passphraseChan chan string
 
 	// Pending update info (nil if no update available)
-	updateMu      sync.Mutex
-	pendingUpdate *updater.UpdateInfo
+	updateMu         sync.Mutex
+	updateNotifyMu   sync.Mutex // serializes state changes with UI/tray notifications
+	updateChannel    updater.Channel
+	updateGeneration uint64
+	pendingUpdate    *updater.UpdateInfo
+	updateChecker    func(context.Context, string, string, updater.Channel) (*updater.UpdateInfo, error)
 
 	// Per-tunnel log buffer (ring buffer, max 300 entries per tunnel)
 	logMu  sync.Mutex
@@ -72,10 +76,16 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App {
 	registry := dns.NewRegistry()
+	updateChannel := updater.ChannelStable
+	if configured, err := updater.ParseChannel(prefsStore.Get().UpdateChannel); err == nil {
+		updateChannel = configured
+	}
 	app := &App{
 		store:         store,
 		prefs:         prefsStore,
 		startHidden:   startHidden,
+		updateChannel: updateChannel,
+		updateChecker: updater.Check,
 		logBuf:        make(map[string][]config.LogEntry),
 		lastCPU:       make(map[string]sysstats.CPUSample),
 		sftpTransfers: make(map[string]context.CancelFunc),
@@ -143,7 +153,7 @@ func (a *App) startup(ctx context.Context) {
 	go a.autoConnectTunnels()
 
 	go func() {
-		info, err := updater.Check(ctx, Version, "JustCodePL/ssh-tunnel-manager")
+		info, err := a.checkForUpdate(ctx)
 		if err != nil {
 			slog.Warn("update check failed", "error", err)
 			return
@@ -152,11 +162,6 @@ func (a *App) startup(ctx context.Context) {
 			return
 		}
 		slog.Info("update available", "version", info.LatestVersion)
-		a.updateMu.Lock()
-		a.pendingUpdate = info
-		a.updateMu.Unlock()
-		runtime.EventsEmit(a.ctx, "updater:update-available", info)
-		a.tray.SetUpdateAvailable(info.LatestVersion)
 	}()
 }
 
@@ -861,22 +866,112 @@ func (a *App) GetCurrentVersion() string {
 	return Version
 }
 
+// GetUpdateChannel returns the persisted update channel.
+func (a *App) GetUpdateChannel() string {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	return string(a.updateChannel)
+}
+
+// SetUpdateChannel validates and persists the update channel. Any update found
+// for the previous channel is invalidated immediately; the frontend triggers a
+// fresh check after this method succeeds.
+func (a *App) SetUpdateChannel(value string) error {
+	channel, err := updater.ParseChannel(value)
+	if err != nil {
+		return err
+	}
+
+	a.updateNotifyMu.Lock()
+	defer a.updateNotifyMu.Unlock()
+
+	a.updateMu.Lock()
+	if a.updateChannel == channel {
+		a.updateMu.Unlock()
+		return nil
+	}
+
+	p := a.prefs.Get()
+	p.UpdateChannel = string(channel)
+	if err := a.prefs.Set(p); err != nil {
+		a.updateMu.Unlock()
+		return err
+	}
+
+	a.updateChannel = channel
+	a.updateGeneration++
+	a.pendingUpdate = nil
+	a.updateMu.Unlock()
+
+	a.emitUpdateState(nil)
+	return nil
+}
+
 // CheckForUpdate contacts GitHub for a newer release. Returns nil if already
 // up to date. Stores result in pendingUpdate and emits the update-available event.
 func (a *App) CheckForUpdate() (*updater.UpdateInfo, error) {
-	info, err := updater.Check(a.ctx, Version, "JustCodePL/ssh-tunnel-manager")
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return a.checkForUpdate(ctx)
+}
+
+func (a *App) checkForUpdate(ctx context.Context) (*updater.UpdateInfo, error) {
+	channel, generation := a.beginUpdateCheck()
+	checker := a.updateChecker
+	if checker == nil {
+		checker = updater.Check
+	}
+	info, err := checker(ctx, Version, "JustCodePL/ssh-tunnel-manager", channel)
 	if err != nil {
 		return nil, err
 	}
-	if info == nil {
+
+	a.updateNotifyMu.Lock()
+	defer a.updateNotifyMu.Unlock()
+	if !a.commitUpdateResult(generation, info) {
+		// The channel changed while the request was in flight. Discard the stale
+		// response instead of surfacing an update from the previous channel.
 		return nil, nil
 	}
-	a.updateMu.Lock()
-	a.pendingUpdate = info
-	a.updateMu.Unlock()
-	runtime.EventsEmit(a.ctx, "updater:update-available", info)
-	a.tray.SetUpdateAvailable(info.LatestVersion)
+	a.emitUpdateState(info)
 	return info, nil
+}
+
+func (a *App) beginUpdateCheck() (updater.Channel, uint64) {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	return a.updateChannel, a.updateGeneration
+}
+
+func (a *App) commitUpdateResult(generation uint64, info *updater.UpdateInfo) bool {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	if generation != a.updateGeneration {
+		return false
+	}
+	a.pendingUpdate = info
+	return true
+}
+
+func (a *App) emitUpdateState(info *updater.UpdateInfo) {
+	if info == nil {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "updater:update-cleared")
+		}
+		if a.tray != nil {
+			a.tray.SetUpdateAvailable("")
+		}
+		return
+	}
+
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "updater:update-available", info)
+	}
+	if a.tray != nil {
+		a.tray.SetUpdateAvailable(info.LatestVersion)
+	}
 }
 
 // InstallUpdate downloads and runs the pending installer, then quits the app.

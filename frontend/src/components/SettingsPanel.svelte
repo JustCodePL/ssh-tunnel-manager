@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
-  import { GetAutostart, SetAutostart, GetCloseToTray, SetCloseToTray, GetCurrentVersion, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
-  import { EventsOn } from "../../wailsjs/runtime/runtime";
+  import { GetAutostart, SetAutostart, GetCloseToTray, SetCloseToTray, GetCurrentVersion, GetUpdateChannel, SetUpdateChannel, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
+  import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime";
   import { showResourceStats, setShowResourceStats } from "../stores/prefs";
 
   const dispatch = createEventDispatcher<{ close: void }>();
+  const websiteUrl = "https://justcodepl.github.io/ssh-tunnel-manager/";
+  const githubUrl = "https://github.com/JustCodePL/ssh-tunnel-manager";
 
   let autostartEnabled = false;
   let autostartLoading = true;
@@ -12,11 +14,14 @@
   let closeToTrayLoading = true;
 
   let currentVersion = "";
+  let updateChannel: "stable" | "beta" = "stable";
+  let updateChannelLoading = true;
   let updateInfo: { latestVersion: string; releaseUrl: string; assetUrl: string; releaseNotes: string } | null = null;
   let checkingUpdate = false;
   let installingUpdate = false;
   let updateError = "";
   let unsubUpdate: (() => void) | undefined;
+  let unsubUpdateCleared: (() => void) | undefined;
 
   onMount(async () => {
     try {
@@ -41,13 +46,26 @@
       console.error("Failed to get current version:", e);
     }
 
+    try {
+      const configuredChannel = await GetUpdateChannel();
+      updateChannel = configuredChannel === "beta" ? "beta" : "stable";
+    } catch (e) {
+      console.error("Failed to get update channel:", e);
+    } finally {
+      updateChannelLoading = false;
+    }
+
     unsubUpdate = EventsOn("updater:update-available", (info: any) => {
       updateInfo = info;
+    });
+    unsubUpdateCleared = EventsOn("updater:update-cleared", () => {
+      updateInfo = null;
     });
   });
 
   onDestroy(() => {
     unsubUpdate?.();
+    unsubUpdateCleared?.();
   });
 
   async function toggleAutostart() {
@@ -93,6 +111,23 @@
       updateError = e?.toString() ?? "update check failed";
     } finally {
       checkingUpdate = false;
+    }
+  }
+
+  async function selectUpdateChannel(channel: "stable" | "beta") {
+    if (channel === updateChannel || updateChannelLoading) return;
+
+    updateChannelLoading = true;
+    updateError = "";
+    try {
+      await SetUpdateChannel(channel);
+      updateChannel = channel;
+      updateInfo = null;
+      await checkForUpdate();
+    } catch (e: any) {
+      updateError = e?.toString() ?? "failed to change update channel";
+    } finally {
+      updateChannelLoading = false;
     }
   }
 
@@ -162,6 +197,28 @@
         </div>
       {/if}
 
+      <div class="channel-row">
+        <span class="version-label">channel</span>
+        <div class="channel-selector" aria-label="Update channel">
+          <button
+            type="button"
+            class:active={updateChannel === "stable"}
+            disabled={updateChannelLoading || checkingUpdate || installingUpdate}
+            on:click={() => selectUpdateChannel("stable")}
+          >stable</button>
+          <button
+            type="button"
+            class:active={updateChannel === "beta"}
+            disabled={updateChannelLoading || checkingUpdate || installingUpdate}
+            on:click={() => selectUpdateChannel("beta")}
+          >beta</button>
+        </div>
+      </div>
+
+      {#if updateChannel === "beta"}
+        <div class="beta-warning">// beta builds may be unstable</div>
+      {/if}
+
       {#if updateInfo}
         <div class="update-available">
           <span class="update-text">! v{updateInfo.latestVersion} available</span>
@@ -186,6 +243,18 @@
       {#if updateError}
         <div class="status-text">{updateError}</div>
       {/if}
+    </div>
+
+    <div class="settings-section">
+      <div class="section-label">project</div>
+      <div class="project-links">
+        <button type="button" class="action-btn" title={websiteUrl} on:click={() => BrowserOpenURL(websiteUrl)}>
+          [ website ]
+        </button>
+        <button type="button" class="action-btn" title={githubUrl} on:click={() => BrowserOpenURL(githubUrl)}>
+          [ github ]
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -324,6 +393,51 @@
     color: var(--text);
   }
 
+  .channel-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .channel-selector {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .channel-selector button {
+    border: 0;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 4px 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  .channel-selector button:last-child {
+    border-right: 0;
+  }
+
+  .channel-selector button.active {
+    color: var(--accent);
+    background: rgba(0, 255, 136, 0.08);
+  }
+
+  .channel-selector button:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .beta-warning {
+    color: #d6a84b;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+  }
+
   .update-available {
     display: flex;
     flex-direction: column;
@@ -371,6 +485,12 @@
   .action-btn:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .project-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .status-text {

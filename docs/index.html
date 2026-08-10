@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="SSH Tunnel Manager — natywna aplikacja desktopowa do zarządzania tunelami SSH, port forwardingiem i zdalnymi narzędziami."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:title" content="SSH Tunnel Manager" />
+    <meta
+      property="og:description"
+      content="Tunele SSH pod kontrolą. Bez przeglądarki, chmury i dodatkowych serwerów."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SSH Tunnel Manager" />
+    <meta
+      name="twitter:description"
+      content="Tunele SSH pod kontrolą. Bez przeglądarki, chmury i dodatkowych serwerów."
+    />
+    <meta name="twitter:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/" />
+    <link rel="icon" type="image/png" href="assets/appicon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+    <title>SSH Tunnel Manager — tunele SSH pod kontrolą</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Przejdź do treści</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="SSH Tunnel Manager — strona główna">
+        <img src="assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Główna nawigacja">
+        <a href="#funkcje">Funkcje</a>
+        <a href="#pobierz">Pobierz</a>
+        <a href="#wydania">Wydania</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <a
+        class="button button-small button-ghost github-link"
+        href="https://github.com/JustCodePL/ssh-tunnel-manager"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span class="github-mark" aria-hidden="true"></span>
+        GitHub
+      </a>
+    </header>
+
+    <main id="main">
+      <section class="hero section" id="top">
+        <div class="hero-copy">
+          <a class="eyebrow" href="#wydania">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="latest-label">Najnowsza stabilna wersja v1.0.31</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <h1>Tunele SSH.<br /><em>Bez tarcia.</em></h1>
+          <p class="hero-lead">
+            Natywna aplikacja do zarządzania port forwardingiem, serwerami i plikami.
+            Działa z zasobnika systemowego — bez przeglądarki, chmury i osobnego serwera.
+          </p>
+          <div class="hero-actions">
+            <a
+              class="button button-primary download-auto"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest"
+            >
+              <span class="download-icon" aria-hidden="true">↓</span>
+              <span class="auto-download-label">Pobierz aplikację</span>
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Zobacz kod źródłowy
+              <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+          <ul class="trust-list" aria-label="Najważniejsze cechy">
+            <li><span aria-hidden="true">✓</span> Open source</li>
+            <li><span aria-hidden="true">✓</span> Dane lokalnie</li>
+            <li><span aria-hidden="true">✓</span> Windows · macOS · Linux</li>
+          </ul>
+        </div>
+
+        <div class="app-preview" aria-label="Podgląd interfejsu SSH Tunnel Manager">
+          <div class="preview-glow" aria-hidden="true"></div>
+          <div class="app-window">
+            <div class="window-bar">
+              <div class="window-brand">
+                <img src="assets/appicon.png" alt="" width="22" height="22" />
+                <span>SSH TUNNEL MANAGER</span>
+              </div>
+              <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+            <div class="window-toolbar">
+              <span>3 TUNNELS</span>
+              <div><b>[ IMPORT ]</b><b>[ EXPORT ]</b><b>[ CFG ]</b></div>
+            </div>
+            <div class="window-body">
+              <aside>
+                <small>GROUPS</small>
+                <div class="side-item active"><span>ALL</span><b>3</b></div>
+                <div class="side-item"><span>PRODUCTION</span><b>1</b></div>
+                <div class="side-item"><span>DEVELOPMENT</span><b>2</b></div>
+              </aside>
+              <div class="tunnel-list">
+                <div class="list-heading"><span>ALL TUNNELS</span><b>[ + ADD TUNNEL ]</b></div>
+                <article class="tunnel-card connected">
+                  <div class="tunnel-main">
+                    <span class="tunnel-pulse" aria-hidden="true"></span>
+                    <div><strong>production-api</strong><small>deploy@10.0.4.21:22</small></div>
+                  </div>
+                  <span class="status connected-status">CONNECTED</span>
+                  <div class="forward"><span>LOCAL</span><code>127.0.0.1:5432</code><i>→</i><code>db:5432</code></div>
+                </article>
+                <article class="tunnel-card connected">
+                  <div class="tunnel-main">
+                    <span class="tunnel-pulse cyan" aria-hidden="true"></span>
+                    <div><strong>staging</strong><small>ops@staging.internal:22</small></div>
+                  </div>
+                  <span class="status connected-status">CONNECTED</span>
+                  <div class="forward"><span>LOCAL</span><code>127.0.0.1:8080</code><i>→</i><code>app:80</code></div>
+                </article>
+                <article class="tunnel-card dimmed">
+                  <div class="tunnel-main">
+                    <span class="tunnel-pulse offline" aria-hidden="true"></span>
+                    <div><strong>analytics</strong><small>data@analytics.internal:22</small></div>
+                  </div>
+                  <span class="status">DISCONNECTED</span>
+                  <div class="forward"><span>LOCAL</span><code>127.0.0.1:3000</code><i>→</i><code>grafana:3000</code></div>
+                </article>
+              </div>
+            </div>
+          </div>
+          <div class="connection-toast">
+            <span class="toast-check" aria-hidden="true">✓</span>
+            <div><b>Tunel aktywny</b><small>production-api · 18 ms</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature-strip" aria-label="Skrót funkcji">
+        <span>Port forwarding</span><i></i><span>ProxyJump</span><i></i><span>SFTP</span><i></i>
+        <span>Terminal</span><i></i><span>Docker</span><i></i><span>Auto-reconnect</span>
+      </section>
+
+      <section class="section features" id="funkcje">
+        <div class="section-intro">
+          <p class="kicker">// MNIEJ KLIKANIA, WIĘCEJ PRACY</p>
+          <h2>Jeden punkt dostępu<br />do Twoich serwerów.</h2>
+          <p>
+            Od prostego tunelu do codziennej pracy ze zdalnym hostem — wszystko w jednym,
+            natywnym narzędziu.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card feature-wide">
+            <span class="feature-number">01</span>
+            <div class="feature-icon" aria-hidden="true">↔</div>
+            <h3>Port forwarding bez pamiętania komend</h3>
+            <p>
+              Wiele mapowań lokalny → zdalny w jednym tunelu. Adres portu skopiujesz jednym
+              kliknięciem prosto z zasobnika.
+            </p>
+            <div class="route-visual" aria-hidden="true">
+              <span><small>LOCAL</small>127.0.0.1:5432</span>
+              <i><b></b><b></b><b></b></i>
+              <span><small>REMOTE</small>database:5432</span>
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-number">02</span>
+            <div class="feature-icon" aria-hidden="true">⌁</div>
+            <h3>Zasobnik zamiast kolejnego okna</h3>
+            <p>Połącz, rozłącz i skopiuj port bez odrywania się od bieżącego zadania.</p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-number">03</span>
+            <div class="feature-icon" aria-hidden="true">⌘</div>
+            <h3>Terminal i narzędzia hosta</h3>
+            <p>Terminal, przeglądarka SFTP, statystyki zasobów oraz podgląd kontenerów Docker.</p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-number">04</span>
+            <div class="feature-icon" aria-hidden="true">◈</div>
+            <h3>Twój standardowy SSH config</h3>
+            <p>Import i eksport <code>~/.ssh/config</code>. Bez zamykania danych w autorskim formacie.</p>
+          </article>
+
+          <article class="feature-card feature-accent">
+            <span class="feature-number">05</span>
+            <div class="feature-icon" aria-hidden="true">↻</div>
+            <h3>Połączenie, które wraca samo</h3>
+            <p>Auto-connect, auto-reconnect i uruchamianie przy logowaniu dbają o ciągłość pracy.</p>
+            <span class="signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section downloads" id="pobierz">
+        <div class="section-intro centered">
+          <p class="kicker">// WYBIERZ SWÓJ SYSTEM</p>
+          <h2>Zainstaluj i połącz.</h2>
+          <p>Bez konta i konfiguracji w chmurze. Pobierz aktualną stabilną wersję.</p>
+        </div>
+
+        <div class="platform-grid">
+          <article class="platform-card featured">
+            <div class="recommended">POLECANE</div>
+            <span class="os-icon windows-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <div>
+              <h3>Windows</h3>
+              <p>Windows 10/11 · x64</p>
+            </div>
+            <a
+              class="button button-primary asset-download"
+              data-asset="ssh-tunnel-manager-amd64-installer.exe"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-amd64-installer.exe"
+            >
+              <span aria-hidden="true">↓</span> Pobierz instalator
+            </a>
+            <a
+              class="text-link asset-download"
+              data-asset="ssh-tunnel-manager-windows-amd64.zip"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-windows-amd64.zip"
+            >Wersja portable (.zip) →</a>
+          </article>
+
+          <article class="platform-card">
+            <span class="os-icon apple-icon" aria-hidden="true">●</span>
+            <div>
+              <h3>macOS</h3>
+              <p>Apple Silicon i Intel</p>
+            </div>
+            <div class="platform-actions">
+              <a
+                class="button button-secondary asset-download"
+                data-asset="ssh-tunnel-manager-darwin-arm64.dmg"
+                href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-darwin-arm64.dmg"
+              ><span aria-hidden="true">↓</span> Apple Silicon</a>
+              <a
+                class="text-link asset-download"
+                data-asset="ssh-tunnel-manager-darwin-amd64.dmg"
+                href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-darwin-amd64.dmg"
+              >Mac z procesorem Intel →</a>
+            </div>
+          </article>
+
+          <article class="platform-card">
+            <span class="os-icon linux-icon" aria-hidden="true">_</span>
+            <div>
+              <h3>Linux</h3>
+              <p>Dystrybucje x64</p>
+            </div>
+            <a
+              class="button button-secondary asset-download"
+              data-asset="ssh-tunnel-manager-linux-amd64.tar.gz"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-linux-amd64.tar.gz"
+            ><span aria-hidden="true">↓</span> Pobierz .tar.gz</a>
+            <span class="platform-note">Samodzielny plik wykonywalny</span>
+          </article>
+        </div>
+        <p class="download-note">
+          Pobierając aplikację, otrzymujesz oprogramowanie na licencji MIT. Wszystkie pliki są
+          publikowane w <a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">GitHub Releases</a>.
+        </p>
+      </section>
+
+      <section class="section releases" id="wydania">
+        <div class="release-heading">
+          <div class="section-intro">
+            <p class="kicker">// HISTORIA WYDAŃ I ROLLBACK</p>
+            <h2>Każda wersja.<br />Zawsze dostępna.</h2>
+            <p>
+              Potrzebujesz wrócić do wcześniejszej wersji? Wybierz wydanie i pobierz właściwy
+              plik dla swojego systemu bezpośrednio z GitHub.
+            </p>
+          </div>
+          <aside class="rollback-note">
+            <span aria-hidden="true">↶</span>
+            <div>
+              <h3>Jak zrobić rollback?</h3>
+              <p>Zamknij aplikację, pobierz starszą wersję z listy i zainstaluj ją w miejsce obecnej.</p>
+            </div>
+          </aside>
+        </div>
+
+        <div class="release-toolbar">
+          <div class="release-filters" role="group" aria-label="Filtr wydań">
+            <button class="filter-button active" type="button" data-filter="stable" aria-pressed="true">
+              Stabilne
+            </button>
+            <button class="filter-button" type="button" data-filter="all" aria-pressed="false">
+              Wszystkie, w tym beta
+            </button>
+          </div>
+          <a
+            class="text-link"
+            href="https://github.com/JustCodePL/ssh-tunnel-manager/releases"
+            target="_blank"
+            rel="noreferrer"
+          >Otwórz GitHub Releases ↗</a>
+        </div>
+
+        <div class="release-list" id="release-list" aria-live="polite" aria-busy="true">
+          <div class="release-skeleton"><span></span><span></span><span></span></div>
+          <div class="release-skeleton"><span></span><span></span><span></span></div>
+          <div class="release-skeleton"><span></span><span></span><span></span></div>
+        </div>
+        <button class="button button-secondary load-more" id="load-more" type="button" hidden>
+          Pokaż starsze wersje <span aria-hidden="true">↓</span>
+        </button>
+      </section>
+
+      <section class="section faq" id="faq">
+        <div class="section-intro">
+          <p class="kicker">// PYTANIA I ODPOWIEDZI</p>
+          <h2>FAQ</h2>
+          <p>Najważniejsze informacje przed instalacją i pierwszym połączeniem.</p>
+        </div>
+
+        <div class="faq-list">
+          <details name="faq">
+            <summary>Czy aplikacja wysyła moje dane lub klucze do chmury?<span>+</span></summary>
+            <p>
+              Nie. Aplikacja działa lokalnie, bez konta i zewnętrznego serwera konfiguracji.
+              Hasła do zaszyfrowanych kluczy trafiają do systemowego magazynu poświadczeń, a nie
+              do plików aplikacji.
+            </p>
+          </details>
+          <details name="faq">
+            <summary>Gdzie są przechowywane tunele?<span>+</span></summary>
+            <p>
+              W standardowym pliku <code>~/.ssh/config</code>. Metadane aplikacji są zapisane jako
+              komentarze, więc konfiguracja pozostaje czytelna dla innych klientów SSH.
+            </p>
+          </details>
+          <details name="faq">
+            <summary>Czy obsługiwane są ProxyJump i bastion hosty?<span>+</span></summary>
+            <p>
+              Tak. Możesz używać zarówno ProxyJump, jak i ProxyCommand oraz kluczy RSA, ECDSA i
+              Ed25519 — także zabezpieczonych hasłem.
+            </p>
+          </details>
+          <details name="faq">
+            <summary>Czy można bezpiecznie wrócić do starszej wersji?<span>+</span></summary>
+            <p>
+              Tak. Zamknij aplikację, pobierz instalator lub archiwum z wybranego wydania powyżej
+              i zainstaluj je ponownie. Przed rollbackiem warto zachować kopię
+              <code>~/.ssh/config</code>, szczególnie po dużej aktualizacji.
+            </p>
+          </details>
+          <details name="faq">
+            <summary>Jak działają aktualizacje?<span>+</span></summary>
+            <p>
+              Aplikacja sprawdza GitHub Releases przy uruchomieniu i informuje o nowszym wydaniu.
+              Aktualizację uruchamiasz samodzielnie z ustawień lub menu zasobnika.
+            </p>
+          </details>
+          <details name="faq">
+            <summary>Czy Linux wymaga uprawnień administratora?<span>+</span></summary>
+            <p>
+              Zwykłe tunele nie. Dodatkowa autoryzacja jest potrzebna tylko dla portless bindów
+              używających portów uprzywilejowanych poniżej 1024. Aplikacja pokaże wtedy odpowiednią
+              instrukcję.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="section contact" id="kontakt">
+        <div>
+          <p class="kicker">// KONTAKT</p>
+          <h2>Masz pytanie albo znalazłeś błąd?</h2>
+          <p>Opisz problem na GitHubie lub napisz bezpośrednio do autora.</p>
+        </div>
+        <div class="contact-actions">
+          <a
+            class="button button-primary"
+            href="https://github.com/JustCodePL/ssh-tunnel-manager/issues/new/choose"
+            target="_blank"
+            rel="noreferrer"
+          >Zgłoś problem na GitHubie <span aria-hidden="true">↗</span></a>
+          <a class="button button-secondary" href="mailto:kontakt.justcode@gmail.com">
+            kontakt.justcode@gmail.com
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="#top">
+        <img src="assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · MIT License · © <span id="current-year">2026</span> JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager">GitHub</a>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Kontakt</a>
+      </div>
+    </footer>
+  </body>
+</html>

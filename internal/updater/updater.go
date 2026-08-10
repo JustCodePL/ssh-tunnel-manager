@@ -7,10 +7,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
+
+// Channel controls which GitHub releases are eligible for updates.
+type Channel string
+
+const (
+	ChannelStable Channel = "stable"
+	ChannelBeta   Channel = "beta"
+)
+
+// ParseChannel validates a persisted or user-supplied update channel.
+func ParseChannel(value string) (Channel, error) {
+	channel := Channel(value)
+	switch channel {
+	case ChannelStable, ChannelBeta:
+		return channel, nil
+	default:
+		return "", fmt.Errorf("invalid update channel %q", value)
+	}
+}
 
 // UpdateInfo holds the details of an available update.
 type UpdateInfo struct {
@@ -20,18 +40,43 @@ type UpdateInfo struct {
 	ReleaseNotes  string `json:"releaseNotes"`
 }
 
-// Check contacts GitHub Releases for the given repo and returns update info
-// if a newer release exists. Returns nil, nil when currentVersion is "dev"
-// or when already up to date.
-func Check(ctx context.Context, currentVersion, repo string) (*UpdateInfo, error) {
+type githubRelease struct {
+	TagName    string `json:"tag_name"`
+	HtmlURL    string `json:"html_url"`
+	Body       string `json:"body"`
+	Draft      bool   `json:"draft"`
+	Prerelease bool   `json:"prerelease"`
+	Assets     []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+// Check contacts GitHub Releases and returns the newest release allowed by
+// channel. Stable accepts full releases only; beta accepts both prereleases
+// and full releases so beta users naturally advance to the final release.
+// Returns nil, nil when currentVersion is "dev" or when already up to date.
+func Check(ctx context.Context, currentVersion, repo string, channel Channel) (*UpdateInfo, error) {
+	return check(ctx, currentVersion, repo, channel, "https://api.github.com", http.DefaultClient)
+}
+
+func check(ctx context.Context, currentVersion, repo string, channel Channel, apiBaseURL string, client *http.Client) (*UpdateInfo, error) {
 	if currentVersion == "dev" {
 		return nil, nil
+	}
+	if _, err := ParseChannel(string(channel)); err != nil {
+		return nil, err
+	}
+
+	current, err := normalizeVersion(currentVersion)
+	if err != nil {
+		return nil, fmt.Errorf("parsing current version %q: %w", currentVersion, err)
 	}
 
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	url := "https://api.github.com/repos/" + repo + "/releases/latest"
+	url := strings.TrimRight(apiBaseURL, "/") + "/repos/" + repo + "/releases?per_page=100"
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("building update request: %w", err)
@@ -39,9 +84,9 @@ func Check(ctx context.Context, currentVersion, repo string) (*UpdateInfo, error
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fetching latest release: %w", err)
+		return nil, fmt.Errorf("fetching releases: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -49,86 +94,59 @@ func Check(ctx context.Context, currentVersion, repo string) (*UpdateInfo, error
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
-	var release struct {
-		TagName string `json:"tag_name"`
-		HtmlUrl string `json:"html_url"`
-		Body    string `json:"body"`
-		Assets  []struct {
-			Name               string `json:"name"`
-			BrowserDownloadUrl string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("decoding release response: %w", err)
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return nil, fmt.Errorf("decoding releases response: %w", err)
 	}
 
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-	newer, err := isNewer(latestVersion, currentVersion)
-	if err != nil {
-		return nil, fmt.Errorf("comparing versions: %w", err)
+	var selected *githubRelease
+	selectedVersion := ""
+	for i := range releases {
+		release := &releases[i]
+		if release.Draft || (channel == ChannelStable && release.Prerelease) {
+			continue
+		}
+
+		candidate, err := normalizeVersion(release.TagName)
+		if err != nil || semver.Compare(candidate, current) <= 0 {
+			continue
+		}
+		if selected == nil || semver.Compare(candidate, selectedVersion) > 0 {
+			selected = release
+			selectedVersion = candidate
+		}
 	}
-	if !newer {
+
+	if selected == nil {
 		return nil, nil
 	}
 
-	var assetUrl string
-	for _, a := range release.Assets {
-		if a.Name == platformAsset {
-			assetUrl = a.BrowserDownloadUrl
+	assetURL := ""
+	for _, asset := range selected.Assets {
+		if asset.Name == platformAsset {
+			assetURL = asset.BrowserDownloadURL
 			break
 		}
 	}
-	if assetUrl == "" {
-		return nil, fmt.Errorf("no asset named %q in release %s", platformAsset, latestVersion)
+	if assetURL == "" {
+		return nil, fmt.Errorf("no asset named %q in release %s", platformAsset, strings.TrimPrefix(selectedVersion, "v"))
 	}
 
 	return &UpdateInfo{
-		LatestVersion: latestVersion,
-		ReleaseUrl:    release.HtmlUrl,
-		AssetUrl:      assetUrl,
-		ReleaseNotes:  release.Body,
+		LatestVersion: strings.TrimPrefix(selectedVersion, "v"),
+		ReleaseUrl:    selected.HtmlURL,
+		AssetUrl:      assetURL,
+		ReleaseNotes:  selected.Body,
 	}, nil
 }
 
-// isNewer returns true if candidate is strictly greater than baseline.
-// Both strings must be "major.minor.patch" (pre-release suffixes after
-// '-' or '+' are stripped).
-func isNewer(candidate, baseline string) (bool, error) {
-	cv, err := parseVersion(candidate)
-	if err != nil {
-		return false, fmt.Errorf("parsing candidate %q: %w", candidate, err)
+func normalizeVersion(value string) (string, error) {
+	version := value
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
 	}
-	bv, err := parseVersion(baseline)
-	if err != nil {
-		return false, fmt.Errorf("parsing baseline %q: %w", baseline, err)
+	if !semver.IsValid(version) {
+		return "", fmt.Errorf("invalid semantic version")
 	}
-	for i := range cv {
-		if cv[i] > bv[i] {
-			return true, nil
-		}
-		if cv[i] < bv[i] {
-			return false, nil
-		}
-	}
-	return false, nil
-}
-
-func parseVersion(v string) ([3]int, error) {
-	// Strip pre-release / build metadata
-	if idx := strings.IndexAny(v, "-+"); idx >= 0 {
-		v = v[:idx]
-	}
-	parts := strings.SplitN(v, ".", 3)
-	if len(parts) != 3 {
-		return [3]int{}, fmt.Errorf("expected major.minor.patch, got %q", v)
-	}
-	var result [3]int
-	for i, p := range parts {
-		n, err := strconv.Atoi(p)
-		if err != nil {
-			return [3]int{}, fmt.Errorf("non-numeric segment %q: %w", p, err)
-		}
-		result[i] = n
-	}
-	return result, nil
+	return version, nil
 }

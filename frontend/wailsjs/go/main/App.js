@@ -118,6 +118,10 @@ export function GetTunnels() {
   return window['go']['main']['App']['GetTunnels']();
 }
 
+export function GetUpdateChannel() {
+  return window['go']['main']['App']['GetUpdateChannel']();
+}
+
 export function ImportPreview(arg1) {
   return window['go']['main']['App']['ImportPreview'](arg1);
 }
@@ -220,6 +224,10 @@ export function SetShowResourceStats(arg1) {
 
 export function SetTunnelPinned(arg1, arg2) {
   return window['go']['main']['App']['SetTunnelPinned'](arg1, arg2);
+}
+
+export function SetUpdateChannel(arg1) {
+  return window['go']['main']['App']['SetUpdateChannel'](arg1);
 }
 
 export function SubmitPassphrase(arg1) {
