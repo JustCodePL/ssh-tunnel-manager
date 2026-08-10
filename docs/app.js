@@ -3,6 +3,46 @@ const RELEASES_URL = `https://github.com/${REPOSITORY}/releases`;
 const API_URL = `https://api.github.com/repos/${REPOSITORY}/releases`;
 const PAGE_SIZE = 100;
 const INITIAL_RELEASE_COUNT = 6;
+const IS_POLISH = document.documentElement.lang.toLowerCase().startsWith("pl");
+const COPY = IS_POLISH
+  ? {
+      locale: "pl-PL",
+      installer: "instalator",
+      releaseDetails: "Szczegóły zmian są dostępne na stronie wydania.",
+      testRelease: "Wydanie testowe",
+      latestStable: "Najnowsze wydanie stabilne",
+      stableRelease: "Wydanie stabilne",
+      downloadAria: (label, version) => `Pobierz ${label}, wersja ${version}`,
+      viewAssets: "Zobacz pliki wydania ↗",
+      latestLabel: (version) => `Najnowsza stabilna wersja ${version}`,
+      platformDownload: {
+        windows: (version) => `Pobierz dla Windows · ${version}`,
+        mac: (version) => `Pobierz dla macOS · ${version}`,
+        linux: (version) => `Pobierz dla Linux · ${version}`,
+        other: (version) => `Pobierz aplikację · ${version}`,
+      },
+      releaseError:
+        "Nie udało się teraz pobrać historii wydań. Wszystkie wersje i pliki instalacyjne znajdziesz bezpośrednio w",
+    }
+  : {
+      locale: "en-GB",
+      installer: "installer",
+      releaseDetails: "Release details are available on the release page.",
+      testRelease: "Test release",
+      latestStable: "Latest stable release",
+      stableRelease: "Stable release",
+      downloadAria: (label, version) => `Download ${label}, version ${version}`,
+      viewAssets: "View release files ↗",
+      latestLabel: (version) => `Latest stable release ${version}`,
+      platformDownload: {
+        windows: (version) => `Download for Windows · ${version}`,
+        mac: (version) => `Download for macOS · ${version}`,
+        linux: (version) => `Download for Linux · ${version}`,
+        other: (version) => `Download the app · ${version}`,
+      },
+      releaseError:
+        "The release history could not be loaded right now. Every version and installer is available directly from",
+    };
 
 let releases = [];
 let activeFilter = "stable";
@@ -22,7 +62,7 @@ function detectPlatform() {
 
 function classifyAsset(name) {
   const value = name.toLowerCase();
-  if (value.includes("installer") && value.endsWith(".exe")) return { label: "Windows · instalator", platform: "windows" };
+  if (value.includes("installer") && value.endsWith(".exe")) return { label: `Windows · ${COPY.installer}`, platform: "windows" };
   if (value.includes("windows") && value.endsWith(".zip")) return { label: "Windows · portable", platform: "windows" };
   if (value.includes("darwin-arm64") || value.includes("macos-arm64")) return { label: "macOS · Apple Silicon", platform: "mac" };
   if (value.includes("darwin-amd64") || value.includes("macos-amd64")) return { label: "macOS · Intel", platform: "mac" };
@@ -32,7 +72,7 @@ function classifyAsset(name) {
 }
 
 function formatDate(value) {
-  return new Intl.DateTimeFormat("pl-PL", {
+  return new Intl.DateTimeFormat(COPY.locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -40,7 +80,7 @@ function formatDate(value) {
 }
 
 function cleanReleaseBody(body) {
-  if (!body) return "Szczegóły zmian są dostępne na stronie wydania.";
+  if (!body) return COPY.releaseDetails;
 
   const cleaned = body
     .replace(/<!--.*?-->/gs, " ")
@@ -54,14 +94,14 @@ function cleanReleaseBody(body) {
     .replace(/\s+/g, " ")
     .trim();
 
-  if (!cleaned) return "Szczegóły zmian są dostępne na stronie wydania.";
+  if (!cleaned) return COPY.releaseDetails;
   return cleaned.length > 175 ? `${cleaned.slice(0, 172).trim()}…` : cleaned;
 }
 
 function titleForRelease(release) {
-  if (release.prerelease) return "Wydanie testowe";
+  if (release.prerelease) return COPY.testRelease;
   if (release.name && release.name !== release.tag_name) return release.name;
-  return release === releases.find((item) => !item.prerelease) ? "Najnowsze wydanie stabilne" : "Wydanie stabilne";
+  return release === releases.find((item) => !item.prerelease) ? COPY.latestStable : COPY.stableRelease;
 }
 
 function createReleaseRow(release) {
@@ -106,7 +146,7 @@ function createReleaseRow(release) {
     const link = document.createElement("a");
     link.className = "asset-button";
     link.href = asset.browser_download_url;
-    link.setAttribute("aria-label", `Pobierz ${metadata.label}, wersja ${release.tag_name}`);
+    link.setAttribute("aria-label", COPY.downloadAria(metadata.label, release.tag_name));
     const icon = document.createElement("span");
     icon.setAttribute("aria-hidden", "true");
     icon.textContent = "↓";
@@ -118,7 +158,7 @@ function createReleaseRow(release) {
     const link = document.createElement("a");
     link.className = "asset-button";
     link.href = release.html_url;
-    link.textContent = "Zobacz pliki wydania ↗";
+    link.textContent = COPY.viewAssets;
     assets.append(link);
   }
 
@@ -139,7 +179,7 @@ function renderReleases() {
 }
 
 function updateLatestDownloads(latest) {
-  document.querySelector("#latest-label").textContent = `Najnowsza stabilna wersja ${latest.tag_name}`;
+  document.querySelector("#latest-label").textContent = COPY.latestLabel(latest.tag_name);
 
   document.querySelectorAll(".asset-download[data-asset]").forEach((link) => {
     const asset = latest.assets.find((item) => item.name === link.dataset.asset);
@@ -154,16 +194,9 @@ function updateLatestDownloads(latest) {
   }[platform];
   const preferredAsset = latest.assets.find((asset) => asset.name === preferred);
 
-  const labels = {
-    windows: `Pobierz dla Windows · ${latest.tag_name}`,
-    mac: `Pobierz dla macOS · ${latest.tag_name}`,
-    linux: `Pobierz dla Linux · ${latest.tag_name}`,
-    other: `Pobierz aplikację · ${latest.tag_name}`,
-  };
-
   document.querySelectorAll(".download-auto").forEach((link) => {
     link.href = preferredAsset?.browser_download_url || latest.html_url;
-    link.querySelector(".auto-download-label").textContent = labels[platform];
+    link.querySelector(".auto-download-label").textContent = COPY.platformDownload[platform](latest.tag_name);
   });
 }
 
@@ -192,8 +225,7 @@ async function initializeReleases() {
     releaseList.setAttribute("aria-busy", "false");
     releaseList.innerHTML = `
       <p class="release-error">
-        Nie udało się teraz pobrać historii wydań. Wszystkie wersje i pliki instalacyjne
-        znajdziesz bezpośrednio w <a href="${RELEASES_URL}">GitHub Releases</a>.
+        ${COPY.releaseError} <a href="${RELEASES_URL}">GitHub Releases</a>.
       </p>`;
     loadMoreButton.hidden = true;
   }

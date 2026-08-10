@@ -145,8 +145,45 @@ footer a:hover,
   color: var(--green);
 }
 
-.github-link {
+.header-actions {
+  display: flex;
+  align-items: center;
   justify-self: end;
+  gap: 10px;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 10px;
+  gap: 8px;
+  border: 1px solid rgba(83, 110, 96, 0.45);
+  border-radius: 7px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.language-switch::before {
+  content: "LANG";
+  color: var(--muted-2);
+  font-size: 8px;
+}
+
+.language-switch a,
+.language-switch span {
+  padding: 4px 2px;
+}
+
+.language-switch a {
+  transition: color 160ms ease;
+}
+
+.language-switch a:hover,
+.language-switch [aria-current="page"] {
+  color: var(--green);
 }
 
 .github-mark {
@@ -1370,6 +1407,18 @@ footer > div {
 
   .button-small {
     min-height: 38px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .language-switch {
+    padding-inline: 8px;
+  }
+
+  .language-switch::before {
+    display: none;
   }
 
   .section {
