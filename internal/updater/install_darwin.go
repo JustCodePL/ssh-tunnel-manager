@@ -85,11 +85,19 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 	}
 	// Navigate 3 levels up from Contents/MacOS/<binary> to reach the .app bundle.
 	currentAppPath := filepath.Clean(filepath.Join(exePath, "..", "..", ".."))
-	installTarget := currentAppPath
+	// Use the bundle name shipped in the DMG so an update can migrate older
+	// installations from ssh-tunnel-manager.app to SSH Tunnel Manager.app.
+	installTarget := filepath.Join(filepath.Dir(currentAppPath), appName)
 
-	// Copy the new .app over the existing one
+	// Copy the new .app over the existing one. When the bundle name changed,
+	// remove the old path after clearing any existing canonical target.
 	if err := os.RemoveAll(installTarget); err != nil {
-		return fmt.Errorf("removing old app bundle: %w", err)
+		return fmt.Errorf("removing existing app bundle: %w", err)
+	}
+	if currentAppPath != installTarget {
+		if err := os.RemoveAll(currentAppPath); err != nil {
+			return fmt.Errorf("removing old app bundle: %w", err)
+		}
 	}
 	if err := exec.Command("cp", "-R", extractedApp, installTarget).Run(); err != nil {
 		return fmt.Errorf("copying new app bundle: %w", err)

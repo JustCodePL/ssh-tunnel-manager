@@ -27,14 +27,14 @@ Get the latest release from the [Releases page](https://github.com/JustCodePL/ss
 |----------|------|-------|
 | Windows | `ssh-tunnel-manager-amd64-installer.exe` | NSIS installer, recommended |
 | Windows | `ssh-tunnel-manager-windows-amd64.zip` | Portable `.exe`, no installer |
-| macOS | `ssh-tunnel-manager-darwin-arm64.zip` | `.app` bundle (Apple Silicon) |
+| macOS | `ssh-tunnel-manager-darwin-arm64.dmg` | Disk image (Apple Silicon) |
 | Linux | `ssh-tunnel-manager-linux-amd64.tar.gz` | Standalone binary |
 
 ## Installation
 
 **Windows** — run the NSIS installer. It places the app in `Program Files`, creates a Start Menu entry, and registers an uninstaller.
 
-**macOS** — unzip and drag `ssh-tunnel-manager.app` to `/Applications`. On first launch macOS may show a security prompt — open System Settings → Privacy & Security and click *Open Anyway*.
+**macOS** — open the DMG and drag `SSH Tunnel Manager.app` to `/Applications`. On first launch macOS may show a security prompt — open System Settings → Privacy & Security and click *Open Anyway*.
 
 **Linux** — extract the binary to `~/.local/bin/` or `/usr/local/bin/` and run it. For autostart, enable *Start on login* in Settings.
 

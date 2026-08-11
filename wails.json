@@ -8,6 +8,9 @@
   "frontend:dev:serverUrl": "auto",
   "wailsjsdir": "./frontend",
   "build:tags": "webkit2_41",
+  "postBuildHooks": {
+    "darwin/*": "../../scripts/rename-macos-app.sh"
+  },
   "info": {
     "companyName": "JustCode",
     "productName": "SSH Tunnel Manager",

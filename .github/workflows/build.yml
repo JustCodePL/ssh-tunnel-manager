@@ -135,7 +135,7 @@ jobs:
           IDENTITY=$(security find-identity -v -p codesigning $RUNNER_TEMP/app-signing.keychain-db | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
           echo "Signing with identity: $IDENTITY"
 
-          find "build/bin/ssh-tunnel-manager.app" -type f \( -name "*.dylib" -o -name "*.framework" -o -perm +111 \) -exec \
+          find "build/bin/SSH Tunnel Manager.app" -type f \( -name "*.dylib" -o -name "*.framework" -o -perm +111 \) -exec \
             codesign --force --options runtime --timestamp \
               --entitlements build/darwin/entitlements.plist \
               --sign "$IDENTITY" {} \;
@@ -143,9 +143,9 @@ jobs:
           codesign --force --options runtime --timestamp \
             --entitlements build/darwin/entitlements.plist \
             --sign "$IDENTITY" \
-            "build/bin/ssh-tunnel-manager.app"
+            "build/bin/SSH Tunnel Manager.app"
 
-          codesign --verify --verbose "build/bin/ssh-tunnel-manager.app"
+          codesign --verify --verbose "build/bin/SSH Tunnel Manager.app"
 
       - name: Create macOS DMG
         if: matrix.platform == 'darwin'
@@ -156,8 +156,8 @@ jobs:
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
-            --icon "ssh-tunnel-manager.app" 150 190 \
-            --hide-extension "ssh-tunnel-manager.app" \
+            --icon "SSH Tunnel Manager.app" 150 190 \
+            --hide-extension "SSH Tunnel Manager.app" \
             --app-drop-link 450 190 \
             --codesign "$(security find-identity -v -p codesigning $RUNNER_TEMP/app-signing.keychain-db | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $2}')" \
             "build/bin/ssh-tunnel-manager.dmg" \
