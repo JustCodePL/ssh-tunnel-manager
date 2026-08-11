@@ -9,3 +9,11 @@
 - If the target Release does not exist, derive the next version from the latest existing release or Git tag using SemVer: use a patch increment for a backward-compatible bug fix, a minor increment for a backward-compatible feature, and a major increment for a breaking change. Use a prerelease suffix only when the request explicitly targets a prerelease. Create the Release in the appropriate pipeline and link the issue to it.
 - If native Linear Releases are unavailable for the workspace or plan, do not enable a trial or upgrade the plan automatically. Use a project milestone named after the SemVer version (for example, `v1.0.32`) as the fallback, attach the issue to it, and note the Releases limitation in the issue.
 - Never publish a tag, GitHub Release, or other externally visible release without Artur's explicit approval.
+
+## Linear distribution labels
+
+- Keep Linear issue labels aligned with the highest distribution channel that actually contains the change, following the team document `Sposób pracy: Artur + Codex`.
+- Apply the `develop` label when a change is implemented on the development branch but has not yet been published in a beta or stable release.
+- When a beta or other prerelease is successfully published and verified, replace `develop` with `beta` on every issue included in that prerelease.
+- When the change reaches a stable release, remove both `develop` and `beta`. Preserve all unrelated labels throughout these transitions.
+- Determine the included issues from the linked Linear Release or milestone, the commits since the previous release, and the published release notes. Do not label unrelated diagnostic or administrative issues as part of a product release.
