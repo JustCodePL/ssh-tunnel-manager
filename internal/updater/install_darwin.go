@@ -107,18 +107,11 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 // hdiutil prints lines like: /dev/disk4s1  Apple_HFS  /Volumes/SSH Tunnel Manager
 func parseMountPoint(output string) string {
 	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
-		fields := strings.Fields(line)
-		for _, f := range fields {
-			if strings.HasPrefix(f, "/Volumes/") {
-				return f
-			}
-		}
-		// /Volumes/ path may contain spaces — join fields after the last tab
-		if idx := strings.LastIndex(line, "\t"); idx >= 0 {
-			candidate := strings.TrimSpace(line[idx+1:])
-			if strings.HasPrefix(candidate, "/Volumes/") {
-				return candidate
-			}
+		// The mount point is the final hdiutil column and may contain spaces.
+		// Taking the remainder of the line avoids truncating, for example,
+		// "/Volumes/SSH Tunnel Manager" to "/Volumes/SSH".
+		if idx := strings.Index(line, "/Volumes/"); idx >= 0 {
+			return strings.TrimSpace(line[idx:])
 		}
 	}
 	return ""
