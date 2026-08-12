@@ -18,8 +18,7 @@ const plistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
     <string>%s</string>
     <key>ProgramArguments</key>
     <array>
-        <string>%s</string>
-        <string>--hidden</string>
+        <string>%s</string>%s
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -41,7 +40,7 @@ func IsEnabled() (bool, error) {
 }
 
 // Enable creates a launch agent plist in ~/Library/LaunchAgents/.
-func Enable() error {
+func Enable(startMinimized bool) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("getting executable path: %w", err)
@@ -53,7 +52,11 @@ func Enable() error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("creating LaunchAgents dir: %w", err)
 	}
-	content := fmt.Sprintf(plistTemplate, launchAgentLabel, exePath)
+	hiddenArgument := ""
+	if startMinimized {
+		hiddenArgument = "\n        <string>--hidden</string>"
+	}
+	content := fmt.Sprintf(plistTemplate, launchAgentLabel, exePath, hiddenArgument)
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("writing launch agent plist: %w", err)
 	}

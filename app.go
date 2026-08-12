@@ -152,12 +152,16 @@ func (a *App) startup(ctx context.Context) {
 	if enabled, err := autostart.IsEnabled(); err != nil {
 		slog.Warn("checking autostart configuration failed", "error", err)
 	} else if enabled {
-		if err := autostart.Enable(); err != nil {
+		if err := autostart.Enable(a.prefs.Get().StartMinimized); err != nil {
 			slog.Warn("refreshing autostart configuration failed", "error", err)
 		}
 	}
 
-	if !a.startHidden {
+	if a.startHidden {
+		// Wails v2 activates the macOS application even when StartHidden is
+		// set. Hide the application itself so login startup cannot steal focus.
+		runtime.Hide(a.ctx)
+	} else {
 		runtime.WindowShow(a.ctx)
 	}
 
@@ -754,6 +758,9 @@ func (a *App) SFTPWriteText(sessionID, remotePath, content string, expectModTime
 
 func (a *App) showWindow() {
 	if a.ctx != nil {
+		// A hidden macOS application must be unhidden before its window can
+		// become key. This is harmless on Windows and Linux.
+		runtime.Show(a.ctx)
 		runtime.WindowShow(a.ctx)
 	}
 }
@@ -867,9 +874,32 @@ func (a *App) GetAutostart() bool {
 // SetAutostart enables or disables starting the app on login.
 func (a *App) SetAutostart(enabled bool) error {
 	if enabled {
-		return autostart.Enable()
+		return autostart.Enable(a.prefs.Get().StartMinimized)
 	}
 	return autostart.Disable()
+}
+
+// GetStartMinimized returns whether login startup should keep the app hidden.
+func (a *App) GetStartMinimized() bool {
+	return a.prefs.Get().StartMinimized
+}
+
+// SetStartMinimized configures login startup visibility and persists it.
+func (a *App) SetStartMinimized(enabled bool) error {
+	p := a.prefs.Get()
+	p.StartMinimized = enabled
+	if err := a.prefs.Set(p); err != nil {
+		return err
+	}
+
+	autostartEnabled, err := autostart.IsEnabled()
+	if err != nil {
+		return err
+	}
+	if autostartEnabled {
+		return autostart.Enable(enabled)
+	}
+	return nil
 }
 
 // GetCurrentVersion returns the compiled-in application version.

@@ -58,6 +58,8 @@ export function GetServerStats(arg1:string):Promise<sysstats.ServerStats>;
 
 export function GetShowResourceStats():Promise<boolean>;
 
+export function GetStartMinimized():Promise<boolean>;
+
 export function GetTunnelLogs(arg1:string):Promise<Array<config.LogEntry>>;
 
 export function GetTunnelStatuses():Promise<Record<string, ssh.StatusEvent>>;
@@ -115,6 +117,8 @@ export function SetAutostart(arg1:boolean):Promise<void>;
 export function SetCloseToTray(arg1:boolean):Promise<void>;
 
 export function SetShowResourceStats(arg1:boolean):Promise<void>;
+
+export function SetStartMinimized(arg1:boolean):Promise<void>;
 
 export function SetTunnelPinned(arg1:string,arg2:boolean):Promise<void>;
 

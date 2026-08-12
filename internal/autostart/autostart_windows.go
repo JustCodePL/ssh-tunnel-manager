@@ -30,7 +30,7 @@ func IsEnabled() (bool, error) {
 }
 
 // Enable adds the executable to the Windows startup registry.
-func Enable() error {
+func Enable(startMinimized bool) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("getting executable path: %w", err)
@@ -41,7 +41,10 @@ func Enable() error {
 	}
 	defer key.Close()
 
-	value := fmt.Sprintf(`"%s" --hidden`, exePath)
+	value := fmt.Sprintf(`"%s"`, exePath)
+	if startMinimized {
+		value += " --hidden"
+	}
 	if err := key.SetStringValue(regValue, value); err != nil {
 		return fmt.Errorf("setting registry value: %w", err)
 	}

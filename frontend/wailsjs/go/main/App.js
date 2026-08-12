@@ -106,6 +106,10 @@ export function GetShowResourceStats() {
   return window['go']['main']['App']['GetShowResourceStats']();
 }
 
+export function GetStartMinimized() {
+  return window['go']['main']['App']['GetStartMinimized']();
+}
+
 export function GetTunnelLogs(arg1) {
   return window['go']['main']['App']['GetTunnelLogs'](arg1);
 }
@@ -220,6 +224,10 @@ export function SetCloseToTray(arg1) {
 
 export function SetShowResourceStats(arg1) {
   return window['go']['main']['App']['SetShowResourceStats'](arg1);
+}
+
+export function SetStartMinimized(arg1) {
+  return window['go']['main']['App']['SetStartMinimized'](arg1);
 }
 
 export function SetTunnelPinned(arg1, arg2) {

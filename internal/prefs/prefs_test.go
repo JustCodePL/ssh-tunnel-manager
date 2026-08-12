@@ -14,6 +14,30 @@ func TestDefaultUpdateChannelIsStable(t *testing.T) {
 	if got := store.Get().UpdateChannel; got != "stable" {
 		t.Fatalf("UpdateChannel = %q, want stable", got)
 	}
+	if !store.Get().StartMinimized {
+		t.Fatal("StartMinimized = false, want true")
+	}
+}
+
+func TestStartMinimizedPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "prefs.json")
+	store, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatalf("NewStoreWithPath: %v", err)
+	}
+	p := store.Get()
+	p.StartMinimized = false
+	if err := store.Set(p); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	reloaded, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatalf("reloading store: %v", err)
+	}
+	if reloaded.Get().StartMinimized {
+		t.Fatal("StartMinimized = true, want false")
+	}
 }
 
 func TestUpdateChannelPersists(t *testing.T) {
@@ -53,6 +77,9 @@ func TestOldPrefsFileMigratesToStable(t *testing.T) {
 	}
 	if p.CloseToTray {
 		t.Fatal("existing preference was not preserved")
+	}
+	if !p.StartMinimized {
+		t.Fatal("missing StartMinimized did not migrate to true")
 	}
 }
 

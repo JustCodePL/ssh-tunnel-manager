@@ -81,6 +81,11 @@ Open via the tray left-click or *Show Window*. From here you can:
 - Import tunnels from an SSH config file
 - Export selected tunnels to an SSH config file
 
+In **Settings → Startup**, *Start on login* enables OS autostart. *Start
+minimized on login* is enabled by default so the app stays in the system tray
+without taking focus after sign-in; disable it to open the manager window
+automatically instead.
+
 ### Adding a Tunnel
 
 Click **+ Add Tunnel** and fill in:

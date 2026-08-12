@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
-  import { GetAutostart, SetAutostart, GetCloseToTray, SetCloseToTray, GetCurrentVersion, GetUpdateChannel, SetUpdateChannel, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
+  import { GetAutostart, SetAutostart, GetStartMinimized, SetStartMinimized, GetCloseToTray, SetCloseToTray, GetCurrentVersion, GetUpdateChannel, SetUpdateChannel, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
   import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime";
   import { showResourceStats, setShowResourceStats } from "../stores/prefs";
 
@@ -12,6 +12,8 @@
 
   let autostartEnabled = false;
   let autostartLoading = true;
+  let startMinimized = true;
+  let startMinimizedLoading = true;
   let closeToTray = true;
   let closeToTrayLoading = true;
 
@@ -34,6 +36,14 @@
       console.error("Failed to get autostart status:", e);
     } finally {
       autostartLoading = false;
+    }
+
+    try {
+      startMinimized = await GetStartMinimized();
+    } catch (e) {
+      console.error("Failed to get minimized-start setting:", e);
+    } finally {
+      startMinimizedLoading = false;
     }
 
     try {
@@ -89,6 +99,16 @@
       closeToTray = newValue;
     } catch (e: any) {
       console.error("Failed to set close-to-tray:", e);
+    }
+  }
+
+  async function toggleStartMinimized() {
+    const newValue = !startMinimized;
+    try {
+      await SetStartMinimized(newValue);
+      startMinimized = newValue;
+    } catch (e: any) {
+      console.error("Failed to set minimized-start setting:", e);
     }
   }
 
@@ -166,12 +186,22 @@
       {#if autostartLoading}
         <div class="loading-text">// loading...</div>
       {:else}
-        <label class="checkbox-label" on:click|preventDefault={toggleAutostart}>
+        <button type="button" class="checkbox-label" on:click={toggleAutostart}>
           <span class="hacker-check" class:checked={autostartEnabled}>
             {#if autostartEnabled}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
           </span>
           <span class="checkbox-text" class:active={autostartEnabled}>start on login</span>
-        </label>
+        </button>
+      {/if}
+      {#if startMinimizedLoading}
+        <div class="loading-text">// loading...</div>
+      {:else}
+        <button type="button" class="checkbox-label" on:click={toggleStartMinimized}>
+          <span class="hacker-check" class:checked={startMinimized}>
+            {#if startMinimized}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
+          </span>
+          <span class="checkbox-text" class:active={startMinimized}>start minimized on login</span>
+        </button>
       {/if}
     </div>
 
@@ -180,23 +210,23 @@
       {#if closeToTrayLoading}
         <div class="loading-text">// loading...</div>
       {:else}
-        <label class="checkbox-label" on:click|preventDefault={toggleCloseToTray}>
+        <button type="button" class="checkbox-label" on:click={toggleCloseToTray}>
           <span class="hacker-check" class:checked={closeToTray}>
             {#if closeToTray}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
           </span>
           <span class="checkbox-text" class:active={closeToTray}>hide to tray on close</span>
-        </label>
+        </button>
       {/if}
     </div>
 
     <div class="settings-section">
       <div class="section-label">monitoring</div>
-      <label class="checkbox-label" on:click|preventDefault={toggleResourceStats}>
+      <button type="button" class="checkbox-label" on:click={toggleResourceStats}>
         <span class="hacker-check" class:checked={$showResourceStats}>
           {#if $showResourceStats}<span class="check-mark">■</span>{:else}<span class="check-empty">□</span>{/if}
         </span>
         <span class="checkbox-text" class:active={$showResourceStats}>show cpu/ram widget on active tunnels</span>
-      </label>
+      </button>
     </div>
 
     <div class="settings-section">
@@ -354,6 +384,10 @@
     font-family: 'JetBrains Mono', monospace;
     user-select: none;
     padding: 4px 0;
+    background: none;
+    border: 0;
+    text-align: left;
+    width: 100%;
   }
 
   .hacker-check {

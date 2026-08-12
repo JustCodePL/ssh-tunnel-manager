@@ -23,6 +23,7 @@ type HostTools struct {
 // Prefs holds user-configurable application preferences.
 type Prefs struct {
 	CloseToTray       bool   `json:"closeToTray"`
+	StartMinimized    bool   `json:"startMinimized"`
 	WindowWidth       int    `json:"windowWidth,omitempty"`
 	WindowHeight      int    `json:"windowHeight,omitempty"`
 	ShowResourceStats bool   `json:"showResourceStats"`
@@ -35,6 +36,7 @@ type Prefs struct {
 func defaultPrefs() Prefs {
 	return Prefs{
 		CloseToTray:       true,
+		StartMinimized:    true,
 		WindowWidth:       900,
 		WindowHeight:      600,
 		ShowResourceStats: true,

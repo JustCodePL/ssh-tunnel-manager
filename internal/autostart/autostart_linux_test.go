@@ -3,6 +3,7 @@
 package autostart
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,7 +22,7 @@ func TestEnableDisable(t *testing.T) {
 		t.Fatal("expected autostart to be disabled initially")
 	}
 
-	if err := Enable(); err != nil {
+	if err := Enable(true); err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
 
@@ -41,6 +42,20 @@ func TestEnableDisable(t *testing.T) {
 	}
 	if len(data) == 0 {
 		t.Fatal("desktop file is empty")
+	}
+	if !bytes.Contains(data, []byte(" --hidden")) {
+		t.Fatal("desktop file does not start the app hidden")
+	}
+
+	if err := Enable(false); err != nil {
+		t.Fatalf("Enable without minimized start: %v", err)
+	}
+	data, err = os.ReadFile(desktopPath)
+	if err != nil {
+		t.Fatalf("reading updated desktop file: %v", err)
+	}
+	if bytes.Contains(data, []byte("--hidden")) {
+		t.Fatal("desktop file still starts the app hidden")
 	}
 
 	if err := Disable(); err != nil {

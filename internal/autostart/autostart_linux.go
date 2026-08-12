@@ -11,7 +11,7 @@ import (
 const desktopEntry = `[Desktop Entry]
 Type=Application
 Name=SSH Tunnel Manager
-Exec=%s --hidden
+Exec=%s%s
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
@@ -32,7 +32,7 @@ func IsEnabled() (bool, error) {
 }
 
 // Enable creates a .desktop file in ~/.config/autostart/.
-func Enable() error {
+func Enable(startMinimized bool) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("getting executable path: %w", err)
@@ -44,7 +44,11 @@ func Enable() error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("creating autostart dir: %w", err)
 	}
-	content := fmt.Sprintf(desktopEntry, exePath)
+	hiddenArgument := ""
+	if startMinimized {
+		hiddenArgument = " --hidden"
+	}
+	content := fmt.Sprintf(desktopEntry, exePath, hiddenArgument)
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("writing autostart file: %w", err)
 	}
