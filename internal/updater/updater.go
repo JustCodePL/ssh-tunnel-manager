@@ -55,6 +55,8 @@ type githubRelease struct {
 // Check contacts GitHub Releases and returns the newest release allowed by
 // channel. Stable accepts full releases only; beta accepts both prereleases
 // and full releases so beta users naturally advance to the final release.
+// Switching a prerelease build to Stable intentionally allows the newest
+// stable release even when its version is lower than the current beta.
 // Returns nil, nil when currentVersion is "dev" or when already up to date.
 func Check(ctx context.Context, currentVersion, repo string, channel Channel) (*UpdateInfo, error) {
 	return check(ctx, currentVersion, repo, channel, "https://api.github.com", http.DefaultClient)
@@ -101,6 +103,7 @@ func check(ctx context.Context, currentVersion, repo string, channel Channel, ap
 
 	var selected *githubRelease
 	selectedVersion := ""
+	switchingPrereleaseToStable := channel == ChannelStable && semver.Prerelease(current) != ""
 	for i := range releases {
 		release := &releases[i]
 		if release.Draft || (channel == ChannelStable && release.Prerelease) {
@@ -108,7 +111,10 @@ func check(ctx context.Context, currentVersion, repo string, channel Channel, ap
 		}
 
 		candidate, err := normalizeVersion(release.TagName)
-		if err != nil || semver.Compare(candidate, current) <= 0 {
+		if err != nil {
+			continue
+		}
+		if !switchingPrereleaseToStable && semver.Compare(candidate, current) <= 0 {
 			continue
 		}
 		if selected == nil || semver.Compare(candidate, selectedVersion) > 0 {

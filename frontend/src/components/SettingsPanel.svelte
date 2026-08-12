@@ -8,6 +8,8 @@
   const websiteUrl = "https://justcodepl.github.io/ssh-tunnel-manager/";
   const githubUrl = "https://github.com/JustCodePL/ssh-tunnel-manager";
 
+  type UpdateDetails = { latestVersion: string; releaseUrl: string; assetUrl: string; releaseNotes: string };
+
   let autostartEnabled = false;
   let autostartLoading = true;
   let closeToTray = true;
@@ -16,12 +18,14 @@
   let currentVersion = "";
   let updateChannel: "stable" | "beta" = "stable";
   let updateChannelLoading = true;
-  let updateInfo: { latestVersion: string; releaseUrl: string; assetUrl: string; releaseNotes: string } | null = null;
+  let updateInfo: UpdateDetails | null = null;
   let checkingUpdate = false;
   let installingUpdate = false;
   let updateError = "";
   let unsubUpdate: (() => void) | undefined;
   let unsubUpdateCleared: (() => void) | undefined;
+
+  $: switchingBetaToStable = updateChannel === "stable" && currentVersion.includes("-");
 
   onMount(async () => {
     try {
@@ -97,18 +101,21 @@
     }
   }
 
-  async function checkForUpdate() {
+  async function checkForUpdate(): Promise<UpdateDetails | null> {
     checkingUpdate = true;
     updateError = "";
     try {
       const info = await CheckForUpdate();
       if (info) {
-        updateInfo = info as any;
+        updateInfo = info as UpdateDetails;
+        return updateInfo;
       } else {
         updateError = "// you are up to date";
+        return null;
       }
     } catch (e: any) {
       updateError = e?.toString() ?? "update check failed";
+      return null;
     } finally {
       checkingUpdate = false;
     }
@@ -117,13 +124,17 @@
   async function selectUpdateChannel(channel: "stable" | "beta") {
     if (channel === updateChannel || updateChannelLoading) return;
 
+    const previousChannel = updateChannel;
     updateChannelLoading = true;
     updateError = "";
     try {
       await SetUpdateChannel(channel);
       updateChannel = channel;
       updateInfo = null;
-      await checkForUpdate();
+      const info = await checkForUpdate();
+      if (previousChannel === "beta" && channel === "stable" && currentVersion.includes("-") && info) {
+        await installUpdate();
+      }
     } catch (e: any) {
       updateError = e?.toString() ?? "failed to change update channel";
     } finally {
@@ -221,13 +232,21 @@
 
       {#if updateInfo}
         <div class="update-available">
-          <span class="update-text">! v{updateInfo.latestVersion} available</span>
+          <span class="update-text">
+            {switchingBetaToStable
+              ? `! stable v${updateInfo.latestVersion} available`
+              : `! v${updateInfo.latestVersion} available`}
+          </span>
           <button
             class="action-btn accent"
             on:click={installUpdate}
             disabled={installingUpdate}
           >
-            {installingUpdate ? "// installing..." : "[ install & restart ]"}
+            {installingUpdate
+              ? "// installing..."
+              : switchingBetaToStable
+                ? "[ install stable & restart ]"
+                : "[ install & restart ]"}
           </button>
         </div>
       {:else}

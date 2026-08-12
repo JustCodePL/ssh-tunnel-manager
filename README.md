@@ -112,8 +112,11 @@ be selected in **Settings → Updates**:
 - **Beta** receives prereleases as well as full releases, so a beta installation
   automatically advances to the final stable build when it is published
 
-Switching back to Stable never downgrades the application. A beta build remains
-installed until a newer stable version is available.
+Switching from Beta back to Stable automatically installs the newest full stable
+release, even when its version is lower than the currently installed beta. The
+stable build replaces the beta in place and restarts only after the old process
+has exited. A single-instance lock prevents both channels from running side by
+side.
 
 If a newer version is found:
 

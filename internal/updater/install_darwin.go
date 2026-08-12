@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -105,10 +106,35 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 
 	slog.Info("updater: new app installed", "path", installTarget)
 
-	if err := exec.Command("open", installTarget).Start(); err != nil {
-		slog.Warn("updater: failed to relaunch app", "error", err)
+	// The current process is still running from the old bundle. Starting the
+	// replacement now would briefly run beta and stable side by side and would
+	// also race the single-instance lock. Let a detached helper wait for this
+	// process to exit before opening the replacement.
+	if err := scheduleRelaunchAfterExit(os.Getpid(), installTarget, "/usr/bin/open"); err != nil {
+		return fmt.Errorf("scheduling app relaunch: %w", err)
 	}
 	return nil
+}
+
+const relaunchAfterExitScript = `while kill -0 "$1" 2>/dev/null; do
+    sleep 0.1
+done
+exec "$3" "$2"`
+
+func scheduleRelaunchAfterExit(pid int, appPath, opener string) error {
+	cmd := exec.Command(
+		"/bin/sh",
+		"-c",
+		relaunchAfterExitScript,
+		"ssh-tunnel-manager-relauncher",
+		strconv.Itoa(pid),
+		appPath,
+		opener,
+	)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
 }
 
 // parseMountPoint extracts the /Volumes/... path from hdiutil attach output.

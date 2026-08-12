@@ -77,6 +77,14 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 10, G: 10, B: 10, A: 1},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			// Stable and beta builds deliberately share one lock so switching
+			// channels can never leave both variants running side by side.
+			UniqueId: "com.wails.ssh-tunnel-manager",
+			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
+				app.showWindow()
+			},
+		},
 		OnBeforeClose: func(ctx context.Context) bool {
 			if app.forceQuit {
 				return false // always allow quit from tray

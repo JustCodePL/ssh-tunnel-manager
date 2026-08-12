@@ -99,6 +99,37 @@ func TestCheckSemverTransitions(t *testing.T) {
 	}
 }
 
+func TestCheckStableAllowsControlledDowngradeFromPrerelease(t *testing.T) {
+	releases := []map[string]any{
+		testRelease("v1.2.0-beta.1", true, false, true),
+		testRelease("v1.1.1", false, false, true),
+		testRelease("v1.1.0", false, false, true),
+	}
+
+	info, err := checkTestReleases(t, "1.2.0-beta.1", ChannelStable, releases)
+	if err != nil {
+		t.Fatalf("Check returned error: %v", err)
+	}
+	if info == nil || info.LatestVersion != "1.1.1" {
+		t.Fatalf("latest version = %#v, want 1.1.1", info)
+	}
+}
+
+func TestCheckStableDoesNotDowngradeStableBuild(t *testing.T) {
+	releases := []map[string]any{
+		testRelease("v1.1.1", false, false, true),
+		testRelease("v1.1.0", false, false, true),
+	}
+
+	info, err := checkTestReleases(t, "1.2.0", ChannelStable, releases)
+	if err != nil {
+		t.Fatalf("Check returned error: %v", err)
+	}
+	if info != nil {
+		t.Fatalf("update = %#v, want nil", info)
+	}
+}
+
 func TestCheckReportsMissingAssetOnHighestEligibleRelease(t *testing.T) {
 	releases := []map[string]any{
 		testRelease("v1.2.0-beta.2", true, false, false),
