@@ -50,15 +50,30 @@ type PortlessBindError struct {
 // BindErrorEmitter is called when a portless forward can't bind its listener.
 type BindErrorEmitter func(err PortlessBindError)
 
+// PortForwardError describes a local forward that the SSH server refused to
+// open. The SSH transport itself can remain connected in this situation, so
+// this is surfaced separately from StatusEvent.
+type PortForwardError struct {
+	TunnelID      string `json:"tunnelId"`
+	LocalAddress  string `json:"localAddress"`
+	RemoteAddress string `json:"remoteAddress"`
+	Message       string `json:"message"`
+}
+
+// ForwardErrorEmitter is called when the SSH server blocks a port-forward
+// channel after the tunnel itself has connected successfully.
+type ForwardErrorEmitter func(err PortForwardError)
+
 // Manager tracks running tunnels, one goroutine per tunnel.
 type Manager struct {
-	mu            sync.Mutex
-	tunnels       map[string]*runningTunnel
-	emitter       EventEmitter
-	getPassphrase PassphraseFunc
-	logEmitter    func(tunnelID, level, msg string)
-	bindErrEmit   BindErrorEmitter
-	dnsRegistry   *dns.Registry
+	mu             sync.Mutex
+	tunnels        map[string]*runningTunnel
+	emitter        EventEmitter
+	getPassphrase  PassphraseFunc
+	logEmitter     func(tunnelID, level, msg string)
+	bindErrEmit    BindErrorEmitter
+	forwardErrEmit ForwardErrorEmitter
+	dnsRegistry    *dns.Registry
 }
 
 // WithBindErrorEmitter sets a callback that receives portless bind failures.
@@ -66,6 +81,14 @@ func (m *Manager) WithBindErrorEmitter(fn BindErrorEmitter) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.bindErrEmit = fn
+}
+
+// WithForwardErrorEmitter sets a callback for server-side port-forward
+// policy failures such as AllowTcpForwarding=no.
+func (m *Manager) WithForwardErrorEmitter(fn ForwardErrorEmitter) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.forwardErrEmit = fn
 }
 
 // WithLogEmitter sets a callback that receives per-tunnel log entries.
@@ -224,14 +247,16 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 		m.mu.Lock()
 		logEmitter := m.logEmitter
 		bindErrEmit := m.bindErrEmit
+		forwardErrEmit := m.forwardErrEmit
 		dnsRegistry := m.dnsRegistry
 		m.mu.Unlock()
 
 		tun := &Tunnel{
-			Config:        cfg,
-			GetPassphrase: m.getPassphrase,
-			DNSRegistry:   dnsRegistry,
-			OnBindError:   bindErrEmit,
+			Config:         cfg,
+			GetPassphrase:  m.getPassphrase,
+			DNSRegistry:    dnsRegistry,
+			OnBindError:    bindErrEmit,
+			OnForwardError: forwardErrEmit,
 			OnConnected: func() {
 				m.mu.Lock()
 				rt.status = config.StatusConnected

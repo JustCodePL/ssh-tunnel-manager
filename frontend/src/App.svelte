@@ -8,6 +8,7 @@
   import SettingsPanel from "./components/SettingsPanel.svelte";
   import ToastContainer from "./components/ToastContainer.svelte";
   import PortlessBindBanner from "./components/PortlessBindBanner.svelte";
+  import PortForwardErrorBanner from "./components/PortForwardErrorBanner.svelte";
   import { loadTunnels, initEventListeners, tunnels, exportTunnels } from "./stores/tunnels";
   import { loadShowResourceStats } from "./stores/prefs";
   import { loadSavedCapabilities } from "./stores/capabilities";
@@ -102,6 +103,7 @@
 
   <ToastContainer />
   <PortlessBindBanner />
+  <PortForwardErrorBanner />
 
   {#if passphraseKeyPath}
     <PassphraseDialog

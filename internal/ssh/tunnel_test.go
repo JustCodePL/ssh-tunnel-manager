@@ -2,11 +2,13 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -72,6 +74,72 @@ func TestEffectiveHostHeader(t *testing.T) {
 				t.Errorf("effectiveHostHeader(%+v) = %q, want %q", tc.pf, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestIsForwardingAdministrativelyProhibited(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "OpenSSH wording", err: errors.New("channel 0: open failed: administratively prohibited: open failed"), want: true},
+		{name: "Go SSH wording", err: errors.New("ssh: rejected: Administratively Prohibited (open failed)"), want: true},
+		{name: "destination refused", err: errors.New("connect failed: Connection refused"), want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isForwardingAdministrativelyProhibited(tc.err); got != tc.want {
+				t.Fatalf("isForwardingAdministrativelyProhibited(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestReportForwardingBlockedOnce(t *testing.T) {
+	var events []PortForwardError
+	var logs []string
+	tun := &Tunnel{
+		Config: config.TunnelConfig{ID: "nas-id"},
+		OnForwardError: func(err PortForwardError) {
+			events = append(events, err)
+		},
+		LogFunc: func(_ string, msg string) {
+			logs = append(logs, msg)
+		},
+	}
+	pf := config.PortForward{
+		RemoteHost: "127.0.0.1",
+		RemotePort: 8080,
+		Portless:   true,
+		Domain:     "nas",
+		ExposePort: 8080,
+	}
+	var once sync.Once
+	err := errors.New("ssh: rejected: administratively prohibited (open failed)")
+
+	tun.reportForwardingBlocked(&once, pf, "127.0.1.17:8080", err)
+	tun.reportForwardingBlocked(&once, pf, "127.0.1.17:8080", err)
+
+	if len(events) != 1 {
+		t.Fatalf("events = %d, want 1", len(events))
+	}
+	if len(logs) != 1 {
+		t.Fatalf("logs = %d, want 1", len(logs))
+	}
+	if events[0].TunnelID != "nas-id" {
+		t.Fatalf("TunnelID = %q, want nas-id", events[0].TunnelID)
+	}
+	if events[0].LocalAddress != "nas.ssh-local:8080" {
+		t.Fatalf("LocalAddress = %q, want nas.ssh-local:8080", events[0].LocalAddress)
+	}
+	if events[0].RemoteAddress != "127.0.0.1:8080" {
+		t.Fatalf("RemoteAddress = %q, want 127.0.0.1:8080", events[0].RemoteAddress)
+	}
+	if !strings.Contains(events[0].Message, "AllowTcpForwarding") {
+		t.Fatalf("Message = %q, want AllowTcpForwarding guidance", events[0].Message)
 	}
 }
 

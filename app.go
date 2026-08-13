@@ -129,6 +129,12 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		}
 		app.tray.Notify(title, body)
 	})
+	app.manager.WithForwardErrorEmitter(func(e ssh.PortForwardError) {
+		if app.ctx != nil {
+			runtime.EventsEmit(app.ctx, "port-forward:failed", e)
+		}
+		app.tray.Notify("SSH port forwarding blocked", e.Message)
+	})
 	app.tray = tray.New(tray.Callbacks{
 		ShowWindow: func() { app.showWindow() },
 		Quit:       func() { app.quit() },

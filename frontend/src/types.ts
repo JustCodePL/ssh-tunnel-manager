@@ -38,6 +38,13 @@ export interface StatusEvent {
   error?: string;
 }
 
+export interface PortForwardError {
+  tunnelId: string;
+  localAddress: string;
+  remoteAddress: string;
+  message: string;
+}
+
 export interface LogEntry {
   timestamp: string;
   level: "info" | "warn" | "error";

@@ -53,6 +53,9 @@ type Tunnel struct {
 	// The App layer surfaces it to the user (banner + tray) — most importantly
 	// the Linux privileged-port case that needs CAP_NET_BIND_SERVICE.
 	OnBindError func(PortlessBindError)
+	// OnForwardError is called when the SSH server accepts the connection but
+	// refuses a direct-tcpip channel used by a configured port forward.
+	OnForwardError func(PortForwardError)
 	// DNSRegistry is consulted for portless forwards to allocate a loopback
 	// IP and register the *.ssh-local domain. nil disables portless mode.
 	DNSRegistry *dns.Registry
@@ -572,6 +575,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 		"tunnel", t.Config.Name,
 		"local", localAddr,
 		"remote", fmt.Sprintf("%s:%d", pf.RemoteHost, pf.RemotePort))
+	var blockedOnce sync.Once
 
 	// Close listener when context is cancelled
 	go func() {
@@ -585,7 +589,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 	// in for portless forwards — for plain 127.0.0.1:port tunnels the user
 	// already controls what the browser sends.
 	if header := effectiveHostHeader(pf); header != "" {
-		t.serveHTTPProxy(ctx, client, listener, pf, header)
+		t.serveHTTPProxy(ctx, client, listener, pf, header, localAddr, &blockedOnce)
 		return
 	}
 
@@ -600,7 +604,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 			slog.Error("accept failed", "tunnel", t.Config.Name, "error", err)
 			return
 		}
-		go t.handleForwardConn(ctx, client, conn, pf)
+		go t.handleForwardConn(ctx, client, conn, pf, localAddr, &blockedOnce)
 	}
 }
 
@@ -643,7 +647,7 @@ func looksLikeFQDN(h string) bool {
 	return true
 }
 
-func (t *Tunnel) serveHTTPProxy(ctx context.Context, client *ssh.Client, listener net.Listener, pf config.PortForward, hostHeader string) {
+func (t *Tunnel) serveHTTPProxy(ctx context.Context, client *ssh.Client, listener net.Listener, pf config.PortForward, hostHeader, localAddr string, blockedOnce *sync.Once) {
 	target := &url.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%d", pf.RemoteHost, pf.RemotePort),
@@ -671,6 +675,7 @@ func (t *Tunnel) serveHTTPProxy(ctx context.Context, client *ssh.Client, listene
 				}()
 				select {
 				case r := <-ch:
+					t.reportForwardingBlocked(blockedOnce, pf, localAddr, r.err)
 					return r.c, r.err
 				case <-dialCtx.Done():
 					go func() {
@@ -701,12 +706,13 @@ func (t *Tunnel) serveHTTPProxy(ctx context.Context, client *ssh.Client, listene
 	}
 }
 
-func (t *Tunnel) handleForwardConn(ctx context.Context, client *ssh.Client, local net.Conn, pf config.PortForward) {
+func (t *Tunnel) handleForwardConn(ctx context.Context, client *ssh.Client, local net.Conn, pf config.PortForward, localAddr string, blockedOnce *sync.Once) {
 	defer local.Close()
 
 	remoteAddr := fmt.Sprintf("%s:%d", pf.RemoteHost, pf.RemotePort)
 	remote, err := client.Dial("tcp", remoteAddr)
 	if err != nil {
+		t.reportForwardingBlocked(blockedOnce, pf, localAddr, err)
 		slog.Error("failed to dial remote",
 			"tunnel", t.Config.Name, "remote", remoteAddr, "error", err)
 		return
@@ -732,6 +738,45 @@ func (t *Tunnel) handleForwardConn(ctx context.Context, client *ssh.Client, loca
 	}()
 
 	wg.Wait()
+}
+
+func isForwardingAdministrativelyProhibited(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "administratively prohibited")
+}
+
+func (t *Tunnel) reportForwardingBlocked(once *sync.Once, pf config.PortForward, localAddr string, err error) {
+	if once == nil || !isForwardingAdministrativelyProhibited(err) {
+		return
+	}
+	once.Do(func() {
+		displayAddr := localAddr
+		if pf.Portless && pf.Domain != "" {
+			exposePort := pf.RemotePort
+			if pf.ExposePort > 0 {
+				exposePort = pf.ExposePort
+			}
+			displayAddr = fmt.Sprintf("%s.%s:%d", pf.Domain, dns.TLD, exposePort)
+		}
+		remoteAddr := fmt.Sprintf("%s:%d", pf.RemoteHost, pf.RemotePort)
+		message := fmt.Sprintf(
+			"SSH server blocked port forwarding: %s → %s. Enable AllowTcpForwarding on the server, then reconnect this tunnel.",
+			displayAddr,
+			remoteAddr,
+		)
+		forwardErr := PortForwardError{
+			TunnelID:      t.Config.ID,
+			LocalAddress:  displayAddr,
+			RemoteAddress: remoteAddr,
+			Message:       message,
+		}
+		t.log("error", message)
+		if t.OnForwardError != nil {
+			t.OnForwardError(forwardErr)
+		}
+	})
 }
 
 func (t *Tunnel) keepAlive(ctx context.Context, client *ssh.Client) {
