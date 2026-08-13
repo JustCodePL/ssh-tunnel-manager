@@ -276,6 +276,58 @@ func TestRenameTunnel(t *testing.T) {
 	}
 }
 
+func TestUpdateTunnelPersistsPortlessForwardWithAutomaticLocalPort(t *testing.T) {
+	path := tempSSHConfigPath(t)
+	store, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	if err := store.AddTunnel(TunnelConfig{
+		ID: "dev", Name: "dev", Host: "dev.example.com", Port: 22, User: "deploy",
+		PortForwards: []PortForward{{
+			LocalPort: 5432, RemoteHost: "127.0.0.1", RemotePort: 5432, Description: "database",
+		}},
+	}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	updated, ok := store.GetTunnel("dev")
+	if !ok {
+		t.Fatal("dev tunnel not found")
+	}
+	updated.PortForwards = append(updated.PortForwards, PortForward{
+		LocalPort:   0,
+		RemoteHost:  "127.0.0.1",
+		RemotePort:  6379,
+		Description: "cache",
+		Portless:    true,
+		Domain:      "redis.dev",
+	})
+	if err := store.UpdateTunnel(updated); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	reloaded, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	got, ok := reloaded.GetTunnel("dev")
+	if !ok {
+		t.Fatal("reloaded dev tunnel not found")
+	}
+	if len(got.PortForwards) != 2 {
+		t.Fatalf("reloaded port forwards = %d, want 2", len(got.PortForwards))
+	}
+	pf := got.PortForwards[1]
+	if !pf.Portless || pf.Domain != "redis.dev" || pf.RemotePort != 6379 {
+		t.Fatalf("reloaded portless forward = %+v", pf)
+	}
+	if pf.LocalPort != pf.RemotePort {
+		t.Fatalf("reloaded local port = %d, want remote-port fallback %d", pf.LocalPort, pf.RemotePort)
+	}
+}
+
 func TestConcurrentAccess(t *testing.T) {
 	s, err := NewStoreWithPath(tempSSHConfigPath(t))
 	if err != nil {

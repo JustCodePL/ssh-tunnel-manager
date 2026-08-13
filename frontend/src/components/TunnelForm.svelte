@@ -2,6 +2,7 @@
   import type { TunnelConfig, PortForward } from "../types";
   import { PORTLESS_TLD } from "../types";
   import { addTunnel, updateTunnel, tunnels, includedConfigFiles } from "../stores/tunnels";
+  import { preparePortForwardsForSave } from "../lib/portForwards";
   import { createEventDispatcher, onMount } from "svelte";
   import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 
@@ -184,15 +185,7 @@
       error = "name cannot contain spaces (used as SSH host alias)";
       return;
     }
-    const validForwards = portForwards
-      .map((pf) => ({
-        ...pf,
-        localPort: Number(pf.localPort) || 0,
-        exposePort: Number(pf.exposePort) || 0,
-        hostHeader: (pf.hostHeader ?? "").trim() || undefined,
-        hostHeaderOn: pf.hostHeaderOn ? true : undefined,
-      }))
-      .filter((pf) => pf.remotePort > 0 && pf.localPort > 0);
+    const validForwards = preparePortForwardsForSave(portForwards);
 
     const domainRe = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
     const seenDomains = new Set<string>();
