@@ -196,15 +196,25 @@ version numeric for Windows and macOS.
 To publish a stable release:
 
 1. Commit the release changes
-2. Create an annotated tag such as `v1.1.0`
+2. Create an annotated tag such as `v1.1.0`. Use the first line of the tag
+   message as the GitHub Release title, followed by a blank line and the release
+   notes.
 3. Push the tag: `git push origin v1.1.0`
 
 To publish a beta release, use an annotated SemVer prerelease tag:
 
 ```bash
-git tag -a v1.1.0-beta.1 -m "Describe the beta fixes"
+git tag -a v1.1.0-beta.1 \
+  -m "Portless reliability and startup improvements" \
+  -m "- Preserve automatic Portless forwards
+- Explain server-side forwarding blocks"
 git push origin v1.1.0-beta.1
 ```
+
+The first paragraph becomes the per-version title shown on GitHub and on the
+project site. The remaining paragraphs become the release description. Releases
+without a custom title fall back to `Beta release`, `Latest stable release`, or
+`Stable release` on the English site and their Polish equivalents.
 
 Subsequent betas increment the suffix (`beta.2`, `beta.3`, …). Promote a tested
 beta by tagging the chosen commit with the matching stable version, for example

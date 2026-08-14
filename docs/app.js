@@ -9,7 +9,7 @@ const COPY = IS_POLISH
       locale: "pl-PL",
       installer: "instalator",
       releaseDetails: "Szczegóły zmian są dostępne na stronie wydania.",
-      testRelease: "Wydanie testowe",
+      betaRelease: "Wydanie beta",
       latestStable: "Najnowsze wydanie stabilne",
       stableRelease: "Wydanie stabilne",
       downloadAria: (label, version) => `Pobierz ${label}, wersja ${version}`,
@@ -28,7 +28,7 @@ const COPY = IS_POLISH
       locale: "en-GB",
       installer: "installer",
       releaseDetails: "Release details are available on the release page.",
-      testRelease: "Test release",
+      betaRelease: "Beta release",
       latestStable: "Latest stable release",
       stableRelease: "Stable release",
       downloadAria: (label, version) => `Download ${label}, version ${version}`,
@@ -98,12 +98,6 @@ function cleanReleaseBody(body) {
   return cleaned.length > 175 ? `${cleaned.slice(0, 172).trim()}…` : cleaned;
 }
 
-function titleForRelease(release) {
-  if (release.prerelease) return COPY.testRelease;
-  if (release.name && release.name !== release.tag_name) return release.name;
-  return release === releases.find((item) => !item.prerelease) ? COPY.latestStable : COPY.stableRelease;
-}
-
 function createReleaseRow(release) {
   const row = document.createElement("article");
   row.className = "release-row";
@@ -125,7 +119,11 @@ function createReleaseRow(release) {
   const description = document.createElement("div");
   description.className = "release-description";
   const title = document.createElement("h3");
-  title.textContent = titleForRelease(release);
+  title.textContent = window.ReleaseTitle.titleForRelease(
+    release,
+    releases.find((item) => !item.prerelease),
+    COPY,
+  );
   const summary = document.createElement("p");
   summary.textContent = cleanReleaseBody(release.body);
   const date = document.createElement("time");

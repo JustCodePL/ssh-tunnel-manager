@@ -225,7 +225,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract release notes from tag message
+      - name: Extract release metadata from tag message
+        id: release_metadata
+        shell: bash
         run: |
           # actions/checkout resolves the workflow's tag ref by force-fetching
           # the tagged commit into refs/tags/<tag>, which clobbers the annotated
@@ -233,7 +235,17 @@ jobs:
           # yields the commit subject, so the release body would otherwise show
           # the last commit message. Re-fetch the annotated tag object first.
           git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
-          git tag -l --format='%(contents)' "${{ github.ref_name }}" > release-notes.md
+          git tag -l --format='%(contents)' "${{ github.ref_name }}" > tag-message.md
+          release_name=$(sed -n '/[^[:space:]]/{p;q;}' tag-message.md)
+          if [[ -z "$release_name" ]]; then
+            release_name="${{ github.ref_name }}"
+          fi
+          printf 'name=%s\n' "$release_name" >> "$GITHUB_OUTPUT"
+
+          # The first non-empty line is the release title. Keep the remaining
+          # paragraphs as the release body so the title is not duplicated.
+          awk 'found { print; next } /[^[:space:]]/ { found=1 }' tag-message.md > release-notes.md
+          echo "Release title: $release_name"
           cat release-notes.md
 
       - name: Download all artifacts
@@ -255,6 +267,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.release_metadata.outputs.name }}
           body_path: release-notes.md
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-beta.') }}
