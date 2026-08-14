@@ -38,11 +38,17 @@ Get the latest release from the [Releases page](https://github.com/JustCodePL/ss
 
 **Linux** — extract the binary to `~/.local/bin/` or `/usr/local/bin/` and run it. For autostart, enable *Start on login* in Settings.
 
-#### Portless mode on Linux (privileged ports)
+#### Portless mode on privileged ports
 
-Portless forwards reach a service over a `*.ssh-local` domain instead of a `127.0.0.1:port` pair. When a forward binds a **privileged port** (below `1024`, e.g. `:80`), Linux requires the `CAP_NET_BIND_SERVICE` capability on the binary — unprivileged processes are otherwise denied with `bind: permission denied`. macOS and Windows have no such restriction, so this only applies to Linux.
+Portless forwards reach a service over a `*.ssh-local` domain instead of a `127.0.0.1:port` pair. Ports below `1024` need platform-specific authorization while the main application remains unprivileged.
 
-You have two ways to grant it:
+**macOS** uses a narrowly scoped PF anchor on `lo0`: public ports `1–1023` on the Portless pool `127.0.1.0/24` are translated to private listener ports `10001–11023` while preserving each domain's loopback IP. The first tunnel that actually needs a low port prompts for administrator approval as part of Portless setup. The rule and loopback aliases are restored after reboot; high-port Portless tunnels do not require this PF setup.
+
+**Windows** binds the requested Portless port directly and needs no additional low-port authorization.
+
+**Linux** requires the `CAP_NET_BIND_SERVICE` capability on the binary when a forward binds a privileged port. Unprivileged processes are otherwise denied with `bind: permission denied`.
+
+On Linux you have two ways to grant it:
 
 - **In-app (recommended).** The first time a privileged-port portless forward fails to bind, a banner appears with an **[ AUTHORIZE ]** button. Clicking it runs `pkexec setcap` and you approve the PolicyKit dialog once. Linux only applies a file capability at process start, so the banner then offers **[ RESTART NOW ]** — after the restart the forward binds normally.
 - **Manually.** Run the command shown in the banner (and logged), pointing at your installed binary:

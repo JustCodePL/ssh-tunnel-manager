@@ -18,6 +18,7 @@ import (
 	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/keychain"
 	"ssh-tunnel-manager/internal/netcap"
+	"ssh-tunnel-manager/internal/portless"
 	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/ssh"
 	"ssh-tunnel-manager/internal/sshconfig"
@@ -338,7 +339,7 @@ func (a *App) ConnectTunnel(id string) error {
 		return &tunnelNotFoundError{id}
 	}
 	if tunnelHasPortless(cfg) {
-		if err := a.ensurePortlessReady(); err != nil {
+		if err := a.ensurePortlessReady(cfg); err != nil {
 			return err
 		}
 	}
@@ -393,19 +394,38 @@ func tunnelHasPortless(cfg config.TunnelConfig) bool {
 	return false
 }
 
+func tunnelRequiresPrivilegedPortRedirect(cfg config.TunnelConfig) bool {
+	for _, pf := range cfg.PortForwards {
+		if !pf.Portless {
+			continue
+		}
+		publicPort := pf.RemotePort
+		if pf.ExposePort > 0 {
+			publicPort = pf.ExposePort
+		}
+		if portless.RequiresPrivilegedPortRedirect(publicPort) {
+			return true
+		}
+	}
+	return false
+}
+
 // ensurePortlessReady performs the one-time per-OS admin setup (if not already
 // done) and starts the embedded DNS server. Safe to call repeatedly; each
 // step is idempotent.
-func (a *App) ensurePortlessReady() error {
+func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 	a.dnsMu.Lock()
 	defer a.dnsMu.Unlock()
 
-	if !dns.IsSystemConfigured() {
+	requirements := dns.SetupRequirements{
+		PrivilegedPortRedirect: tunnelRequiresPrivilegedPortRedirect(cfg),
+	}
+	if !dns.IsSystemConfigured(requirements) {
 		slog.Info("portless: system not configured, prompting for admin setup")
 		if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "portless:setup-started")
 		}
-		err := dns.EnsureSystemConfigured(a.ctx)
+		err := dns.EnsureSystemConfigured(a.ctx, requirements)
 		if a.ctx != nil {
 			payload := map[string]any{"ok": err == nil}
 			if err != nil {
@@ -1220,7 +1240,7 @@ func (a *App) ConnectGroup(group string) error {
 		if t.Group != group {
 			continue
 		}
-		if err := a.manager.Connect(t); err != nil && firstErr == nil {
+		if err := a.ConnectTunnel(t.ID); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}

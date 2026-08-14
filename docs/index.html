@@ -389,10 +389,12 @@
             </p>
           </details>
           <details name="faq">
-            <summary>Does Linux require administrator privileges?<span>+</span></summary>
+            <summary>Does Portless require administrator privileges?<span>+</span></summary>
             <p>
-              Regular tunnels do not. Additional authorisation is only needed for portless binds
-              that use privileged ports below 1024. The app will show the relevant instructions.
+              Regular tunnels do not. On macOS, Portless asks once for a narrow PF redirect only
+              when a port below 1024 is used. On Linux, such a port needs the
+              <code>CAP_NET_BIND_SERVICE</code> capability. The app itself keeps running as your
+              normal user and shows the appropriate platform prompt.
             </p>
           </details>
         </div>

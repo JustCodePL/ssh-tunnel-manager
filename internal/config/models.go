@@ -26,9 +26,11 @@ const (
 // what plain `ssh` writes to disk respects. It is preserved across toggles of
 // Portless so the user does not lose their setting when switching modes.
 //
-// When Portless is true, the runtime instead binds on a dynamically allocated
-// 127.0.1.x loopback address at ExposePort (or RemotePort if ExposePort is 0).
-// Domain is published under the .ssh-local TLD by the embedded DNS server.
+// When Portless is true, ExposePort (or RemotePort if ExposePort is 0) is the
+// public port on a dynamically allocated 127.0.1.x loopback address. The
+// runtime normally binds that port directly; macOS maps ports below 1024 to an
+// unprivileged internal listener through PF. Domain is published under the
+// .ssh-local TLD by the embedded DNS server.
 //
 // HostHeaderOn opts in to HTTP-aware mode for a portless forward: the request
 // Host header is rewritten before being sent upstream. It is OFF by default —

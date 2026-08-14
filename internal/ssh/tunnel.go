@@ -25,6 +25,7 @@ import (
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/netcap"
+	"ssh-tunnel-manager/internal/portless"
 )
 
 const (
@@ -516,6 +517,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 		if pf.ExposePort > 0 {
 			exposePort = pf.ExposePort
 		}
+		listenPort := portless.ListenerPort(exposePort)
 
 		// Try to bind, retrying with a different loopback IP when the chosen
 		// one is held by another process (zombie listener from a previous
@@ -531,7 +533,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 				slog.Error("portless allocation failed", "tunnel", t.Config.Name, "domain", pf.Domain, "error", err)
 				return
 			}
-			addr := fmt.Sprintf("%s:%d", e.IP.String(), exposePort)
+			addr := fmt.Sprintf("%s:%d", e.IP.String(), listenPort)
 			ln, lnErr := net.Listen("tcp", addr)
 			if lnErr == nil {
 				entry = e
@@ -543,7 +545,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 			// A privileged-port permission error is not the loopback IP's fault
 			// — every IP will fail the same way. Stop retrying immediately and
 			// let the EACCES handler below explain the capability requirement.
-			if errors.Is(lnErr, syscall.EACCES) && netcap.IsPrivilegedPort(exposePort) {
+			if errors.Is(lnErr, syscall.EACCES) && netcap.IsPrivilegedPort(listenPort) {
 				t.DNSRegistry.Release(pf.Domain)
 				break
 			}
@@ -557,7 +559,12 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 			return
 		}
 		defer t.DNSRegistry.Release(pf.Domain)
-		t.log("info", fmt.Sprintf("Portless: %s.%s → %s", entry.Domain, dns.TLD, localAddr))
+		publicAddr := fmt.Sprintf("%s.%s:%d", entry.Domain, dns.TLD, exposePort)
+		if listenPort != exposePort {
+			t.log("info", fmt.Sprintf("Portless: %s → %s (privileged-port redirect)", publicAddr, localAddr))
+		} else {
+			t.log("info", fmt.Sprintf("Portless: %s → %s", publicAddr, localAddr))
+		}
 	} else {
 		localAddr = fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
 		ln, err := net.Listen("tcp", localAddr)

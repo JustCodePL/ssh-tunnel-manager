@@ -22,7 +22,9 @@ var loopbackBase = net.IPv4(127, 0, 1, 1)
 const loopbackPoolSize = 254
 
 // Entry describes a single live portless forward registered with the DNS
-// server. Domain is the user-facing name (without the .ssh-local suffix).
+// server. Domain is the user-facing name (without the .ssh-local suffix), and
+// Port is the public port clients use (which can differ from the listener port
+// on macOS).
 type Entry struct {
 	Domain string
 	IP     net.IP

@@ -46,12 +46,14 @@ func isSystemConfigured() bool {
 	return err == nil
 }
 
+func isPrivilegedPortRedirectConfigured() bool { return true }
+
 // doSetup installs an NRPT rule routing *.ssh-local queries to BindIP. Must
 // be invoked from an elevated process. Also writes the marker file so future
 // isSystemConfigured checks can return true without invoking PowerShell.
 // Removes any pre-existing rules tagged with our comment first so re-running
 // after an IP change always converges on exactly one rule.
-func doSetup() error {
+func doSetup(SetupRequirements) error {
 	script := fmt.Sprintf(
 		`Get-DnsClientNrptRule | Where-Object { $_.Comment -eq "%[2]s" } | Remove-DnsClientNrptRule -Force -ErrorAction SilentlyContinue; `+
 			`Add-DnsClientNrptRule -Namespace ".%[1]s" -NameServers "%[3]s" -Comment "%[2]s"`,
@@ -77,7 +79,7 @@ func doSetup() error {
 // ShellExecuteEx requires COM apartment-threaded init on the calling thread.
 // Without that, the UAC dialog may silently fail to appear on some Windows
 // configurations.
-func runElevatedSetup(ctx context.Context, exe string) error {
+func runElevatedSetup(ctx context.Context, exe string, args []string) error {
 	runtimeLockOSThread()
 	defer runtimeUnlockOSThread()
 
@@ -89,17 +91,18 @@ func runElevatedSetup(ctx context.Context, exe string) error {
 
 	verb, _ := syscall.UTF16PtrFromString("runas")
 	file, _ := syscall.UTF16PtrFromString(exe)
-	args, _ := syscall.UTF16PtrFromString(SetupArg)
+	argString := strings.Join(args, " ")
+	argsPtr, _ := syscall.UTF16PtrFromString(argString)
 
 	var info shellExecuteInfo
 	info.cbSize = uint32(unsafe.Sizeof(info))
 	info.fMask = seeMaskNoCloseProcess
 	info.lpVerb = verb
 	info.lpFile = file
-	info.lpParameters = args
+	info.lpParameters = argsPtr
 	info.nShow = swShowNormal
 
-	slog.Info("portless: invoking ShellExecuteEx runas", "exe", exe, "args", SetupArg)
+	slog.Info("portless: invoking ShellExecuteEx runas", "exe", exe, "args", argString)
 	if err := shellExecuteEx(&info); err != nil {
 		return fmt.Errorf("ShellExecuteEx failed (admin prompt cancelled or blocked): %w", err)
 	}

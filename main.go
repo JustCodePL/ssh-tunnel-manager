@@ -24,16 +24,25 @@ func main() {
 		Level: slog.LevelInfo,
 	})))
 
-	// One-shot elevated DNS setup. Triggered when the app relaunches itself
-	// via UAC / sudo / pkexec — we install the OS resolver config and exit.
+	// One-shot elevated Portless setup. Triggered when the app relaunches
+	// itself via UAC / sudo / pkexec; it installs only the requested system
+	// prerequisites and exits.
+	setupRequested := false
+	setupRequirements := dns.SetupRequirements{}
 	for _, arg := range os.Args[1:] {
-		if arg == dns.SetupArg {
-			if err := dns.RunSetup(); err != nil {
-				slog.Error("portless DNS setup failed", "error", err)
-				os.Exit(1)
-			}
-			os.Exit(0)
+		switch arg {
+		case dns.SetupArg:
+			setupRequested = true
+		case dns.PrivilegedRedirectArg:
+			setupRequirements.PrivilegedPortRedirect = true
 		}
+	}
+	if setupRequested {
+		if err := dns.RunSetup(setupRequirements); err != nil {
+			slog.Error("portless system setup failed", "error", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	startHidden := false

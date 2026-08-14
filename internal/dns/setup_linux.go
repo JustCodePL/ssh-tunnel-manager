@@ -28,10 +28,12 @@ func isSystemConfigured() bool {
 		strings.Contains(content, "Domains=~"+TLD)
 }
 
+func isPrivilegedPortRedirectConfigured() bool { return true }
+
 // doSetup creates a systemd-resolved drop-in that forwards *.ssh-local
 // queries to 127.0.0.1:5354 and restarts systemd-resolved. Must be invoked
 // from a root-elevated process (via pkexec).
-func doSetup() error {
+func doSetup(SetupRequirements) error {
 	if !hasSystemdResolved() {
 		return fmt.Errorf("portless mode requires systemd-resolved (not detected on this system)")
 	}
@@ -53,14 +55,15 @@ func doSetup() error {
 	return nil
 }
 
-func runElevatedSetup(ctx context.Context, exe string) error {
+func runElevatedSetup(ctx context.Context, exe string, args []string) error {
 	if !hasSystemdResolved() {
 		return fmt.Errorf("portless mode requires systemd-resolved (not detected)")
 	}
 	if _, err := exec.LookPath("pkexec"); err != nil {
 		return fmt.Errorf("pkexec not found — install polkit to enable portless setup")
 	}
-	cmd := exec.CommandContext(ctx, "pkexec", exe, SetupArg)
+	cmdArgs := append([]string{exe}, args...)
+	cmd := exec.CommandContext(ctx, "pkexec", cmdArgs...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		trimmed := strings.TrimSpace(string(out))

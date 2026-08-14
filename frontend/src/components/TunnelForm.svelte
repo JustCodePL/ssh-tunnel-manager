@@ -447,7 +447,7 @@
                   placeholder="auto"
                   min="0"
                   max="65535"
-                  title="optional — empty/0 = use remote port. Set e.g. 80 so a browser can hit the domain without :port."
+                  title="optional — empty/0 = use remote port. Set e.g. 80 so a browser can hit the domain without :port; low ports may prompt for platform authorization."
                 />
               {/if}
             </div>

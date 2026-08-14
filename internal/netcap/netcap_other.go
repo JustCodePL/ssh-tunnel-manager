@@ -7,19 +7,18 @@ import (
 	"fmt"
 )
 
-// UnprivilegedPortStart is meaningless off Linux; macOS (10.14+) and Windows
-// impose no privileged-port restriction on user processes.
+// UnprivilegedPortStart is a Linux sysctl concept. macOS low ports are handled
+// by the Portless PF redirect before the listener is created.
 func UnprivilegedPortStart() int { return 0 }
 
-// IsPrivilegedPort always reports false: only Linux gates low ports behind a
-// capability for unprivileged processes.
+// IsPrivilegedPort reports whether the Linux capability flow applies.
 func IsPrivilegedPort(port int) bool { return false }
 
 // SetcapCommand has no meaning off Linux.
 func SetcapCommand(path string) string { return "" }
 
-// HasBindServiceCapability reports true off Linux — there is no capability to
-// be missing, so binding privileged ports always works.
+// HasBindServiceCapability reports true off Linux because Linux file
+// capabilities do not apply on these platforms.
 func HasBindServiceCapability(path string) (bool, error) { return true, nil }
 
 // Authorize is a no-op error off Linux; the capability concept doesn't apply.

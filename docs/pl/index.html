@@ -389,11 +389,12 @@
             </p>
           </details>
           <details name="faq">
-            <summary>Czy Linux wymaga uprawnień administratora?<span>+</span></summary>
+            <summary>Czy portless wymaga uprawnień administratora?<span>+</span></summary>
             <p>
-              Zwykłe tunele nie. Dodatkowa autoryzacja jest potrzebna tylko dla portless bindów
-              używających portów uprzywilejowanych poniżej 1024. Aplikacja pokaże wtedy odpowiednią
-              instrukcję.
+              Zwykłe tunele nie. Na macOS portless poprosi o jednorazową zgodę na wąskie
+              przekierowanie PF dopiero przy porcie poniżej 1024. Na Linuksie taki port wymaga
+              capability <code>CAP_NET_BIND_SERVICE</code>. Aplikacja pozostaje uruchomiona jako
+              zwykły użytkownik i pokaże właściwy monit dla platformy.
             </p>
           </details>
         </div>
