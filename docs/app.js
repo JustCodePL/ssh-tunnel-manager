@@ -12,6 +12,7 @@ const COPY = IS_POLISH
       betaRelease: "Wydanie beta",
       latestStable: "Najnowsze wydanie stabilne",
       stableRelease: "Wydanie stabilne",
+      recommended: "POLECANE",
       downloadAria: (label, version) => `Pobierz ${label}, wersja ${version}`,
       viewAssets: "Zobacz pliki wydania ↗",
       latestLabel: (version) => `Najnowsza stabilna wersja ${version}`,
@@ -31,6 +32,7 @@ const COPY = IS_POLISH
       betaRelease: "Beta release",
       latestStable: "Latest stable release",
       stableRelease: "Stable release",
+      recommended: "RECOMMENDED",
       downloadAria: (label, version) => `Download ${label}, version ${version}`,
       viewAssets: "View release files ↗",
       latestLabel: (version) => `Latest stable release ${version}`,
@@ -52,12 +54,27 @@ const releaseList = document.querySelector("#release-list");
 const loadMoreButton = document.querySelector("#load-more");
 const filterButtons = document.querySelectorAll("[data-filter]");
 
-function detectPlatform() {
-  const source = `${navigator.userAgentData?.platform || ""} ${navigator.platform || ""} ${navigator.userAgent || ""}`.toLowerCase();
-  if (source.includes("win")) return "windows";
-  if (source.includes("mac")) return "mac";
-  if (source.includes("linux")) return "linux";
-  return "other";
+const detectedPlatform = window.PlatformDetection.detectPlatform(navigator);
+
+function updatePlatformRecommendation() {
+  const cards = [...document.querySelectorAll(".platform-card[data-platform]")];
+
+  cards.forEach((card) => {
+    const isRecommended = card.dataset.platform === detectedPlatform;
+    card.classList.toggle("featured", isRecommended);
+
+    const button = card.querySelector("[data-platform-cta]");
+    button?.classList.toggle("button-primary", isRecommended);
+    button?.classList.toggle("button-secondary", !isRecommended);
+  });
+
+  const recommendedCard = cards.find((card) => card.dataset.platform === detectedPlatform);
+  if (!recommendedCard) return;
+
+  const badge = document.createElement("div");
+  badge.className = "recommended";
+  badge.textContent = COPY.recommended;
+  recommendedCard.prepend(badge);
 }
 
 function classifyAsset(name) {
@@ -135,8 +152,10 @@ function createReleaseRow(release) {
   const assets = document.createElement("div");
   assets.className = "release-assets";
   const orderedAssets = [...release.assets].sort((left, right) => {
-    const detected = detectPlatform();
-    return Number(classifyAsset(right.name).platform === detected) - Number(classifyAsset(left.name).platform === detected);
+    return (
+      Number(classifyAsset(right.name).platform === detectedPlatform) -
+      Number(classifyAsset(left.name).platform === detectedPlatform)
+    );
   });
 
   orderedAssets.forEach((asset) => {
@@ -184,17 +203,17 @@ function updateLatestDownloads(latest) {
     if (asset) link.href = asset.browser_download_url;
   });
 
-  const platform = detectPlatform();
   const preferred = {
     windows: "ssh-tunnel-manager-amd64-installer.exe",
     mac: "ssh-tunnel-manager-darwin-arm64.dmg",
     linux: "ssh-tunnel-manager-linux-amd64.tar.gz",
-  }[platform];
+  }[detectedPlatform];
   const preferredAsset = latest.assets.find((asset) => asset.name === preferred);
 
   document.querySelectorAll(".download-auto").forEach((link) => {
     link.href = preferredAsset?.browser_download_url || latest.html_url;
-    link.querySelector(".auto-download-label").textContent = COPY.platformDownload[platform](latest.tag_name);
+    link.querySelector(".auto-download-label").textContent =
+      COPY.platformDownload[detectedPlatform](latest.tag_name);
   });
 }
 
@@ -248,4 +267,5 @@ loadMoreButton.addEventListener("click", () => {
 });
 
 document.querySelector("#current-year").textContent = new Date().getFullYear();
+updatePlatformRecommendation();
 initializeReleases();

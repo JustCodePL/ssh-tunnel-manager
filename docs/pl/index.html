@@ -32,6 +32,7 @@
     <link rel="icon" type="image/png" href="../assets/appicon.png" />
     <link rel="stylesheet" href="../styles.css" />
     <script src="../release-title.js" defer></script>
+    <script src="../platform.js" defer></script>
     <script src="../app.js" defer></script>
     <title>SSH Tunnel Manager — tunele SSH pod kontrolą</title>
   </head>
@@ -233,15 +234,15 @@
         </div>
 
         <div class="platform-grid">
-          <article class="platform-card featured">
-            <div class="recommended">POLECANE</div>
+          <article class="platform-card" data-platform="windows">
             <span class="os-icon windows-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             <div>
               <h3>Windows</h3>
               <p>Windows 10/11 · x64</p>
             </div>
             <a
-              class="button button-primary asset-download"
+              class="button button-secondary asset-download"
+              data-platform-cta
               data-asset="ssh-tunnel-manager-amd64-installer.exe"
               href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-amd64-installer.exe"
             >
@@ -254,7 +255,7 @@
             >Wersja portable (.zip) →</a>
           </article>
 
-          <article class="platform-card">
+          <article class="platform-card" data-platform="mac">
             <span class="os-icon apple-icon" aria-hidden="true"></span>
             <div>
               <h3>macOS</h3>
@@ -263,6 +264,7 @@
             <div class="platform-actions">
               <a
                 class="button button-secondary asset-download"
+                data-platform-cta
                 data-asset="ssh-tunnel-manager-darwin-arm64.dmg"
                 href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-darwin-arm64.dmg"
               ><span aria-hidden="true">↓</span> Apple Silicon</a>
@@ -274,7 +276,7 @@
             </div>
           </article>
 
-          <article class="platform-card">
+          <article class="platform-card" data-platform="linux">
             <span class="os-icon linux-icon" aria-hidden="true"></span>
             <div>
               <h3>Linux</h3>
@@ -282,6 +284,7 @@
             </div>
             <a
               class="button button-secondary asset-download"
+              data-platform-cta
               data-asset="ssh-tunnel-manager-linux-amd64.tar.gz"
               href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-linux-amd64.tar.gz"
             ><span aria-hidden="true">↓</span> Pobierz .tar.gz</a>
