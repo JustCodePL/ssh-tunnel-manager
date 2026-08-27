@@ -4,6 +4,7 @@
   import type { sysstats } from "../../wailsjs/go/models";
   import type { TunnelConfig } from "../types";
   import { formatBytes } from "../format";
+  import { createVisibilityPoller } from "../lib/visibilityPoller.js";
 
   export let tunnel: TunnelConfig;
   const dispatch = createEventDispatcher<{ close: void }>();
@@ -14,7 +15,7 @@
   let loading = true;
   let error = "";
   let minimized = false;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let poller: ReturnType<typeof createVisibilityPoller> | null = null;
 
   async function refresh() {
     try {
@@ -28,13 +29,18 @@
   }
 
   onMount(() => {
-    refresh();
-    timer = setInterval(refresh, POLL_MS);
+    poller = createVisibilityPoller(refresh, POLL_MS);
+    poller.start();
   });
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    poller?.stop();
   });
+
+  function setMinimized(value: boolean) {
+    minimized = value;
+    poller?.setEnabled(!value);
+  }
 
   function handleClose() {
     dispatch("close");
@@ -47,7 +53,7 @@
       <span class="title">disk — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
       <div class="actions">
         <button class="title-btn" on:click={refresh} title="Refresh">⟳</button>
-        <button class="title-btn" on:click={() => (minimized = true)} title="Minimize">−</button>
+        <button class="title-btn" on:click={() => setMinimized(true)} title="Minimize">−</button>
         <button class="close-btn" on:click={handleClose} title="Close">×</button>
       </div>
     </div>
@@ -89,7 +95,7 @@
 </div>
 
 {#if minimized}
-  <button class="restore-pill" on:click={() => (minimized = false)} title="Restore disk">
+  <button class="restore-pill" on:click={() => setMinimized(false)} title="Restore disk">
     <span class="pill-icon">▢</span>
     <span class="pill-text">disk — {tunnel.name}</span>
     <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
