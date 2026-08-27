@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { GetServerStats } from "../../wailsjs/go/main/App";
   import { formatBytes } from "../format";
+  import { createVisibilityPoller } from "../lib/visibilityPoller.js";
 
   // The tunnel must be connected; the parent only mounts this when so.
   export let tunnelId: string;
@@ -14,7 +15,7 @@
   let memUsed = 0;
   let ready = false;
   let unsupported = false;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let poller: ReturnType<typeof createVisibilityPoller> | null = null;
 
   async function poll() {
     try {
@@ -36,12 +37,12 @@
   }
 
   onMount(() => {
-    poll();
-    timer = setInterval(poll, POLL_MS);
+    poller = createVisibilityPoller(poll, POLL_MS);
+    poller.start();
   });
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    poller?.stop();
   });
 
   $: memPct = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
