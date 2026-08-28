@@ -14,6 +14,7 @@ import (
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
 	"ssh-tunnel-manager/internal/prefs"
+	"ssh-tunnel-manager/internal/updater"
 )
 
 //go:embed all:frontend/dist
@@ -23,6 +24,14 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
+
+	if handled, err := updater.HandleInstallHelper(os.Args[1:]); handled {
+		if err != nil {
+			slog.Error("privileged update install failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// One-shot elevated Portless setup. Triggered when the app relaunches
 	// itself via UAC / sudo / pkexec; it installs only the requested system
