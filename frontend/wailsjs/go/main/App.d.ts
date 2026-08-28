@@ -3,8 +3,8 @@
 import {config} from '../models';
 import {updater} from '../models';
 import {sysstats} from '../models';
-import {ssh} from '../models';
 import {main} from '../models';
+import {ssh} from '../models';
 
 export function AddTunnel(arg1:config.TunnelConfig):Promise<void>;
 
@@ -47,6 +47,8 @@ export function GetDiskUsage(arg1:string):Promise<Array<sysstats.DiskMount>>;
 export function GetDockerContainerDetails(arg1:string,arg2:string):Promise<sysstats.DockerContainerDetails>;
 
 export function GetIncludedConfigFiles():Promise<Array<config.ConfigFileInfo>>;
+
+export function GetPortlessFallback():Promise<main.PortlessFallbackStatus>;
 
 export function GetProcessStats(arg1:string):Promise<sysstats.ProcessStats>;
 

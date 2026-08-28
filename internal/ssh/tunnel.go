@@ -73,21 +73,34 @@ func (t *Tunnel) log(level, msg string) {
 
 // CheckPortConflicts tests whether all local ports for this tunnel are
 // available. Returns a descriptive error if any port is already in use.
-// Portless forwards are skipped — they bind to a freshly allocated loopback
-// IP that cannot collide with anything else on 127.0.0.1.
+// Active Portless forwards are skipped — they bind to a freshly allocated
+// loopback IP that cannot collide with anything else on 127.0.0.1. When the
+// DNS registry is unavailable, Portless forwards degrade to their ordinary
+// 127.0.0.1 local ports and must be checked like standard forwards.
 func (t *Tunnel) CheckPortConflicts() error {
 	for _, pf := range t.Config.PortForwards {
-		if pf.Portless {
+		if pf.Portless && t.DNSRegistry != nil {
 			continue
 		}
-		addr := fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
+		localPort := pf.LocalPort
+		if pf.Portless {
+			localPort = fallbackLocalPort(pf)
+		}
+		addr := fmt.Sprintf("127.0.0.1:%d", localPort)
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
-			return fmt.Errorf("port %d is already in use", pf.LocalPort)
+			return fmt.Errorf("port %d is already in use", localPort)
 		}
 		ln.Close()
 	}
 	return nil
+}
+
+func fallbackLocalPort(pf config.PortForward) int {
+	if pf.LocalPort > 0 {
+		return pf.LocalPort
+	}
+	return pf.RemotePort
 }
 
 // Connect establishes the SSH connection, starts port forwarding listeners,
@@ -502,13 +515,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 	var listener net.Listener
 	var localAddr string
 
-	if pf.Portless {
-		if t.DNSRegistry == nil {
-			msg := fmt.Sprintf("Portless forward %q skipped: DNS registry unavailable", pf.Domain)
-			t.log("error", msg)
-			slog.Error("portless forward missing DNS registry", "tunnel", t.Config.Name, "domain", pf.Domain)
-			return
-		}
+	if pf.Portless && t.DNSRegistry != nil {
 		// ExposePort > 0 means the user explicitly chose a different listen
 		// port for this domain (e.g. 80 so a browser doesn't need ":8080").
 		// Otherwise we mirror the remote port so the URL conveniently uses
@@ -566,15 +573,24 @@ func (t *Tunnel) forwardPort(ctx context.Context, client *ssh.Client, pf config.
 			t.log("info", fmt.Sprintf("Portless: %s → %s", publicAddr, localAddr))
 		}
 	} else {
-		localAddr = fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
+		localPort := pf.LocalPort
+		if pf.Portless {
+			localPort = fallbackLocalPort(pf)
+		}
+		localAddr = fmt.Sprintf("127.0.0.1:%d", localPort)
 		ln, err := net.Listen("tcp", localAddr)
 		if err != nil {
 			slog.Error("failed to listen on local port",
 				"tunnel", t.Config.Name, "addr", localAddr, "error", err)
-			t.log("error", fmt.Sprintf("Local port %d in use: %v", pf.LocalPort, err))
+			t.log("error", fmt.Sprintf("Local port %d in use: %v", localPort, err))
 			return
 		}
 		listener = ln
+		if pf.Portless {
+			t.log("warn", fmt.Sprintf("Portless unavailable: %s fell back to %s", pf.Domain, localAddr))
+			slog.Warn("portless forward using local-port fallback",
+				"tunnel", t.Config.Name, "domain", pf.Domain, "local", localAddr)
+		}
 	}
 	defer listener.Close()
 

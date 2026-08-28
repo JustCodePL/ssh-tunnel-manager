@@ -86,6 +86,10 @@ export function GetIncludedConfigFiles() {
   return window['go']['main']['App']['GetIncludedConfigFiles']();
 }
 
+export function GetPortlessFallback() {
+  return window['go']['main']['App']['GetPortlessFallback']();
+}
+
 export function GetProcessStats(arg1) {
   return window['go']['main']['App']['GetProcessStats'](arg1);
 }

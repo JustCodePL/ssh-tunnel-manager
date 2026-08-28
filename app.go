@@ -72,6 +72,16 @@ type App struct {
 	dnsMu       sync.Mutex
 	dnsRegistry *dns.Registry
 	dnsServer   *dns.Server
+	// portlessFallback persists the current degradation so the frontend can
+	// recover it even when auto-connect emitted the first event before mount.
+	portlessFallback *PortlessFallbackStatus
+}
+
+// PortlessFallbackStatus describes the active localhost fallback used when
+// another process owns the embedded Portless DNS address.
+type PortlessFallbackStatus struct {
+	TunnelID string `json:"tunnelId"`
+	Message  string `json:"message"`
 }
 
 // NewApp creates a new App instance.
@@ -101,20 +111,7 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 	}, app.getPassphrase)
 	app.manager.WithDNSRegistry(registry)
 	app.manager.WithLogEmitter(func(tunnelID, level, msg string) {
-		entry := config.LogEntry{Timestamp: time.Now(), Level: level, Message: msg}
-		app.logMu.Lock()
-		buf := app.logBuf[tunnelID]
-		if len(buf) >= 300 {
-			buf = buf[1:]
-		}
-		app.logBuf[tunnelID] = append(buf, entry)
-		app.logMu.Unlock()
-		if app.ctx != nil {
-			runtime.EventsEmit(app.ctx, "tunnel:log", map[string]any{
-				"tunnelId": tunnelID,
-				"entry":    entry,
-			})
-		}
+		app.appendTunnelLog(tunnelID, level, msg)
 	})
 	app.manager.WithBindErrorEmitter(func(e ssh.PortlessBindError) {
 		// A log line alone isn't enough — desktop users don't read journalctl.
@@ -146,6 +143,23 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		OnUpdate:   func() { app.installUpdateFromTray() },
 	})
 	return app
+}
+
+func (a *App) appendTunnelLog(tunnelID, level, msg string) {
+	entry := config.LogEntry{Timestamp: time.Now(), Level: level, Message: msg}
+	a.logMu.Lock()
+	buf := a.logBuf[tunnelID]
+	if len(buf) >= 300 {
+		buf = buf[1:]
+	}
+	a.logBuf[tunnelID] = append(buf, entry)
+	a.logMu.Unlock()
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "tunnel:log", map[string]any{
+			"tunnelId": tunnelID,
+			"entry":    entry,
+		})
+	}
 }
 
 // startup is called by Wails when the application starts.
@@ -439,10 +453,58 @@ func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 	}
 	if !a.dnsServer.Running() {
 		if err := a.dnsServer.Start(); err != nil {
+			if a.handlePortlessDNSStartFailure(cfg, err) {
+				return nil
+			}
 			return fmt.Errorf("starting portless DNS server: %w", err)
 		}
 	}
+	a.manager.WithDNSRegistry(a.dnsRegistry)
+	if a.portlessFallback != nil {
+		a.portlessFallback = nil
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "portless:dns-restored")
+		}
+	}
 	return nil
+}
+
+// handlePortlessDNSStartFailure turns only a listen-address conflict into a
+// non-fatal fallback. Setup failures and all other DNS startup errors remain
+// fatal so administrator configuration problems are not hidden.
+func (a *App) handlePortlessDNSStartFailure(cfg config.TunnelConfig, err error) bool {
+	if !dns.IsAddressInUse(err) {
+		return false
+	}
+
+	a.manager.WithDNSRegistry(nil)
+	addr := fmt.Sprintf("%s:%d", dns.BindIP, dns.ListenPort)
+	msg := fmt.Sprintf("Portless unavailable: %s is held by another process; forwards fell back to configured 127.0.0.1 local ports.", addr)
+	a.appendTunnelLog(cfg.ID, "warn", msg)
+	slog.Warn("portless DNS unavailable; continuing with local-port fallback",
+		"tunnel", cfg.Name, "addr", addr, "error", err)
+	if a.portlessFallback == nil {
+		a.portlessFallback = &PortlessFallbackStatus{TunnelID: cfg.ID, Message: msg}
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "portless:dns-unavailable", a.portlessFallback)
+		}
+		if a.tray != nil {
+			a.tray.Notify("Portless unavailable", msg)
+		}
+	}
+	return true
+}
+
+// GetPortlessFallback returns the active degradation warning, if any. The
+// frontend calls it on mount so a hidden auto-connect cannot lose the event.
+func (a *App) GetPortlessFallback() *PortlessFallbackStatus {
+	a.dnsMu.Lock()
+	defer a.dnsMu.Unlock()
+	if a.portlessFallback == nil {
+		return nil
+	}
+	status := *a.portlessFallback
+	return &status
 }
 
 // DisconnectTunnel stops the SSH connection for the given tunnel ID.

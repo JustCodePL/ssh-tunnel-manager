@@ -2,10 +2,12 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 
 	mdns "github.com/miekg/dns"
@@ -36,57 +38,85 @@ func NewServer(reg *Registry) *Server {
 // Start binds UDP + TCP listeners on 127.0.0.1:ListenPort. Idempotent — a
 // second call while running is a no-op.
 func (s *Server) Start() error {
+	addr := fmt.Sprintf("%s:%d", BindIP, ListenPort)
+	return s.start(addr)
+}
+
+// start binds both transports before starting either server. This makes bind
+// conflicts fail immediately and prevents a half-started DNS service when only
+// one of UDP or TCP can claim the address.
+func (s *Server) start(addr string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.running {
 		return nil
 	}
 
-	addr := fmt.Sprintf("%s:%d", BindIP, ListenPort)
 	mux := mdns.NewServeMux()
 	mux.HandleFunc(".", s.handle)
 
-	udp := &mdns.Server{Addr: addr, Net: "udp", Handler: mux, ReusePort: false}
-	tcp := &mdns.Server{Addr: addr, Net: "tcp", Handler: mux, ReusePort: false}
-
-	udpReady := make(chan error, 1)
-	tcpReady := make(chan error, 1)
-	udp.NotifyStartedFunc = func() { udpReady <- nil }
-	tcp.NotifyStartedFunc = func() { tcpReady <- nil }
-
-	go func() {
-		if err := udp.ListenAndServe(); err != nil {
-			slog.Error("portless DNS UDP server exited", "error", err)
-		}
-	}()
-	go func() {
-		if err := tcp.ListenAndServe(); err != nil {
-			slog.Error("portless DNS TCP server exited", "error", err)
-		}
-	}()
-
-	select {
-	case err := <-udpReady:
-		if err != nil {
-			return fmt.Errorf("binding UDP %s: %w", addr, err)
-		}
-	case <-time.After(3 * time.Second):
-		return fmt.Errorf("DNS server (UDP) did not start in time — %s likely in use; another DNS service (Docker Desktop, WSL2, Pi-hole, VPN) may be blocking it", addr)
+	udpConn, err := net.ListenPacket("udp", addr)
+	if err != nil {
+		return fmt.Errorf("binding UDP %s: %w", addr, err)
 	}
-	select {
-	case err := <-tcpReady:
-		if err != nil {
-			return fmt.Errorf("binding TCP %s: %w", addr, err)
+	tcpListener, err := net.Listen("tcp", addr)
+	if err != nil {
+		_ = udpConn.Close()
+		return fmt.Errorf("binding TCP %s: %w", addr, err)
+	}
+
+	udp := &mdns.Server{PacketConn: udpConn, Handler: mux}
+	tcp := &mdns.Server{Listener: tcpListener, Handler: mux}
+	ready := make(chan struct{}, 2)
+	udpErr := make(chan error, 1)
+	tcpErr := make(chan error, 1)
+	udp.NotifyStartedFunc = func() { ready <- struct{}{} }
+	tcp.NotifyStartedFunc = func() { ready <- struct{}{} }
+
+	go func() {
+		udpErr <- udp.ActivateAndServe()
+	}()
+	go func() {
+		tcpErr <- tcp.ActivateAndServe()
+	}()
+
+	for started := 0; started < 2; started++ {
+		select {
+		case <-ready:
+		case err := <-udpErr:
+			_ = udpConn.Close()
+			_ = tcpListener.Close()
+			return fmt.Errorf("serving UDP %s: %w", addr, err)
+		case err := <-tcpErr:
+			_ = udpConn.Close()
+			_ = tcpListener.Close()
+			return fmt.Errorf("serving TCP %s: %w", addr, err)
+		case <-time.After(3 * time.Second):
+			_ = udpConn.Close()
+			_ = tcpListener.Close()
+			return fmt.Errorf("DNS server did not start in time on %s", addr)
 		}
-	case <-time.After(3 * time.Second):
-		return fmt.Errorf("DNS server (TCP) did not start in time — %s likely in use; another DNS service (Docker Desktop, WSL2, Pi-hole, VPN) may be blocking it", addr)
 	}
 
 	s.udp = udp
 	s.tcp = tcp
 	s.running = true
+	go s.logServerExit("UDP", udpErr)
+	go s.logServerExit("TCP", tcpErr)
 	slog.Info("portless DNS server started", "addr", addr)
 	return nil
+}
+
+func (s *Server) logServerExit(network string, result <-chan error) {
+	if err := <-result; err != nil && s.Running() {
+		slog.Error("portless DNS server exited", "network", network, "error", err)
+	}
+}
+
+// IsAddressInUse reports whether starting the embedded DNS server failed
+// because another process already owns its listen address.
+func IsAddressInUse(err error) bool {
+	return errors.Is(err, syscall.EADDRINUSE)
 }
 
 // Stop tears down both listeners. Safe to call multiple times.

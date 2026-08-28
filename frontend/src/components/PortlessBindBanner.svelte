@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
-  import { AuthorizePrivilegedBind, CopyToClipboard, RestartApp } from "../../wailsjs/go/main/App";
+  import { AuthorizePrivilegedBind, CopyToClipboard, GetPortlessFallback, RestartApp } from "../../wailsjs/go/main/App";
   import { showToast } from "../stores/toast";
 
   interface BindError {
@@ -13,7 +13,13 @@
     setcapCommand?: string;
   }
 
+  interface DNSFallback {
+    tunnelId: string;
+    message: string;
+  }
+
   let err: BindError | null = null;
+  let fallback: DNSFallback | null = null;
   let authorizing = false;
   // Set after a successful grant: the capability only applies at exec time, so
   // the app must restart before the privileged bind will work.
@@ -22,9 +28,28 @@
   onMount(() => {
     EventsOn("portless:bind-failed", (e: BindError) => {
       err = e;
+      fallback = null;
       granted = false;
     });
-    return () => EventsOff("portless:bind-failed");
+    EventsOn("portless:dns-unavailable", (e: DNSFallback) => {
+      fallback = e;
+      err = null;
+    });
+    EventsOn("portless:dns-restored", () => {
+      fallback = null;
+    });
+    GetPortlessFallback()
+      .then((current) => {
+        if (current) fallback = current;
+      })
+      .catch(() => {
+        /* the live event still covers conflicts discovered after mount */
+      });
+    return () => {
+      EventsOff("portless:bind-failed");
+      EventsOff("portless:dns-unavailable");
+      EventsOff("portless:dns-restored");
+    };
   });
 
   async function authorize() {
@@ -59,7 +84,17 @@
   }
 </script>
 
-{#if err}
+{#if fallback}
+  <div class="bind-banner warning" role="status">
+    <div class="bind-body">
+      <span class="bind-tag warning">[ PORTLESS FALLBACK ]</span>
+      <span class="bind-msg">{fallback.message}</span>
+    </div>
+    <div class="bind-actions">
+      <button class="bind-btn" on:click={() => (fallback = null)}>[ DISMISS ]</button>
+    </div>
+  </div>
+{:else if err}
   <div class="bind-banner" role="alert">
     {#if granted}
       <div class="bind-body">
@@ -128,6 +163,15 @@
 
   .bind-tag.ok {
     color: var(--accent);
+  }
+
+  .bind-banner.warning {
+    border-color: #f2c94c;
+    box-shadow: 0 2px 16px rgba(242, 201, 76, 0.2);
+  }
+
+  .bind-tag.warning {
+    color: #f2c94c;
   }
 
   .bind-msg {

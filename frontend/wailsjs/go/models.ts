@@ -139,7 +139,21 @@ export namespace config {
 }
 
 export namespace main {
+
+	export class PortlessFallbackStatus {
+	    tunnelId: string;
+	    message: string;
+
+	    static createFrom(source: any = {}) {
+	        return new PortlessFallbackStatus(source);
+	    }
 	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tunnelId = source["tunnelId"];
+	        this.message = source["message"];
+	    }
+	}
 	export class SFTPOpenResult {
 	    sessionId: string;
 	    home: string;
@@ -588,4 +602,3 @@ export namespace updater {
 	}
 
 }
-

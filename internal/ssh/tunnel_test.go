@@ -3,6 +3,7 @@ package ssh
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"ssh-tunnel-manager/internal/config"
+	"ssh-tunnel-manager/internal/dns"
 )
 
 func TestEffectiveHostHeader(t *testing.T) {
@@ -240,6 +242,126 @@ func TestCheckPortConflicts_InUse(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "already in use") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFallbackLocalPortUsesRemotePortWhenUnset(t *testing.T) {
+	pf := config.PortForward{LocalPort: 0, RemotePort: 6379}
+	if got := fallbackLocalPort(pf); got != 6379 {
+		t.Fatalf("fallbackLocalPort() = %d, want 6379", got)
+	}
+
+	pf.LocalPort = 16379
+	if got := fallbackLocalPort(pf); got != 16379 {
+		t.Fatalf("fallbackLocalPort() = %d, want 16379", got)
+	}
+}
+
+func TestCheckPortConflicts_PortlessFallbackUsesLocalPort(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	tun := &Tunnel{
+		Config: config.TunnelConfig{
+			Name: "degraded",
+			PortForwards: []config.PortForward{{
+				LocalPort:  port,
+				RemotePort: 5432,
+				Portless:   true,
+				Domain:     "db",
+			}},
+		},
+		DNSRegistry: nil,
+	}
+	if err := tun.CheckPortConflicts(); err == nil {
+		t.Fatal("expected degraded Portless forward to check its local port")
+	}
+}
+
+func TestCheckPortConflicts_ActivePortlessSkipsLocalPort(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	tun := &Tunnel{
+		Config: config.TunnelConfig{
+			Name: "active-portless",
+			PortForwards: []config.PortForward{{
+				LocalPort:  port,
+				RemotePort: 5432,
+				Portless:   true,
+				Domain:     "db",
+			}},
+		},
+		DNSRegistry: dns.NewRegistry(),
+	}
+	if err := tun.CheckPortConflicts(); err != nil {
+		t.Fatalf("active Portless should ignore ordinary local port: %v", err)
+	}
+}
+
+func TestForwardPort_PortlessWithoutDNSFallsBackToLocalListener(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := probe.Addr().(*net.TCPAddr).Port
+	_ = probe.Close()
+
+	logCh := make(chan string, 1)
+	tun := &Tunnel{
+		Config: config.TunnelConfig{ID: "db-id", Name: "db"},
+		LogFunc: func(_ string, msg string) {
+			select {
+			case logCh <- msg:
+			default:
+			}
+		},
+	}
+	pf := config.PortForward{
+		LocalPort:  port,
+		RemoteHost: "127.0.0.1",
+		RemotePort: 5432,
+		Portless:   true,
+		Domain:     "db",
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		tun.forwardPort(ctx, nil, pf)
+		close(done)
+	}()
+
+	select {
+	case msg := <-logCh:
+		if !strings.Contains(msg, "fell back to 127.0.0.1") {
+			t.Fatalf("fallback log = %q", msg)
+		}
+	case <-time.After(2 * time.Second):
+		cancel()
+		t.Fatal("timed out waiting for local-port fallback")
+	}
+
+	conflict, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err == nil {
+		_ = conflict.Close()
+		cancel()
+		t.Fatal("fallback did not bind the configured local port")
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("fallback listener did not stop after cancellation")
 	}
 }
 
