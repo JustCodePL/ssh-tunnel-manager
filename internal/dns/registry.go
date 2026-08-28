@@ -15,6 +15,8 @@ import (
 // .local to avoid colliding with mDNS / Bonjour.
 const TLD = "ssh-local"
 
+const localRegistryOwner = "local"
+
 // LoopbackBase is the first usable IP in the loopback pool. The pool covers
 // 127.0.1.1 through 127.0.1.254 — 254 concurrent portless forwards.
 var loopbackBase = net.IPv4(127, 0, 1, 1)
@@ -29,6 +31,16 @@ type Entry struct {
 	Domain string
 	IP     net.IP
 	Port   int
+	owner  string
+}
+
+// ForwardRegistry is the allocator used by SSH tunnels. The implementation
+// can be the in-process registry owned by the DNS server or a client of a DNS
+// server running in another logged-in user's app instance.
+type ForwardRegistry interface {
+	Allocate(domain string, port int) (Entry, error)
+	Release(domain string)
+	Block(ip net.IP)
 }
 
 // Registry tracks portless domain → (ip, port) bindings backing the embedded
@@ -64,15 +76,28 @@ func (r *Registry) Block(ip net.IP) {
 // repeated calls during reconnects are idempotent. Returns an error if the
 // pool is exhausted.
 func (r *Registry) Allocate(domain string, port int) (Entry, error) {
+	return r.allocateOwned(domain, port, localRegistryOwner)
+}
+
+func (r *Registry) allocateOwned(domain string, port int, owner string) (Entry, error) {
 	domain = normalizeDomain(domain)
 	if domain == "" {
 		return Entry{}, fmt.Errorf("empty domain")
+	}
+	if owner == "" {
+		return Entry{}, fmt.Errorf("empty registry owner")
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if existing, ok := r.byDomain[domain]; ok {
+		if existing.owner != owner {
+			return Entry{}, fmt.Errorf("domain %q is already registered by another app instance", domain)
+		}
+		if existing.Port != port {
+			return Entry{}, fmt.Errorf("domain %q is already registered on port %d", domain, existing.Port)
+		}
 		return existing, nil
 	}
 
@@ -81,7 +106,7 @@ func (r *Registry) Allocate(domain string, port int) (Entry, error) {
 		return Entry{}, fmt.Errorf("loopback IP pool exhausted (>254 portless forwards)")
 	}
 
-	entry := Entry{Domain: domain, IP: ip, Port: port}
+	entry := Entry{Domain: domain, IP: ip, Port: port, owner: owner}
 	r.byDomain[domain] = entry
 	r.allocated[ip.String()] = true
 	return entry, nil
@@ -90,10 +115,45 @@ func (r *Registry) Allocate(domain string, port int) (Entry, error) {
 // Release removes the binding for a domain. No-op if the domain isn't
 // registered.
 func (r *Registry) Release(domain string) {
+	_ = r.releaseOwned(domain, localRegistryOwner)
+}
+
+func (r *Registry) releaseOwned(domain, owner string) error {
 	domain = normalizeDomain(domain)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if entry, ok := r.byDomain[domain]; ok {
+		if entry.owner != owner {
+			return fmt.Errorf("domain %q is owned by another app instance", domain)
+		}
+		delete(r.allocated, entry.IP.String())
+		delete(r.byDomain, domain)
+	}
+	return nil
+}
+
+func (r *Registry) blockOwned(ip net.IP, owner string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, entry := range r.byDomain {
+		if entry.IP.Equal(ip) {
+			if entry.owner != owner {
+				return fmt.Errorf("loopback address %s is owned by another app instance", ip)
+			}
+			r.blocked[ip.String()] = true
+			return nil
+		}
+	}
+	return fmt.Errorf("loopback address %s is not allocated", ip)
+}
+
+func (r *Registry) releaseOwner(owner string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for domain, entry := range r.byDomain {
+		if entry.owner != owner {
+			continue
+		}
 		delete(r.allocated, entry.IP.String())
 		delete(r.byDomain, domain)
 	}

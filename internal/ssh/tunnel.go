@@ -59,7 +59,7 @@ type Tunnel struct {
 	OnForwardError func(PortForwardError)
 	// DNSRegistry is consulted for portless forwards to allocate a loopback
 	// IP and register the *.ssh-local domain. nil disables portless mode.
-	DNSRegistry *dns.Registry
+	DNSRegistry dns.ForwardRegistry
 
 	mu     sync.Mutex
 	client *ssh.Client

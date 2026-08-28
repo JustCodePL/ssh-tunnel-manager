@@ -73,7 +73,7 @@ type Manager struct {
 	logEmitter     func(tunnelID, level, msg string)
 	bindErrEmit    BindErrorEmitter
 	forwardErrEmit ForwardErrorEmitter
-	dnsRegistry    *dns.Registry
+	dnsRegistry    dns.ForwardRegistry
 }
 
 // WithBindErrorEmitter sets a callback that receives portless bind failures.
@@ -100,7 +100,7 @@ func (m *Manager) WithLogEmitter(fn func(tunnelID, level, msg string)) {
 
 // WithDNSRegistry wires the portless DNS registry into every subsequent
 // Tunnel. Forwards that aren't portless ignore it.
-func (m *Manager) WithDNSRegistry(reg *dns.Registry) {
+func (m *Manager) WithDNSRegistry(reg dns.ForwardRegistry) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.dnsRegistry = reg

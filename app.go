@@ -69,12 +69,19 @@ type App struct {
 	// Portless DNS: registry of domain → loopback IP, and the embedded DNS
 	// server. The server is started lazily on the first portless connect so
 	// users who never opt in pay zero cost.
-	dnsMu       sync.Mutex
-	dnsRegistry *dns.Registry
-	dnsServer   *dns.Server
+	dnsMu             sync.Mutex
+	dnsRegistry       *dns.Registry
+	dnsServer         *dns.Server
+	sharedDNSRegistry sharedPortlessRegistry
+	connectSharedDNS  func() (sharedPortlessRegistry, error)
 	// portlessFallback persists the current degradation so the frontend can
 	// recover it even when auto-connect emitted the first event before mount.
 	portlessFallback *PortlessFallbackStatus
+}
+
+type sharedPortlessRegistry interface {
+	dns.ForwardRegistry
+	Close() error
 }
 
 // PortlessFallbackStatus describes the active localhost fallback used when
@@ -102,6 +109,9 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		sftpTransfers: make(map[string]context.CancelFunc),
 		dnsRegistry:   registry,
 		dnsServer:     dns.NewServer(registry),
+		connectSharedDNS: func() (sharedPortlessRegistry, error) {
+			return dns.ConnectRemoteRegistry()
+		},
 	}
 	app.termMgr = ssh.NewTerminalManager(app.getPassphrase)
 	app.sftpMgr = ssh.NewSFTPManager(app.getPassphrase)
@@ -232,6 +242,15 @@ func (a *App) shutdown(ctx context.Context) {
 	a.dnsMu.Unlock()
 	if srv != nil {
 		srv.Stop()
+	}
+	a.dnsMu.Lock()
+	sharedRegistry := a.sharedDNSRegistry
+	a.sharedDNSRegistry = nil
+	a.dnsMu.Unlock()
+	if sharedRegistry != nil {
+		if err := sharedRegistry.Close(); err != nil {
+			slog.Debug("closing shared Portless registry failed", "error", err)
+		}
 	}
 }
 
@@ -430,6 +449,10 @@ func tunnelRequiresPrivilegedPortRedirect(cfg config.TunnelConfig) bool {
 func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 	a.dnsMu.Lock()
 	defer a.dnsMu.Unlock()
+	if a.sharedDNSRegistry != nil {
+		a.manager.WithDNSRegistry(a.sharedDNSRegistry)
+		return nil
+	}
 
 	requirements := dns.SetupRequirements{
 		PrivilegedPortRedirect: tunnelRequiresPrivilegedPortRedirect(cfg),
@@ -476,10 +499,32 @@ func (a *App) handlePortlessDNSStartFailure(cfg config.TunnelConfig, err error) 
 	if !dns.IsAddressInUse(err) {
 		return false
 	}
+	if a.connectSharedDNS != nil {
+		sharedRegistry, sharedErr := a.connectSharedDNS()
+		if sharedErr == nil && sharedRegistry != nil {
+			a.sharedDNSRegistry = sharedRegistry
+			a.manager.WithDNSRegistry(sharedRegistry)
+			msg := fmt.Sprintf("Portless is sharing the DNS registry on %s:%d with another app instance; domains retain distinct 127.0.1.x addresses.", dns.BindIP, dns.ListenPort)
+			a.appendTunnelLog(cfg.ID, "info", msg)
+			slog.Info("portless joined shared DNS registry", "tunnel", cfg.Name)
+			if a.portlessFallback != nil {
+				a.portlessFallback = nil
+				if a.ctx != nil {
+					runtime.EventsEmit(a.ctx, "portless:dns-restored")
+				}
+			}
+			return true
+		}
+		if sharedErr == nil {
+			sharedErr = fmt.Errorf("compatible owner returned no registry")
+		}
+		slog.Warn("portless DNS owner does not expose a compatible shared registry",
+			"tunnel", cfg.Name, "error", sharedErr)
+	}
 
 	a.manager.WithDNSRegistry(nil)
 	addr := fmt.Sprintf("%s:%d", dns.BindIP, dns.ListenPort)
-	msg := fmt.Sprintf("Portless unavailable: %s is held by another process; forwards fell back to configured 127.0.0.1 local ports.", addr)
+	msg := fmt.Sprintf("Portless unavailable: %s is held by a process without a compatible shared registry. Domains are disabled; forwards will try configured 127.0.0.1 local ports, where duplicate ports cannot all be exposed.", addr)
 	a.appendTunnelLog(cfg.ID, "warn", msg)
 	slog.Warn("portless DNS unavailable; continuing with local-port fallback",
 		"tunnel", cfg.Name, "addr", addr, "error", err)

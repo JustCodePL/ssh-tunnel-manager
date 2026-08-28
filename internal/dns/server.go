@@ -144,6 +144,11 @@ func (s *Server) Running() bool {
 }
 
 func (s *Server) handle(w mdns.ResponseWriter, req *mdns.Msg) {
+	if isControlRequest(req) {
+		s.handleControl(w, req)
+		return
+	}
+
 	msg := new(mdns.Msg)
 	msg.SetReply(req)
 	msg.Authoritative = true
