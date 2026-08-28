@@ -268,14 +268,16 @@ func (t *Tunnel) dial(ctx context.Context, sshConfig *ssh.ClientConfig) (*ssh.Cl
 
 func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig *ssh.ClientConfig) (*ssh.Client, error) {
 	cmdStr := expandProxyCommand(t.Config.ProxyCommand, t.Config.Host, t.Config.Port, t.Config.User)
-	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr)
+	proxyEnv := proxyCommandEnv()
+	effectivePath := environmentValue(proxyEnv, "PATH")
+	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr, "path", effectivePath)
 
 	cmd := proxyCommandExec(ctx, cmdStr)
 	applySysProcAttr(cmd)
 
-	// Ensure SSH_AUTH_SOCK is available for the subprocess.
-	// On macOS, GUI apps may not inherit the shell environment.
-	cmd.Env = proxyCommandEnv()
+	// Ensure PATH and SSH_AUTH_SOCK are usable from GUI launches, where macOS
+	// provides a much smaller environment than an interactive shell.
+	cmd.Env = proxyEnv
 
 	// Capture stderr so we can surface proxy errors to the user
 	var stderrBuf bytes.Buffer
@@ -302,8 +304,9 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 		proxyErr := strings.TrimSpace(stderrBuf.String())
 		if proxyErr != "" {
 			slog.Error("ProxyCommand stderr", "tunnel", t.Config.Name, "stderr", proxyErr)
-			t.log("error", fmt.Sprintf("ProxyCommand stderr: %s", proxyErr))
-			return nil, fmt.Errorf("SSH handshake via ProxyCommand: %w (proxy: %s)", err, proxyErr)
+			proxyMessage := proxyCommandFailureMessage(proxyErr, effectivePath)
+			t.log("error", proxyMessage)
+			return nil, fmt.Errorf("SSH handshake via ProxyCommand: %w (%s)", err, proxyMessage)
 		}
 		return nil, fmt.Errorf("SSH handshake via ProxyCommand: %w", err)
 	}
@@ -311,26 +314,111 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	return ssh.NewClient(c, chans, reqs), nil
 }
 
-// proxyCommandEnv returns the environment for ProxyCommand subprocesses.
-// It starts with the current process environment, then ensures SSH_AUTH_SOCK
-// is set — on macOS GUI apps the shell environment may not be inherited.
+// proxyCommandEnv returns the environment for ProxyCommand subprocesses. It
+// starts with the current process environment, then fills in macOS GUI-launch
+// gaps: common package-manager paths and the launchd-managed SSH agent socket.
 func proxyCommandEnv() []string {
 	env := os.Environ()
 
-	// If SSH_AUTH_SOCK is already set, nothing to do
-	if os.Getenv("SSH_AUTH_SOCK") != "" {
-		return env
-	}
-
-	// On macOS, try to discover the launchd-managed agent socket
 	if runtime.GOOS == "darwin" {
-		if sock := findMacOSAgentSocket(); sock != "" {
-			slog.Info("discovered macOS SSH agent socket", "path", sock)
-			env = append(env, "SSH_AUTH_SOCK="+sock)
+		home, err := os.UserHomeDir()
+		if err != nil {
+			slog.Debug("could not resolve home directory for ProxyCommand PATH", "error", err)
+		}
+		env = appendPathEntries(env, macOSProxyCommandPathEntries(home)...)
+
+		if environmentValue(env, "SSH_AUTH_SOCK") == "" {
+			if sock := findMacOSAgentSocket(); sock != "" {
+				slog.Info("discovered macOS SSH agent socket", "path", sock)
+				env = append(env, "SSH_AUTH_SOCK="+sock)
+			}
 		}
 	}
 
 	return env
+}
+
+func macOSProxyCommandPathEntries(home string) []string {
+	entries := []string{
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+		"/opt/local/bin",
+	}
+	if home != "" {
+		entries = append(entries, filepath.Join(home, ".local", "bin"))
+	}
+	return entries
+}
+
+// appendPathEntries adds directories to PATH without reordering or duplicating
+// existing entries. Updating the environment slice directly keeps paths that
+// contain spaces intact; no shell expansion or word splitting is involved.
+func appendPathEntries(env []string, additions ...string) []string {
+	pathEntries := filepath.SplitList(environmentValue(env, "PATH"))
+	seen := make(map[string]struct{}, len(pathEntries)+len(additions))
+	for _, entry := range pathEntries {
+		seen[entry] = struct{}{}
+	}
+	for _, entry := range additions {
+		if entry == "" {
+			continue
+		}
+		if _, exists := seen[entry]; exists {
+			continue
+		}
+		pathEntries = append(pathEntries, entry)
+		seen[entry] = struct{}{}
+	}
+
+	return setEnvironmentValue(env, "PATH", strings.Join(pathEntries, string(os.PathListSeparator)))
+}
+
+func environmentValue(env []string, key string) string {
+	prefix := key + "="
+	for i := len(env) - 1; i >= 0; i-- {
+		if strings.HasPrefix(env[i], prefix) {
+			return strings.TrimPrefix(env[i], prefix)
+		}
+	}
+	return ""
+}
+
+func setEnvironmentValue(env []string, key, value string) []string {
+	prefix := key + "="
+	result := make([]string, 0, len(env)+1)
+	replaced := false
+	for _, entry := range env {
+		if strings.HasPrefix(entry, prefix) {
+			if !replaced {
+				result = append(result, prefix+value)
+				replaced = true
+			}
+			continue
+		}
+		result = append(result, entry)
+	}
+	if !replaced {
+		result = append(result, prefix+value)
+	}
+	return result
+}
+
+func proxyCommandFailureMessage(proxyErr, effectivePath string) string {
+	if isProxyCommandHelperNotFound(proxyErr) {
+		return fmt.Sprintf(
+			"ProxyCommand helper was not found. Effective PATH: %s. Install the helper in a PATH directory or use an absolute path. Proxy stderr: %s",
+			effectivePath, proxyErr,
+		)
+	}
+	return fmt.Sprintf("ProxyCommand stderr: %s", proxyErr)
+}
+
+func isProxyCommandHelperNotFound(proxyErr string) bool {
+	message := strings.ToLower(proxyErr)
+	return strings.Contains(message, "executable file not found in $path") ||
+		strings.Contains(message, "command not found") ||
+		strings.Contains(message, "sessionmanagerplugin is not found") ||
+		(strings.HasPrefix(message, "sh:") && strings.Contains(message, ": not found"))
 }
 
 // findMacOSAgentSocket looks for the launchd SSH agent socket in common
