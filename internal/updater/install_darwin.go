@@ -4,6 +4,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // platformAsset is the release asset name for the current architecture.
@@ -75,11 +78,6 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 
 	extractedApp := filepath.Join(mountPoint, appName)
 
-	// Remove quarantine attribute so macOS doesn't block the new binary.
-	if err := exec.Command("xattr", "-dr", "com.apple.quarantine", extractedApp).Run(); err != nil {
-		slog.Warn("updater: failed to remove quarantine", "error", err)
-	}
-
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("locating current executable: %w", err)
@@ -90,18 +88,19 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 	// installations from ssh-tunnel-manager.app to SSH Tunnel Manager.app.
 	installTarget := filepath.Join(filepath.Dir(currentAppPath), appName)
 
-	// Copy the new .app over the existing one. When the bundle name changed,
-	// remove the old path after clearing any existing canonical target.
-	if err := os.RemoveAll(installTarget); err != nil {
-		return fmt.Errorf("removing existing app bundle: %w", err)
-	}
-	if currentAppPath != installTarget {
-		if err := os.RemoveAll(currentAppPath); err != nil {
-			return fmt.Errorf("removing old app bundle: %w", err)
+	// A bundle in /Applications may have been installed by another local
+	// administrator. Replacing it then requires macOS authorization even when
+	// the current user can create entries in /Applications itself. Keep the
+	// ordinary no-prompt path for user-owned bundles and elevate only when one
+	// of the bundles that must be replaced is not writable.
+	if pathNeedsElevation(filepath.Dir(installTarget)) ||
+		appBundleNeedsElevation(currentAppPath) ||
+		(currentAppPath != installTarget && appBundleNeedsElevation(installTarget)) {
+		if err := runElevatedInstall(ctx, exePath, extractedApp, currentAppPath, installTarget); err != nil {
+			return fmt.Errorf("installing update with administrator privileges: %w", err)
 		}
-	}
-	if err := exec.Command("cp", "-R", extractedApp, installTarget).Run(); err != nil {
-		return fmt.Errorf("copying new app bundle: %w", err)
+	} else if err := replaceAppBundles(extractedApp, currentAppPath, installTarget); err != nil {
+		return fmt.Errorf("replacing app bundle: %w", err)
 	}
 
 	slog.Info("updater: new app installed", "path", installTarget)
@@ -112,6 +111,119 @@ func Install(ctx context.Context, info *UpdateInfo) error {
 	// process to exit before opening the replacement.
 	if err := scheduleRelaunchAfterExit(os.Getpid(), installTarget, "/usr/bin/open"); err != nil {
 		return fmt.Errorf("scheduling app relaunch: %w", err)
+	}
+	return nil
+}
+
+func pathNeedsElevation(path string) bool {
+	if _, err := os.Stat(path); err != nil {
+		return true
+	}
+	return unix.Access(path, unix.W_OK) != nil
+}
+
+func appBundleNeedsElevation(path string) bool {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return false
+	} else if err != nil {
+		return true
+	}
+	// Removing a tree needs write access to every directory that contains an
+	// entry, not to the files themselves. Walking directories catches mixed-
+	// ownership bundles as well as the common whole-bundle ownership mismatch.
+	return filepath.WalkDir(path, func(currentPath string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() && unix.Access(currentPath, unix.W_OK) != nil {
+			return os.ErrPermission
+		}
+		return nil
+	}) != nil
+}
+
+// replaceAppBundles stages and verifies the new bundle before moving either
+// installed bundle out of the way. Both staging and backup directories live
+// next to the installation target, so every rename is atomic. A failed final
+// rename restores the previous paths before returning.
+func replaceAppBundles(extractedApp, currentAppPath, installTarget string) error {
+	parentDir := filepath.Dir(installTarget)
+	stagingDir, err := os.MkdirTemp(parentDir, ".ssh-tunnel-manager-update-")
+	if err != nil {
+		return fmt.Errorf("creating staging directory: %w", err)
+	}
+	defer os.RemoveAll(stagingDir)
+
+	stagedApp := filepath.Join(stagingDir, filepath.Base(installTarget))
+	if out, err := exec.Command("/usr/bin/ditto", extractedApp, stagedApp).CombinedOutput(); err != nil {
+		return fmt.Errorf("staging new app bundle: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	// Clear quarantine on the writable staged copy rather than on the app
+	// inside the read-only mounted DMG.
+	if out, err := exec.Command("/usr/bin/xattr", "-dr", "com.apple.quarantine", stagedApp).CombinedOutput(); err != nil {
+		slog.Warn("updater: failed to remove quarantine from staged app",
+			"path", stagedApp, "error", err, "output", strings.TrimSpace(string(out)))
+	}
+	if out, err := exec.Command("/usr/bin/codesign", "--verify", "--deep", "--strict", stagedApp).CombinedOutput(); err != nil {
+		return fmt.Errorf("verifying staged app bundle: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+
+	backupDir, err := os.MkdirTemp(parentDir, ".ssh-tunnel-manager-backup-")
+	if err != nil {
+		return fmt.Errorf("creating backup directory: %w", err)
+	}
+
+	type movedBundle struct {
+		original string
+		backup   string
+	}
+	moved := make([]movedBundle, 0, 2)
+	moveToBackup := func(path string) error {
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		backupPath := filepath.Join(backupDir, strconv.Itoa(len(moved))+"-"+filepath.Base(path))
+		if err := os.Rename(path, backupPath); err != nil {
+			return err
+		}
+		moved = append(moved, movedBundle{original: path, backup: backupPath})
+		return nil
+	}
+	restoreBackups := func() error {
+		var restoreErr error
+		for i := len(moved) - 1; i >= 0; i-- {
+			if err := os.Rename(moved[i].backup, moved[i].original); err != nil {
+				restoreErr = errors.Join(restoreErr, fmt.Errorf("restoring %s: %w", moved[i].original, err))
+			}
+		}
+		return restoreErr
+	}
+
+	if err := moveToBackup(installTarget); err != nil {
+		_ = os.RemoveAll(backupDir)
+		return fmt.Errorf("backing up install target: %w", err)
+	}
+	if currentAppPath != installTarget {
+		if err := moveToBackup(currentAppPath); err != nil {
+			restoreErr := restoreBackups()
+			_ = os.RemoveAll(backupDir)
+			return errors.Join(fmt.Errorf("backing up current app bundle: %w", err), restoreErr)
+		}
+	}
+
+	if err := os.Rename(stagedApp, installTarget); err != nil {
+		restoreErr := restoreBackups()
+		_ = os.RemoveAll(backupDir)
+		return errors.Join(fmt.Errorf("installing staged app bundle: %w", err), restoreErr)
+	}
+
+	if err := os.RemoveAll(backupDir); err != nil {
+		// The replacement is already complete. A cleanup failure must not keep
+		// the old process alive and make the successful update look unusable.
+		slog.Warn("updater: failed to remove app backup after successful install",
+			"path", backupDir, "error", err)
 	}
 	return nil
 }
