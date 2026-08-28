@@ -10,6 +10,16 @@
 - If native Linear Releases are unavailable for the workspace or plan, do not enable a trial or upgrade the plan automatically. Use a project milestone named after the SemVer version (for example, `v1.0.32`) as the fallback, attach the issue to it, and note the Releases limitation in the issue.
 - Never publish a tag, GitHub Release, or other externally visible release without Artur's explicit approval.
 
+## Public GitHub issue tracking
+
+- Track every public issue for this repository in the JustCodePL organization project at `https://github.com/orgs/JustCodePL/projects/1`.
+- Deliver every issue-backed change and every bug fix through a pull request; do not commit those changes directly to the default branch.
+- Link the pull request to its GitHub issue by using a closing keyword such as `Fixes #<number>` in the pull request description, unless the issue must intentionally remain open after merge; in that case, use an explicit non-closing issue link.
+- Attach the pull request URL to the corresponding Linear issue as soon as the pull request is created. Keep the GitHub issue, pull request, and Linear issue mutually traceable.
+- Keep the public issue updated automatically with concise English comments whenever its distribution state materially changes, including when the implementation is completed, when it is published in a beta or other prerelease, and when it reaches a stable release.
+- State the exact verified availability in each comment. Include the commit SHA only after it is pushed and the GitHub commit link resolves; include the release version and public release link only after the corresponding release and artifacts have been published and verified.
+- Do not describe a local commit or an untagged commit on a branch as released. Keep implementation, beta publication, and stable publication as explicit separate states.
+
 ## Linear distribution labels
 
 - Keep Linear issue labels aligned with the highest distribution channel that actually contains the change, following the team document `Sposób pracy: Artur + Codex`.

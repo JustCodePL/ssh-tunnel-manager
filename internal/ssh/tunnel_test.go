@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -142,6 +143,119 @@ func TestReportForwardingBlockedOnce(t *testing.T) {
 	}
 	if !strings.Contains(events[0].Message, "AllowTcpForwarding") {
 		t.Fatalf("Message = %q, want AllowTcpForwarding guidance", events[0].Message)
+	}
+}
+
+func TestAppendPathEntriesPreservesExistingOrderAndSpaces(t *testing.T) {
+	pathSeparator := string(os.PathListSeparator)
+	env := []string{
+		"HOME=/Users/test",
+		"PATH=/usr/bin",
+		"PATH=" + strings.Join([]string{
+			"/bin",
+			"/Users/test/Library/Application Support/tool/bin",
+			"/opt/homebrew/bin",
+		}, pathSeparator),
+		"LANG=en_US.UTF-8",
+	}
+
+	got := appendPathEntries(env,
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+		"/Users/test/.local/bin",
+	)
+
+	wantPath := strings.Join([]string{
+		"/bin",
+		"/Users/test/Library/Application Support/tool/bin",
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+		"/Users/test/.local/bin",
+	}, pathSeparator)
+	if gotPath := environmentValue(got, "PATH"); gotPath != wantPath {
+		t.Fatalf("PATH = %q, want %q", gotPath, wantPath)
+	}
+
+	pathCount := 0
+	for _, entry := range got {
+		if strings.HasPrefix(entry, "PATH=") {
+			pathCount++
+		}
+	}
+	if pathCount != 1 {
+		t.Fatalf("PATH entries = %d, want 1: %#v", pathCount, got)
+	}
+	if environmentValue(got, "LANG") != "en_US.UTF-8" {
+		t.Fatalf("unrelated environment variable was not preserved: %#v", got)
+	}
+}
+
+func TestMacOSProxyCommandPathEntries(t *testing.T) {
+	home := "/Users/test/Library/Application Support/example"
+	got := macOSProxyCommandPathEntries(home)
+	want := []string{
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+		"/opt/local/bin",
+		filepath.Join(home, ".local", "bin"),
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("entries = %#v, want %#v", got, want)
+	}
+}
+
+func TestProxyCommandEnvFindsHelperUnderHomePathWithSpaces(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS-specific ProxyCommand PATH augmentation")
+	}
+
+	home := filepath.Join(t.TempDir(), "Application Support", "proxy-user")
+	helperDir := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(helperDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	helperPath := filepath.Join(helperDir, "proxy-path-test-helper")
+	if err := os.WriteFile(helperPath, []byte("#!/bin/sh\nprintf helper-found"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+	t.Setenv("SSH_AUTH_SOCK", "/tmp/proxy-path-test-agent.sock")
+
+	cmd := proxyCommandExec(context.Background(), "proxy-path-test-helper")
+	cmd.Env = proxyCommandEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("ProxyCommand helper failed: %v\n%s", err, out)
+	}
+	if string(out) != "helper-found" {
+		t.Fatalf("output = %q, want helper-found", out)
+	}
+}
+
+func TestProxyCommandFailureMessageExplainsMissingHelpers(t *testing.T) {
+	tests := []string{
+		"sh: aws: command not found",
+		"sh: 1: aws: not found",
+		`exec: "aws": executable file not found in $PATH`,
+		"aws: [ERROR]: SessionManagerPlugin is not found.",
+	}
+	for _, stderr := range tests {
+		t.Run(stderr, func(t *testing.T) {
+			got := proxyCommandFailureMessage(stderr, "/usr/bin:/opt/homebrew/bin")
+			if !strings.Contains(got, "ProxyCommand helper was not found") {
+				t.Fatalf("message = %q, want missing-helper guidance", got)
+			}
+			if !strings.Contains(got, "/usr/bin:/opt/homebrew/bin") {
+				t.Fatalf("message = %q, want effective PATH", got)
+			}
+		})
+	}
+
+	got := proxyCommandFailureMessage("access denied", "/usr/bin")
+	if got != "ProxyCommand stderr: access denied" {
+		t.Fatalf("message = %q, want generic stderr", got)
 	}
 }
 
