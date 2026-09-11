@@ -19,11 +19,11 @@ export namespace config {
 	    timestamp: any;
 	    level: string;
 	    message: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LogEntry(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.timestamp = this.convertValues(source["timestamp"], null);
@@ -154,6 +154,28 @@ export namespace main {
 	        this.message = source["message"];
 	    }
 	}
+	export class PortlessServiceStatus {
+	    available: boolean;
+	    installed: boolean;
+	    approvalRequired: boolean;
+	    current: boolean;
+	    state: string;
+	    message: string;
+
+	    static createFrom(source: any = {}) {
+	        return new PortlessServiceStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.installed = source["installed"];
+	        this.approvalRequired = source["approvalRequired"];
+	        this.current = source["current"];
+	        this.state = source["state"];
+	        this.message = source["message"];
+	    }
+	}
 	export class SFTPOpenResult {
 	    sessionId: string;
 	    home: string;
@@ -217,7 +239,6 @@ export namespace main {
 	}
 
 }
-
 export namespace ssh {
 	
 	export class FileEntry {

@@ -132,13 +132,32 @@ jobs:
       - name: Codesign app bundle
         if: matrix.platform == 'darwin'
         run: |
+          PORTLESS_PLIST="build/bin/SSH Tunnel Manager.app/Contents/Library/LaunchDaemons/pl.justcode.ssh-tunnel-manager.portless.plist"
+          plutil -lint "$PORTLESS_PLIST"
+          /usr/libexec/PlistBuddy -c 'Print :BundleProgram' "$PORTLESS_PLIST" | grep -Fx 'Contents/Library/HelperTools/ssh-tunnel-manager-portless'
+          /usr/libexec/PlistBuddy -c 'Print :AssociatedBundleIdentifiers:0' "$PORTLESS_PLIST" | grep -Fx 'com.wails.ssh-tunnel-manager'
+          PORTLESS_HELPER="build/bin/SSH Tunnel Manager.app/Contents/Library/HelperTools/ssh-tunnel-manager-portless"
+          APP_BINARY="build/bin/SSH Tunnel Manager.app/Contents/MacOS/ssh-tunnel-manager"
+          test -x "$PORTLESS_HELPER"
+          test "$(lipo -archs "$PORTLESS_HELPER")" = "$(lipo -archs "$APP_BINARY")"
+          if otool -L "$PORTLESS_HELPER" | grep -q ServiceManagement; then
+            echo "Portless helper must not include the ServiceManagement registration bridge" >&2
+            exit 1
+          fi
+
           IDENTITY=$(security find-identity -v -p codesigning $RUNNER_TEMP/app-signing.keychain-db | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
           echo "Signing with identity: $IDENTITY"
 
-          find "build/bin/SSH Tunnel Manager.app" -type f \( -name "*.dylib" -o -name "*.framework" -o -perm +111 \) -exec \
+          find "build/bin/SSH Tunnel Manager.app" -type f \( -name "*.dylib" -o -name "*.framework" -o -perm +111 \) \
+            ! -path "*/Contents/Library/HelperTools/ssh-tunnel-manager-portless" -exec \
             codesign --force --options runtime --timestamp \
               --entitlements build/darwin/entitlements.plist \
               --sign "$IDENTITY" {} \;
+
+          codesign --force --options runtime --timestamp \
+            --entitlements build/darwin/portless-helper.entitlements.plist \
+            --sign "$IDENTITY" \
+            "build/bin/SSH Tunnel Manager.app/Contents/Library/HelperTools/ssh-tunnel-manager-portless"
 
           codesign --force --options runtime --timestamp \
             --entitlements build/darwin/entitlements.plist \

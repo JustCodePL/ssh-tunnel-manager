@@ -4,6 +4,7 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -24,9 +25,11 @@ const (
 	pfConfigPath      = "/etc/pf.conf"
 	pfAnchor          = "com.apple/ssh-tunnel-manager"
 	pfMarkerPath      = "/var/run/ssh-tunnel-manager-portless-pf-v1"
+	serviceLogPath    = "/var/log/ssh-tunnel-manager-portless.log"
 )
 
 var appleRDRAnchorPattern = regexp.MustCompile(`(?m)^\s*rdr-anchor\s+"com\.apple/\*"`)
+var pfEnableTokenPattern = regexp.MustCompile(`(?m)^Token\s*:\s*([0-9]+)\s*$`)
 
 func isSystemConfigured() bool {
 	return isResolverConfigured() && isLoopbackPoolConfigured()
@@ -86,7 +89,7 @@ func configuredLoopbackIPs() (map[string]bool, error) {
 
 // doSetup assigns the Portless loopback pool to lo0, writes the resolver, and
 // optionally installs the privileged-port PF redirect. It must be called from
-// a process that already has root (via osascript administrator privileges).
+// the root LaunchDaemon helper (or the legacy osascript elevation path).
 func doSetup(requirements SetupRequirements) error {
 	if err := configureLoopbackPool(); err != nil {
 		return err
@@ -104,7 +107,7 @@ func doSetup(requirements SetupRequirements) error {
 			return err
 		}
 	}
-	return nil
+	return writeServiceVersionMarker()
 }
 
 func privilegedPortRedirectRule() string {
@@ -220,6 +223,30 @@ func configureLoopbackPool() error {
 }
 
 func runElevatedSetup(ctx context.Context, exe string, args []string) error {
+	if modernServiceApplicable() {
+		requirements := SetupRequirements{}
+		for _, arg := range args {
+			if arg == PrivilegedRedirectArg {
+				requirements.PrivilegedPortRedirect = true
+			}
+		}
+		return ensurePortlessService(ctx, requirements)
+	}
+	return runLegacyElevatedSetup(ctx, args)
+}
+
+// runLegacyElevatedSetup remains as a compatibility path for development
+// builds and macOS versions older than 13. Production bundles on supported
+// macOS versions use SMAppService and never enter this path during startup.
+func runLegacyElevatedSetup(ctx context.Context, args []string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolving current executable: %w", err)
+	}
+	return runLegacyElevatedExecutable(ctx, exe, args)
+}
+
+func runLegacyElevatedExecutable(ctx context.Context, exe string, args []string) error {
 	script, err := elevatedSetupScript(exe, args)
 	if err != nil {
 		return err
@@ -234,6 +261,92 @@ func runElevatedSetup(ctx context.Context, exe string, args []string) error {
 		return fmt.Errorf("osascript: %w (%s)", err, trimmed)
 	}
 	return nil
+}
+
+func doCleanup() error {
+	var cleanupErrors []error
+
+	if err := cleanupPrivilegedPortRedirect(); err != nil {
+		cleanupErrors = append(cleanupErrors, err)
+	}
+	if err := cleanupResolver(); err != nil {
+		cleanupErrors = append(cleanupErrors, err)
+	}
+	if err := cleanupLoopbackPool(); err != nil {
+		cleanupErrors = append(cleanupErrors, err)
+	}
+	if err := os.Remove(serviceMarkerPath); err != nil && !os.IsNotExist(err) {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("removing Portless helper marker: %w", err))
+	}
+	if err := os.Remove(serviceLogPath); err != nil && !os.IsNotExist(err) {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("removing Portless helper log: %w", err))
+	}
+	return errors.Join(cleanupErrors...)
+}
+
+func cleanupResolver() error {
+	data, err := os.ReadFile(resolverPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading %s before removal: %w", resolverPath, err)
+	}
+	expected := fmt.Sprintf("nameserver 127.0.0.1\nport %d\n", ListenPort)
+	if string(data) != expected {
+		return fmt.Errorf("refusing to remove modified resolver file %s", resolverPath)
+	}
+	if err := os.Remove(resolverPath); err != nil {
+		return fmt.Errorf("removing %s: %w", resolverPath, err)
+	}
+	return nil
+}
+
+func cleanupLoopbackPool() error {
+	configured, err := configuredLoopbackIPs()
+	if err != nil {
+		return fmt.Errorf("reading %s addresses before cleanup: %w", loopbackInterface, err)
+	}
+	var cleanupErrors []error
+	for i := 0; i < loopbackPoolSize; i++ {
+		ip := loopbackIP(i).String()
+		if !configured[ip] {
+			continue
+		}
+		out, err := exec.Command(ifconfigPath, loopbackInterface, "inet", ip, "-alias").CombinedOutput()
+		if err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("removing loopback alias %s: %w (%s)", ip, err, strings.TrimSpace(string(out))))
+		}
+	}
+	return errors.Join(cleanupErrors...)
+}
+
+func cleanupPrivilegedPortRedirect() error {
+	marker, err := os.ReadFile(pfMarkerPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading PF marker: %w", err)
+	}
+
+	var cleanupErrors []error
+	if err := runPFCTL("-q", "-a", pfAnchor, "-F", "all"); err != nil {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("flushing Portless PF anchor: %w", err))
+	}
+	if match := pfEnableTokenPattern.FindSubmatch(marker); len(match) == 2 {
+		if err := runPFCTL("-X", string(match[1])); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("releasing Portless PF reference: %w", err))
+		}
+	} else {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("PF marker does not contain its enable-reference token"))
+	}
+	if len(cleanupErrors) == 0 {
+		if err := os.Remove(pfMarkerPath); err != nil && !os.IsNotExist(err) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("removing PF marker: %w", err))
+		}
+	}
+	return errors.Join(cleanupErrors...)
 }
 
 func elevatedSetupScript(exe string, args []string) (string, error) {

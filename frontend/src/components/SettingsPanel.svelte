@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
-  import { GetAutostart, SetAutostart, GetStartMinimized, SetStartMinimized, GetCloseToTray, SetCloseToTray, GetCurrentVersion, GetUpdateChannel, SetUpdateChannel, CheckForUpdate, InstallUpdate } from "../../wailsjs/go/main/App";
+  import { GetAutostart, SetAutostart, GetStartMinimized, SetStartMinimized, GetCloseToTray, SetCloseToTray, GetCurrentVersion, GetUpdateChannel, SetUpdateChannel, CheckForUpdate, InstallUpdate, GetPortlessServiceStatus, InstallPortlessService, UninstallPortlessService, OpenPortlessServiceSettings } from "../../wailsjs/go/main/App";
   import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime";
   import { showResourceStats, setShowResourceStats } from "../stores/prefs";
 
@@ -9,6 +9,7 @@
   const githubUrl = "https://github.com/JustCodePL/ssh-tunnel-manager";
 
   type UpdateDetails = { latestVersion: string; releaseUrl: string; assetUrl: string; releaseNotes: string };
+  type PortlessServiceDetails = { available: boolean; installed: boolean; approvalRequired: boolean; current: boolean; state: string; message: string };
 
   let autostartEnabled = false;
   let autostartLoading = true;
@@ -26,6 +27,9 @@
   let updateError = "";
   let unsubUpdate: (() => void) | undefined;
   let unsubUpdateCleared: (() => void) | undefined;
+  let portlessService: PortlessServiceDetails | null = null;
+  let portlessLoading = true;
+  let portlessError = "";
 
   $: switchingBetaToStable = updateChannel === "stable" && currentVersion.includes("-");
 
@@ -68,6 +72,8 @@
     } finally {
       updateChannelLoading = false;
     }
+
+    await refreshPortlessService();
 
     unsubUpdate = EventsOn("updater:update-available", (info: any) => {
       updateInfo = info;
@@ -172,6 +178,56 @@
       installingUpdate = false;
     }
   }
+
+  async function refreshPortlessService() {
+    try {
+      portlessService = await GetPortlessServiceStatus() as PortlessServiceDetails;
+    } catch (e: any) {
+      portlessError = e?.toString() ?? "failed to read Portless service status";
+    } finally {
+      portlessLoading = false;
+    }
+  }
+
+  function reloadPortlessService() {
+    portlessLoading = true;
+    portlessError = "";
+    void refreshPortlessService();
+  }
+
+  async function installPortlessService() {
+    portlessLoading = true;
+    portlessError = "";
+    try {
+      await InstallPortlessService();
+    } catch (e: any) {
+      portlessError = e?.toString() ?? "Portless service setup failed";
+    } finally {
+      await refreshPortlessService();
+    }
+  }
+
+  async function uninstallPortlessService() {
+    if (!window.confirm("Remove the Portless system service and machine-wide DNS, loopback, and privileged-port configuration?")) return;
+    portlessLoading = true;
+    portlessError = "";
+    try {
+      await UninstallPortlessService();
+    } catch (e: any) {
+      portlessError = e?.toString() ?? "Portless service removal failed";
+    } finally {
+      await refreshPortlessService();
+    }
+  }
+
+  async function openPortlessSettings() {
+    portlessError = "";
+    try {
+      await OpenPortlessServiceSettings();
+    } catch (e: any) {
+      portlessError = e?.toString() ?? "failed to open System Settings";
+    }
+  }
 </script>
 
 <div class="settings-panel">
@@ -228,6 +284,41 @@
         <span class="checkbox-text" class:active={$showResourceStats}>show cpu/ram widget on active tunnels</span>
       </button>
     </div>
+
+    {#if portlessService?.available}
+      <div class="settings-section">
+        <div class="section-label">portless system service</div>
+        {#if portlessLoading}
+          <div class="loading-text">// loading...</div>
+        {:else}
+          <div class="status-text" class:service-ready={portlessService.current}>
+            {portlessService.message}
+          </div>
+          <div class="project-links">
+            {#if portlessService.approvalRequired}
+              <button type="button" class="action-btn accent" on:click={openPortlessSettings}>
+                [ open system settings ]
+              </button>
+            {:else if !portlessService.current}
+              <button type="button" class="action-btn accent" on:click={installPortlessService}>
+                [ install / refresh ]
+              </button>
+            {/if}
+            {#if portlessService.installed}
+              <button type="button" class="action-btn danger" on:click={uninstallPortlessService}>
+                [ remove service ]
+              </button>
+            {/if}
+            <button type="button" class="action-btn" on:click={reloadPortlessService}>
+              [ refresh status ]
+            </button>
+          </div>
+        {/if}
+        {#if portlessError}
+          <div class="status-text service-error">{portlessError}</div>
+        {/if}
+      </div>
+    {/if}
 
     <div class="settings-section">
       <div class="section-label">updates</div>
@@ -533,6 +624,16 @@
 
   .action-btn.accent:hover:not(:disabled) {
     background: rgba(0, 255, 136, 0.1);
+  }
+
+  .action-btn.danger:hover:not(:disabled),
+  .service-error {
+    color: #ff6666;
+    border-color: #ff6666;
+  }
+
+  .service-ready {
+    color: var(--accent);
   }
 
   .action-btn:disabled {

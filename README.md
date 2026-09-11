@@ -42,7 +42,7 @@ Get the latest release from the [Releases page](https://github.com/JustCodePL/ss
 
 Portless forwards reach a service over a `*.ssh-local` domain instead of a `127.0.0.1:port` pair. Ports below `1024` need platform-specific authorization while the main application remains unprivileged.
 
-**macOS** uses a narrowly scoped PF anchor on `lo0`: public ports `1–1023` on the Portless pool `127.0.1.0/24` are translated to private listener ports `10001–11023` while preserving each domain's loopback IP. The first tunnel that actually needs a low port prompts for administrator approval as part of Portless setup. The rule and loopback aliases are restored after reboot; high-port Portless tunnels do not require this PF setup.
+**macOS 13+** registers a signed, machine-wide Portless service through Apple's ServiceManagement framework. Approve SSH Tunnel Manager once in System Settings → General → Login Items & Extensions; the service then restores the resolver, `lo0` aliases, and the narrowly scoped PF anchor at every boot for every macOS account. Public ports `1–1023` on `127.0.1.0/24` are translated to private listener ports `10001–11023` while preserving each domain's loopback IP. The GUI always remains unprivileged. You can inspect, refresh, or remove the service in the app's Settings panel. Older macOS versions retain the legacy per-setup authorization path.
 
 **Windows** binds the requested Portless port directly and needs no additional low-port authorization.
 

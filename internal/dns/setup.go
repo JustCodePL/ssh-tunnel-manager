@@ -11,6 +11,10 @@ import (
 // relaunched with elevated privileges purely to perform Portless system setup.
 const SetupArg = "--setup-dns"
 
+// CleanupArg selects the explicit, one-shot privileged removal path used when
+// the user uninstalls the macOS Portless system service from Settings.
+const CleanupArg = "--cleanup-dns"
+
 // PrivilegedRedirectArg tells the elevated macOS helper to install the narrow
 // PF redirect used by Portless public ports below 1024.
 const PrivilegedRedirectArg = "--setup-privileged-port-redirect"
@@ -26,6 +30,7 @@ type SetupRequirements struct {
 // state (files on macOS/Linux, registry/markers on Windows).
 func IsSystemConfigured(requirements SetupRequirements) bool {
 	return isSystemConfigured() &&
+		isSetupPersistenceConfigured() &&
 		(!requirements.PrivilegedPortRedirect || isPrivilegedPortRedirectConfigured())
 }
 
@@ -33,9 +38,9 @@ func IsSystemConfigured(requirements SetupRequirements) bool {
 // for admin privileges (UAC / sudo / pkexec) if necessary. Returns nil if all
 // requested prerequisites are already configured or setup completed.
 //
-// The mechanism on all three platforms is to relaunch the current executable
-// with the --setup-dns flag and an elevation wrapper; the elevated copy then
-// calls RunSetup with the requested prerequisites and exits.
+// Windows, Linux, and legacy macOS builds relaunch the current executable via
+// their elevation wrapper. Current signed macOS bundles instead register the
+// minimal bundled LaunchDaemon through SMAppService.
 func EnsureSystemConfigured(ctx context.Context, requirements SetupRequirements) error {
 	if IsSystemConfigured(requirements) {
 		return nil
@@ -64,4 +69,11 @@ func EnsureSystemConfigured(ctx context.Context, requirements SetupRequirements)
 // after RunSetup returns.
 func RunSetup(requirements SetupRequirements) error {
 	return doSetup(requirements)
+}
+
+// RunCleanup removes machine-wide Portless state. It is intentionally exposed
+// only through the explicit service-uninstall flow; normal app startup never
+// invokes it.
+func RunCleanup() error {
+	return doCleanup()
 }

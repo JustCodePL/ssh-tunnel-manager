@@ -393,10 +393,11 @@
           <details name="faq">
             <summary>Czy portless wymaga uprawnień administratora?<span>+</span></summary>
             <p>
-              Zwykłe tunele nie. Na macOS portless poprosi o jednorazową zgodę na wąskie
-              przekierowanie PF dopiero przy porcie poniżej 1024. Na Linuksie taki port wymaga
-              capability <code>CAP_NET_BIND_SERVICE</code>. Aplikacja pozostaje uruchomiona jako
-              zwykły użytkownik i pokaże właściwy monit dla platformy.
+              Zwykłe tunele nie. Na macOS 13+ Portless prosi raz o zatwierdzenie podpisanej usługi
+              systemowej SSH Tunnel Managera. Po restarcie odtwarza ona DNS, aliasy loopback i
+              wąskie przekierowanie PF dla wszystkich kont, a GUI nadal działa jako zwykły
+              użytkownik. Na Linuksie port poniżej 1024 wymaga capability
+              <code>CAP_NET_BIND_SERVICE</code>.
             </p>
           </details>
         </div>

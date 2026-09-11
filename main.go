@@ -33,9 +33,9 @@ func main() {
 		return
 	}
 
-	// One-shot elevated Portless setup. Triggered when the app relaunches
-	// itself via UAC / sudo / pkexec; it installs only the requested system
-	// prerequisites and exits.
+	// One-shot elevated Portless setup. Current macOS bundles use their separate
+	// minimal helper; this main-binary path remains for older macOS plus the
+	// Windows/Linux platform elevation wrappers.
 	setupRequested := false
 	setupRequirements := dns.SetupRequirements{}
 	for _, arg := range os.Args[1:] {
