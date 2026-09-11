@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -234,6 +235,14 @@ done
 exec "$3" "$2"`
 
 func scheduleRelaunchAfterExit(pid int, appPath, opener string) error {
+	cmd := relaunchCommand(pid, appPath, opener)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
+}
+
+func relaunchCommand(pid int, appPath, opener string) *exec.Cmd {
 	cmd := exec.Command(
 		"/bin/sh",
 		"-c",
@@ -243,10 +252,12 @@ func scheduleRelaunchAfterExit(pid int, appPath, opener string) error {
 		appPath,
 		opener,
 	)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	return cmd.Process.Release()
+	// An app started by a LaunchAgent shares its process group with children.
+	// launchd kills the remaining members of that group when the job exits,
+	// which used to terminate this waiter before it could open the replacement.
+	// A dedicated process group lets the one-shot relauncher survive the old app.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return cmd
 }
 
 // parseMountPoint extracts the /Volumes/... path from hdiutil attach output.
