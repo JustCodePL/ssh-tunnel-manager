@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -230,4 +231,27 @@ func TestScheduleRelaunchWaitsForOldProcess(t *testing.T) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatal("replacement app was not opened after old process exited")
+}
+
+func TestRelaunchCommandUsesSeparateProcessGroup(t *testing.T) {
+	cmd := relaunchCommand(os.Getpid(), "/Applications/SSH Tunnel Manager.app", "/usr/bin/open")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("starting relauncher: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+
+	parentGroup, err := syscall.Getpgid(os.Getpid())
+	if err != nil {
+		t.Fatalf("getting parent process group: %v", err)
+	}
+	relauncherGroup, err := syscall.Getpgid(cmd.Process.Pid)
+	if err != nil {
+		t.Fatalf("getting relauncher process group: %v", err)
+	}
+	if relauncherGroup == parentGroup {
+		t.Fatalf("relauncher process group = %d, want a group distinct from parent %d", relauncherGroup, parentGroup)
+	}
 }
