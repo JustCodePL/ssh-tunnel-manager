@@ -47,7 +47,7 @@
 
   onMount(() => {
     EventsOn("portless:setup-started", () => {
-      savingLabel = "// waiting for admin permission...";
+      savingLabel = "// waiting for Portless system setup...";
     });
     EventsOn("portless:setup-finished", () => {
       savingLabel = "// saving...";

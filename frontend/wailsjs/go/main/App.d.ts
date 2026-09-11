@@ -50,6 +50,8 @@ export function GetIncludedConfigFiles():Promise<Array<config.ConfigFileInfo>>;
 
 export function GetPortlessFallback():Promise<main.PortlessFallbackStatus>;
 
+export function GetPortlessServiceStatus():Promise<main.PortlessServiceStatus>;
+
 export function GetProcessStats(arg1:string):Promise<sysstats.ProcessStats>;
 
 export function GetSavedCapabilities():Promise<Record<string, sysstats.Capabilities>>;
@@ -74,11 +76,15 @@ export function ImportPreview(arg1:string):Promise<Array<config.TunnelConfig>>;
 
 export function ImportTunnels(arg1:string,arg2:Array<string>):Promise<number>;
 
+export function InstallPortlessService():Promise<void>;
+
 export function InstallUpdate():Promise<void>;
 
 export function ListDockerContainers(arg1:string,arg2:boolean):Promise<Array<sysstats.DockerContainer>>;
 
 export function OpenCommandTerminal(arg1:string,arg2:string):Promise<string>;
+
+export function OpenPortlessServiceSettings():Promise<void>;
 
 export function OpenSFTP(arg1:string):Promise<main.SFTPOpenResult>;
 
@@ -129,6 +135,8 @@ export function SetUpdateChannel(arg1:string):Promise<void>;
 export function SubmitPassphrase(arg1:string):Promise<void>;
 
 export function TerminalWrite(arg1:string,arg2:string):Promise<void>;
+
+export function UninstallPortlessService():Promise<void>;
 
 export function UpdateTunnel(arg1:config.TunnelConfig):Promise<void>;
 

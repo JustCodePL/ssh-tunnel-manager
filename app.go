@@ -91,6 +91,17 @@ type PortlessFallbackStatus struct {
 	Message  string `json:"message"`
 }
 
+// PortlessServiceStatus describes the machine-wide macOS helper without
+// exposing platform-specific implementation details to the frontend.
+type PortlessServiceStatus struct {
+	Available        bool   `json:"available"`
+	Installed        bool   `json:"installed"`
+	ApprovalRequired bool   `json:"approvalRequired"`
+	Current          bool   `json:"current"`
+	State            string `json:"state"`
+	Message          string `json:"message"`
+}
+
 // NewApp creates a new App instance.
 func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App {
 	registry := dns.NewRegistry()
@@ -550,6 +561,44 @@ func (a *App) GetPortlessFallback() *PortlessFallbackStatus {
 	}
 	status := *a.portlessFallback
 	return &status
+}
+
+// GetPortlessServiceStatus returns the current machine-wide helper state. On
+// non-macOS platforms Available is false, so the frontend hides the section.
+func (a *App) GetPortlessServiceStatus() PortlessServiceStatus {
+	status := dns.GetSystemServiceStatus()
+	return PortlessServiceStatus{
+		Available:        status.Available,
+		Installed:        status.Installed,
+		ApprovalRequired: status.ApprovalRequired,
+		Current:          status.Current,
+		State:            status.State,
+		Message:          status.Message,
+	}
+}
+
+// InstallPortlessService lets a user explicitly prepare Portless before
+// creating a tunnel. First Portless use calls the same idempotent path.
+func (a *App) InstallPortlessService() error {
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return dns.InstallSystemService(ctx)
+}
+
+// UninstallPortlessService is an explicit user action. It removes the system
+// configuration with one final authorization and then unregisters the daemon.
+func (a *App) UninstallPortlessService() error {
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return dns.UninstallSystemService(ctx)
+}
+
+func (a *App) OpenPortlessServiceSettings() error {
+	return dns.OpenSystemServiceSettings()
 }
 
 // DisconnectTunnel stops the SSH connection for the given tunnel ID.

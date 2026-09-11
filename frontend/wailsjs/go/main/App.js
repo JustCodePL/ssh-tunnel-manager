@@ -90,6 +90,10 @@ export function GetPortlessFallback() {
   return window['go']['main']['App']['GetPortlessFallback']();
 }
 
+export function GetPortlessServiceStatus() {
+  return window['go']['main']['App']['GetPortlessServiceStatus']();
+}
+
 export function GetProcessStats(arg1) {
   return window['go']['main']['App']['GetProcessStats'](arg1);
 }
@@ -138,6 +142,10 @@ export function ImportTunnels(arg1, arg2) {
   return window['go']['main']['App']['ImportTunnels'](arg1, arg2);
 }
 
+export function InstallPortlessService() {
+  return window['go']['main']['App']['InstallPortlessService']();
+}
+
 export function InstallUpdate() {
   return window['go']['main']['App']['InstallUpdate']();
 }
@@ -148,6 +156,10 @@ export function ListDockerContainers(arg1, arg2) {
 
 export function OpenCommandTerminal(arg1, arg2) {
   return window['go']['main']['App']['OpenCommandTerminal'](arg1, arg2);
+}
+
+export function OpenPortlessServiceSettings() {
+  return window['go']['main']['App']['OpenPortlessServiceSettings']();
 }
 
 export function OpenSFTP(arg1) {
@@ -248,6 +260,10 @@ export function SubmitPassphrase(arg1) {
 
 export function TerminalWrite(arg1, arg2) {
   return window['go']['main']['App']['TerminalWrite'](arg1, arg2);
+}
+
+export function UninstallPortlessService() {
+  return window['go']['main']['App']['UninstallPortlessService']();
 }
 
 export function UpdateTunnel(arg1) {

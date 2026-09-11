@@ -92,3 +92,50 @@ func TestElevatedSetupScriptCompiles(t *testing.T) {
 		t.Fatalf("osacompile rejected elevated setup script: %v\n%s", err, out)
 	}
 }
+
+func TestPFEnableTokenPattern(t *testing.T) {
+	marker := []byte("anchor=com.apple/ssh-tunnel-manager\nrule=rdr pass ...\npfctl_enable=pf enabled\nToken : 123456789\n")
+	match := pfEnableTokenPattern.FindSubmatch(marker)
+	if len(match) != 2 || string(match[1]) != "123456789" {
+		t.Fatalf("pfEnableTokenPattern match = %q, want token 123456789", match)
+	}
+}
+
+func TestExecutableDigest(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "helper")
+	if err := os.WriteFile(path, []byte("signed helper bytes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := executableDigest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "842a832965515063d4d08ce0285d12b879472088b7e9ea6f1f60000a23720968"
+	if got != want {
+		t.Fatalf("executableDigest() = %q, want %q", got, want)
+	}
+}
+
+func TestPortlessLaunchDaemonPlist(t *testing.T) {
+	plistBuddy := "/usr/libexec/PlistBuddy"
+	if _, err := os.Stat(plistBuddy); err != nil {
+		t.Skipf("PlistBuddy unavailable: %v", err)
+	}
+	plist := filepath.Join("..", "..", "build", "darwin", portlessServicePlistName)
+	checks := map[string]string{
+		"Print :Label":                         "pl.justcode.ssh-tunnel-manager.portless",
+		"Print :AssociatedBundleIdentifiers:0": "com.wails.ssh-tunnel-manager",
+		"Print :BundleProgram":                 "Contents/Library/HelperTools/ssh-tunnel-manager-portless",
+		"Print :ProgramArguments:0":            portlessServiceHelper,
+		"Print :RunAtLoad":                     "true",
+	}
+	for command, want := range checks {
+		out, err := exec.Command(plistBuddy, "-c", command, plist).CombinedOutput()
+		if err != nil {
+			t.Fatalf("PlistBuddy %q failed: %v\n%s", command, err, out)
+		}
+		if got := strings.TrimSpace(string(out)); got != want {
+			t.Errorf("PlistBuddy %q = %q, want %q", command, got, want)
+		}
+	}
+}
