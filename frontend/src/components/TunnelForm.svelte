@@ -373,10 +373,7 @@
       {/if}
 
       <div class="field">
-        <div class="forwards-header">
-          <label class="field-label">port forwards</label>
-          <button type="button" class="link-btn" on:click={addPortForward}>+ add</button>
-        </div>
+        <label class="field-label forwards-label">port forwards</label>
         {#each portForwards as pf, i}
           <div class="forward-block">
             <div class="forward-block-head">
@@ -453,6 +450,9 @@
             </div>
           </div>
         {/each}
+        <button type="button" class="add-forward-btn" on:click={addPortForward}>
+          + add port forwarding
+        </button>
       </div>
 
       <div class="field">
@@ -651,7 +651,7 @@
     justify-content: center;
   }
 
-  .forwards-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .forwards-label { margin-bottom: 2px; }
   .forward-block {
     display: flex;
     flex-direction: column;
@@ -700,6 +700,27 @@
   .gear-btn:hover { color: var(--accent); }
   .gear-btn.active { color: var(--accent); text-shadow: 0 0 4px var(--accent); }
   .desc-input { font-size: 10px; color: var(--muted); }
+
+  .add-forward-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .add-forward-btn:hover {
+    background: rgba(0, 255, 136, 0.05);
+  }
+  .add-forward-btn:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 2px;
+  }
 
   .port-input.dimmed { opacity: 0.4; }
 
