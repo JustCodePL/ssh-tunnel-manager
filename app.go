@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -77,6 +78,12 @@ type App struct {
 	// portlessFallback persists the current degradation so the frontend can
 	// recover it even when auto-connect emitted the first event before mount.
 	portlessFallback *PortlessFallbackStatus
+	// portlessSetupErr caches a confirmed *dns.PersistenceError for this
+	// process's lifetime, so auto-connecting several portless tunnels only
+	// repeats the elevated setup dance (and any admin prompt) once instead
+	// of once per tunnel — EnsureSystemConfigured has no cheaper way to
+	// tell "still broken" from "never tried" than actually attempting it.
+	portlessSetupErr *dns.PersistenceError
 }
 
 type sharedPortlessRegistry interface {
@@ -85,10 +92,15 @@ type sharedPortlessRegistry interface {
 }
 
 // PortlessFallbackStatus describes the active localhost fallback used when
-// another process owns the embedded Portless DNS address.
+// Portless is degraded — either another process owns the embedded DNS
+// address, or the machine-wide setup never took effect. Recommendation and
+// Command are only populated for the latter, where the cause is specific
+// enough to hand the user an actual fix instead of just "it's broken".
 type PortlessFallbackStatus struct {
-	TunnelID string `json:"tunnelId"`
-	Message  string `json:"message"`
+	TunnelID       string `json:"tunnelId"`
+	Message        string `json:"message"`
+	Recommendation string `json:"recommendation,omitempty"`
+	Command        string `json:"command,omitempty"`
 }
 
 // PortlessServiceStatus describes the machine-wide macOS helper without
@@ -469,6 +481,14 @@ func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 		PrivilegedPortRedirect: tunnelRequiresPrivilegedPortRedirect(cfg),
 	}
 	if !dns.IsSystemConfigured(requirements) {
+		if a.portlessSetupErr != nil {
+			// Already confirmed this run that setup won't persist for this
+			// machine — go straight to the fallback banner instead of
+			// repeating the elevated dance (and any admin prompt) for
+			// every tunnel that auto-connects.
+			a.handlePortlessSetupPersistenceFailure(cfg, a.portlessSetupErr)
+			return nil
+		}
 		slog.Info("portless: system not configured, prompting for admin setup")
 		if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "portless:setup-started")
@@ -482,6 +502,13 @@ func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 			runtime.EventsEmit(a.ctx, "portless:setup-finished", payload)
 		}
 		if err != nil {
+			var persistErr *dns.PersistenceError
+			if errors.As(err, &persistErr) {
+				a.portlessSetupErr = persistErr
+			}
+			if a.handlePortlessSetupPersistenceFailure(cfg, err) {
+				return nil
+			}
 			return fmt.Errorf("portless setup: %w", err)
 		}
 	}
@@ -546,6 +573,44 @@ func (a *App) handlePortlessDNSStartFailure(cfg config.TunnelConfig, err error) 
 		}
 		if a.tray != nil {
 			a.tray.Notify("Portless unavailable", msg)
+		}
+	}
+	return true
+}
+
+// handlePortlessSetupPersistenceFailure reports a *dns.PersistenceError
+// through the same sticky fallback banner used for a contended DNS registry,
+// so a broken machine-wide setup degrades instead of silently failing every
+// portless connection attempt with an opaque error. Returns false for any
+// other error, leaving it to the caller.
+func (a *App) handlePortlessSetupPersistenceFailure(cfg config.TunnelConfig, err error) bool {
+	var persistErr *dns.PersistenceError
+	if !errors.As(err, &persistErr) {
+		return false
+	}
+	a.manager.WithDNSRegistry(nil)
+	a.appendTunnelLog(cfg.ID, "warn", persistErr.Message)
+	slog.Warn("portless system setup did not persist; continuing with local-port fallback",
+		"tunnel", cfg.Name, "error", persistErr.Message, "recommendation", persistErr.Recommendation)
+	// Replace a generic fallback (e.g. left over from a contended DNS
+	// registry, which never carries a recommendation) once this specific,
+	// actionable diagnosis is available — otherwise the "only fill when
+	// nil" guard would silently keep showing the earlier, less useful
+	// message for the rest of the session.
+	upgrade := a.portlessFallback == nil ||
+		(persistErr.Recommendation != "" && a.portlessFallback.Recommendation == "")
+	if upgrade {
+		a.portlessFallback = &PortlessFallbackStatus{
+			TunnelID:       cfg.ID,
+			Message:        persistErr.Message,
+			Recommendation: persistErr.Recommendation,
+			Command:        persistErr.Command,
+		}
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "portless:dns-unavailable", a.portlessFallback)
+		}
+		if a.tray != nil {
+			a.tray.Notify("Portless unavailable", persistErr.Message)
 		}
 	}
 	return true

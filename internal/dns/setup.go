@@ -2,6 +2,7 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -55,13 +56,66 @@ func EnsureSystemConfigured(ctx context.Context, requirements SetupRequirements)
 	}
 	slog.Info("portless: launching elevated system setup", "exe", exe,
 		"privilegedPortRedirect", requirements.PrivilegedPortRedirect)
-	if err := runElevatedSetup(ctx, exe, args); err != nil {
-		return err
+	setupErr := runElevatedSetup(ctx, exe, args)
+	if setupErr == nil && IsSystemConfigured(requirements) {
+		return nil
 	}
-	if !IsSystemConfigured(requirements) {
-		return fmt.Errorf("Portless system setup did not persist — admin prompt was likely cancelled")
+	return classifySetupOutcome(setupErr, GetSystemServiceStatus())
+}
+
+// classifySetupOutcome decides what EnsureSystemConfigured should return once
+// the elevated setup step has run (or failed) and the system might still be
+// unconfigured. Split out from EnsureSystemConfigured so this decision is
+// unit-testable without the real OS calls it's built on.
+//
+// Both a non-nil setupErr and a silently-still-unconfigured system (setupErr
+// nil) land here: on the modern macOS path, a service the OS already
+// considers approved and enabled but stuck can surface either way —
+// ensurePortlessService in service_darwin.go returns a plain error from its
+// own timeout instead of leaving setupErr nil — and both need the same
+// triage rather than only checking the silent case.
+func classifySetupOutcome(setupErr error, status SystemServiceStatus) error {
+	message, recommendation, command := classifyPersistenceFailure(status)
+	if recommendation != "" {
+		return &PersistenceError{Message: message, Recommendation: recommendation, Command: command}
 	}
-	return nil
+	if setupErr != nil {
+		return setupErr
+	}
+	return errors.New(message)
+}
+
+// PersistenceError indicates that an elevated setup attempt returned no Go
+// error, yet the requested prerequisites still aren't observably in effect.
+// Recommendation and Command are populated when classifyPersistenceFailure
+// can point at a specific, actionable cause instead of a generic cancelled
+// admin prompt.
+type PersistenceError struct {
+	Message        string
+	Recommendation string
+	Command        string
+}
+
+func (e *PersistenceError) Error() string { return e.Message }
+
+// classifyPersistenceFailure explains why the requested prerequisites are
+// still missing after a setup attempt that itself reported no error.
+//
+// When the OS already considers the helper service registered and approved,
+// the missing effect is almost never a cancelled admin prompt — approval
+// already happened. On macOS this combination is the signature of
+// Background Task Management losing track of the app bundle after an
+// in-place reinstall: it keeps reporting the service "enabled" while
+// launchd silently never loads the job, so the network prerequisites
+// (resolver, loopback pool) never get applied no matter how many times
+// setup is retried.
+func classifyPersistenceFailure(status SystemServiceStatus) (message, recommendation, command string) {
+	if status.Available && status.Installed && status.State == "enabled" {
+		return "The Portless helper service is approved, but its network prerequisites never took effect — the OS lost track of how to actually load it.",
+			"Quit the app, delete /Applications/SSH Tunnel Manager.app, reboot, then reinstall a fresh copy — this usually restores the OS's link to the app bundle. If it doesn't, resetting background task approvals works but wipes every background-item approval on this Mac, requiring you to re-approve each one.",
+			"sudo sfltool resetbtm"
+	}
+	return "Portless system setup did not persist — admin prompt was likely cancelled.", "", ""
 }
 
 // RunSetup performs the actual privileged setup work and is intended to be
