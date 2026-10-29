@@ -1,6 +1,10 @@
 # SSH Tunnel Manager
 
-A lightweight desktop app for managing SSH tunnels with local port forwarding. Lives in the system tray — no browser, no cloud, no config servers.
+![SSH Tunnel Manager connecting two tunnels](docs/assets/screenshots/tunnels-connect.gif)
+
+Your SSH tunnels, in the config you already have: a tray app for Windows, macOS and Linux that keeps your SSH tunnels in your own `~/.ssh/config`. No account, no cloud, no lock-in.
+
+[Website](https://justcodepl.github.io/ssh-tunnel-manager/) · [Download](https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest) · [Which one to use](https://justcodepl.github.io/ssh-tunnel-manager/compare/)
 
 Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary (Windows: NSIS installer).
 
@@ -9,7 +13,7 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **System tray first** — connect, disconnect, and copy port addresses without opening a window
 - **Pure-Go SSH** — no dependency on an installed `ssh` binary
 - **Port forwarding** — multiple local→remote mappings per tunnel, with one-click clipboard copy from the tray
-- **Key authentication** — RSA, ECDSA, Ed25519; encrypted keys prompt for a passphrase once and store it in the OS keychain
+- **Key authentication** — RSA, ECDSA, Ed25519 key files or a running `ssh-agent`; encrypted keys prompt for a passphrase once and store it in the OS keychain
 - **ProxyCommand / ProxyJump** — full support for bastion hosts
 - **Groups** — organise tunnels into named groups with Connect All / Disconnect All
 - **Import from SSH config** — parse `~/.ssh/config` and import selected hosts in one step
@@ -17,7 +21,23 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **Auto-reconnect** — tunnels reconnect automatically on network interruption
 - **Start on login** — optional autostart via Windows registry / macOS Launch Agent / Linux `.desktop` entry
 - **OS keychain** — passphrases stored in Windows Credential Manager, macOS Keychain, or Linux Secret Service
-- **Auto-update** — checks GitHub Releases on startup; download and install from the Settings panel or the tray menu
+- **Terminal** (`term`) — an interactive shell on the connected host
+- **File browser** (`files`) — browse, download, upload and edit remote files over SFTP
+- **Disk usage** (`disk`) — mounted filesystems and their usage on the host
+- **CPU/RAM widget** — live host load on active tunnels (*Settings → Monitoring*)
+- **`htop` and Docker** — the `htop` and `docker` buttons appear only when the host has them installed; the Docker view lists containers with status, image and ports
+- **Auto-update** — checks GitHub Releases on startup; download and install from the Settings panel or the tray menu; choose the *Stable* or *Beta* channel
+
+| Connected tunnels | Tray menu | Settings |
+|---|---|---|
+| ![Two connected tunnels](docs/assets/screenshots/tunnels-connected.png) | ![Tray menu with two active tunnels](docs/assets/screenshots/tray-menu.png) | ![Settings panel](docs/assets/screenshots/settings.png) |
+
+## Works with your existing `~/.ssh/config`
+
+- Tunnels already defined in `~/.ssh/config` are loaded on first launch.
+- Every tunnel you add is saved as a standard `Host` block, so `ssh`, `git` and other tools can use it too.
+- App-only settings (port forwards, groups, colours, auto-connect) live in comments inside the block, so other SSH clients ignore them.
+- Import from and export to any SSH config file. There is no proprietary format to migrate away from.
 
 ## Download
 
@@ -28,13 +48,14 @@ Get the latest release from the [Releases page](https://github.com/JustCodePL/ss
 | Windows | `ssh-tunnel-manager-amd64-installer.exe` | NSIS installer, recommended |
 | Windows | `ssh-tunnel-manager-windows-amd64.zip` | Portable `.exe`, no installer |
 | macOS | `ssh-tunnel-manager-darwin-arm64.dmg` | Disk image (Apple Silicon) |
+| macOS | `ssh-tunnel-manager-darwin-amd64.dmg` | Disk image (Intel) |
 | Linux | `ssh-tunnel-manager-linux-amd64.tar.gz` | Standalone binary |
 
 ## Installation
 
 **Windows** — run the NSIS installer. It places the app in `Program Files`, creates a Start Menu entry, and registers an uninstaller.
 
-**macOS** — open the DMG and drag `SSH Tunnel Manager.app` to `/Applications`. On first launch macOS may show a security prompt — open System Settings → Privacy & Security and click *Open Anyway*.
+**macOS** — open the DMG and drag `SSH Tunnel Manager.app` to `/Applications`. The app is signed with an Apple Developer ID and notarized by Apple, so it opens without a security override.
 
 **Linux** — extract the binary to `~/.local/bin/` or `/usr/local/bin/` and run it. For autostart, enable *Start on login* in Settings.
 
@@ -112,7 +133,13 @@ Click **+ Add Tunnel** and fill in:
 
 ### Authentication
 
-The app uses public-key authentication only. Point the *Key file* field at your private key file. If the key is passphrase-protected, you will be prompted once per session; the passphrase is then stored in the OS keychain so subsequent launches are seamless.
+The app uses public-key authentication. It tries, in order: the key in the *Key file* field, a running `ssh-agent` (`SSH_AUTH_SOCK`; on macOS also the launchd agent socket, on Windows the OpenSSH agent pipe), and — when no key file is set — the default keys `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`. If a key is passphrase-protected, you will be prompted once per session; the passphrase is then stored in the OS keychain so subsequent launches are seamless.
+
+### Limitations
+
+- Local port forwarding only: no SOCKS (`-D`) and no remote forwards (`-R`) yet.
+- Password and keyboard-interactive logins are not supported.
+- `IdentityAgent` from `~/.ssh/config` is not read yet; the agent is found through `SSH_AUTH_SOCK` or the platform default.
 
 ### Auto-Update
 
