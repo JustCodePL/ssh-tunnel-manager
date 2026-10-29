@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="Which SSH tunnel manager fits your situation: SSH Tunnel Manager, 0fuz/ssh-tunnel-manager, Loris Tunnel, boring and Core Tunnel. Checked on 2026-10-29."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="SSH tunnel managers: which one to use" />
+    <meta
+      property="og:description"
+      content="Which SSH tunnel manager fits your situation, with sources. Checked on 2026-10-29."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/compare/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og-en.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/compare/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/compare/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/compare/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/compare/" />
+    <link rel="icon" type="image/png" href="../assets/appicon.png" />
+    <link rel="stylesheet" href="../styles.css" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <title>SSH tunnel managers: which one to use · SSH Tunnel Manager</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="../" aria-label="SSH Tunnel Manager — home page">
+        <img src="../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Main navigation">
+        <a href="../#features">Features</a>
+        <a href="../#download">Download</a>
+        <a href="../#releases">Releases</a>
+        <a href="../#faq">FAQ</a>
+        <a href="./" aria-current="page">Compare</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Choose language">
+          <span aria-current="page">EN</span>
+          <a href="../pl/compare/" lang="pl" hreflang="pl">PL</a>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// WHICH ONE TO USE</p>
+          <h2>SSH tunnel managers, by situation.</h2>
+          <p>
+            Several good tools manage SSH tunnels. Here is when each one fits. Details come from
+            each project's own README or store page, checked on 2026-10-29. We list what we cannot
+            do too: we currently support local port forwarding only (no SOCKS, no remote forwards,
+            no ssh-agent).
+          </p>
+        </div>
+
+        <div class="compare-list">
+          <article class="compare-item is-current">
+            <div>
+              <h3>SSH Tunnel Manager (this app)</h3>
+              <p class="compare-source">GUI · Windows, macOS, Linux · MIT</p>
+            </div>
+            <div>
+              <p>
+                <strong>Pick it if</strong> you want your tunnels stored in the standard
+                <code>~/.ssh/config</code> (the app writes <code>Host</code> blocks, not only reads
+                them), one GUI app for Windows, macOS and Linux, the MIT license and no account.
+              </p>
+              <p class="compare-source">
+                Source: <a href="https://github.com/JustCodePL/ssh-tunnel-manager">README</a> · checked 2026-10-29
+              </p>
+            </div>
+          </article>
+
+          <article class="compare-item">
+            <div>
+              <h3>0fuz/ssh-tunnel-manager</h3>
+              <p class="compare-source">Menu bar app · macOS · MIT</p>
+            </div>
+            <div>
+              <p>
+                <strong>Pick it</strong> on macOS if you need SOCKS proxies, remote forwards, the
+                reason a tunnel failed, and a guard against port conflicts. Native Swift, MIT,
+                stores tunnels in its own JSON file (<code>tunnels.json</code>) and reuses host
+                aliases from <code>~/.ssh/config</code>.
+              </p>
+              <p class="compare-source">
+                Source: <a href="https://github.com/0fuz/ssh-tunnel-manager" rel="noreferrer">README</a> · checked 2026-10-29
+              </p>
+            </div>
+          </article>
+
+          <article class="compare-item">
+            <div>
+              <h3>Loris Tunnel</h3>
+              <p class="compare-source">GUI · macOS, Windows · Apache-2.0</p>
+            </div>
+            <div>
+              <p>
+                <strong>Pick it</strong> on macOS or Windows if you need SOCKS5 and remote
+                forwards, latency measurement, and importing tunnels from an <code>ssh</code>
+                command. Built with Wails, Apache-2.0, stores its configuration in its own TOML
+                file. No Linux build is listed.
+              </p>
+              <p class="compare-source">
+                Source: <a href="https://github.com/RangerWolf/loris-tunnel-app" rel="noreferrer">README</a> · checked 2026-10-29
+              </p>
+            </div>
+          </article>
+
+          <article class="compare-item">
+            <div>
+              <h3>boring</h3>
+              <p class="compare-source">CLI · MIT</p>
+            </div>
+            <div>
+              <p>
+                <strong>Pick it</strong> if you prefer the terminal and a TOML configuration
+                (<code>~/.boring.toml</code> on macOS and Windows), need Unix sockets, and like
+                installing with <code>brew install boring</code>. It supports local, remote and
+                SOCKS5 forwarding. MIT, command line.
+              </p>
+              <p class="compare-source">
+                Source: <a href="https://github.com/alebeck/boring" rel="noreferrer">README</a> · checked 2026-10-29
+              </p>
+            </div>
+          </article>
+
+          <article class="compare-item">
+            <div>
+              <h3>Core Tunnel</h3>
+              <p class="compare-source">App Store · macOS 15+ · free with in-app purchases</p>
+            </div>
+            <div>
+              <p>
+                <strong>Pick it</strong> on macOS 15 or later if you want an App Store app with
+                local, remote and dynamic port forwarding and support for smart cards such as
+                YubiKey (according to its store listing). Free with in-app purchases.
+              </p>
+              <p class="compare-source">
+                Source: <a href="https://apps.apple.com/us/app/core-tunnel/id1354318707" rel="noreferrer">App Store listing</a> · checked 2026-10-29
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <p class="compare-note">
+          Something out of date?
+          <a
+            href="https://github.com/JustCodePL/ssh-tunnel-manager/issues/new/choose"
+            data-umami-event="github-click"
+            data-umami-event-location="compare"
+            target="_blank"
+            rel="noreferrer"
+          >Open an issue</a>
+          and we will correct it. Last checked: 2026-10-29.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../">
+        <img src="../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · MIT License · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Releases</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Contact</a>
+      </div>
+    </footer>
+  </body>
+</html>
