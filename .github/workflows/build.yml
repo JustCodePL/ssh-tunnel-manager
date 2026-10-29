@@ -3,6 +3,9 @@ name: Build
 on:
   push:
     tags: ["v*"]
+  # Manual runs build, sign, notarize and verify the artifacts without
+  # publishing: the release job below only runs for tags.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate release tag
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           TAG="${{ github.ref_name }}"
@@ -166,6 +170,30 @@ jobs:
 
           codesign --verify --verbose "build/bin/SSH Tunnel Manager.app"
 
+      # Notarizing only the DMG leaves the app inside without a stapled ticket,
+      # so Gatekeeper has to reach Apple on first launch. Notarize and staple
+      # the app itself before it goes into the DMG.
+      - name: Notarize and staple app bundle
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          APP="build/bin/SSH Tunnel Manager.app"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app-notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/app-notarize.zip" \
+            --apple-id artur.czuba.94@gmail.com \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id 4VWT253QFF \
+            --wait --output-format json > "$RUNNER_TEMP/app-notarize.json"
+          STATUS=$(jq -r .status "$RUNNER_TEMP/app-notarize.json")
+          echo "App notarization status: $STATUS"
+          if [ "$STATUS" != "Accepted" ]; then
+            cat "$RUNNER_TEMP/app-notarize.json"
+            exit 1
+          fi
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+
       - name: Create macOS DMG
         if: matrix.platform == 'darwin'
         run: |
@@ -201,6 +229,12 @@ jobs:
         run: |
           xcrun stapler validate "build/bin/ssh-tunnel-manager.dmg"
           spctl --assess --type open --context context:primary-signature --verbose=2 "build/bin/ssh-tunnel-manager.dmg"
+
+          MOUNT_DIR=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT_DIR" "build/bin/ssh-tunnel-manager.dmg"
+          xcrun stapler validate "$MOUNT_DIR/SSH Tunnel Manager.app"
+          spctl --assess --type execute --verbose=2 "$MOUNT_DIR/SSH Tunnel Manager.app"
+          hdiutil detach "$MOUNT_DIR"
 
       - name: Cleanup keychain
         if: matrix.platform == 'darwin' && always()
