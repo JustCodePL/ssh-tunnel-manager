@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#080b0a" />
     <meta
       name="description"
-      content="SSH Tunnel Manager — natywna aplikacja desktopowa do zarządzania tunelami SSH, port forwardingiem i zdalnymi narzędziami."
+      content="Menedżer tuneli SSH dla Windows, macOS i Linuxa. Tunele, terminal, pliki, Docker i statystyki serwera. Działa na Twoim ~/.ssh/config. Otwarte źródła."
     />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pl_PL" />
     <meta property="og:title" content="SSH Tunnel Manager" />
     <meta
       property="og:description"
-      content="Tunele SSH pod kontrolą. Bez przeglądarki, chmury i dodatkowych serwerów."
+      content="Tunele, terminal, pliki, Docker i statystyki serwera w jednej aplikacji. Działa na Twoim ~/.ssh/config."
     />
     <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/pl/" />
     <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
@@ -21,7 +21,7 @@
     <meta name="twitter:title" content="SSH Tunnel Manager" />
     <meta
       name="twitter:description"
-      content="Tunele SSH pod kontrolą. Bez przeglądarki, chmury i dodatkowych serwerów."
+      content="Tunele, terminal, pliki, Docker i statystyki serwera w jednej aplikacji. Działa na Twoim ~/.ssh/config."
     />
     <meta name="twitter:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
     <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/" />
@@ -31,12 +31,13 @@
     <link rel="sitemap" type="application/xml" href="https://justcodepl.github.io/ssh-tunnel-manager/sitemap.xml" />
     <link rel="icon" type="image/png" href="../assets/appicon.png" />
     <link rel="stylesheet" href="../styles.css" />
-    <script src="../release-title.js?v=20260814.1" defer></script>
-    <script src="../platform.js?v=20260814.1" defer></script>
-    <script src="../app.js?v=20260814.1" defer></script>
+    <script src="../release-title.js?v=20261029.1" defer></script>
+    <script src="../platform.js?v=20261029.1" defer></script>
+    <script src="../analytics-events.js?v=20261029.1" defer></script>
+    <script src="../app.js?v=20261029.1" defer></script>
     <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
     <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
-    <title>SSH Tunnel Manager — tunele SSH pod kontrolą</title>
+    <title>SSH Tunnel Manager: tunele SSH i narzędzia serwera w jednej aplikacji</title>
   </head>
   <body>
     <a class="skip-link" href="#main">Przejdź do treści</a>
@@ -48,10 +49,11 @@
       </a>
 
       <nav aria-label="Główna nawigacja">
-        <a href="#funkcje">Funkcje</a>
+        <a href="features/" data-umami-event="features-nav" data-umami-event-location="header">Funkcje</a>
         <a href="#pobierz">Pobierz</a>
         <a href="#wydania">Wydania</a>
         <a href="#faq">FAQ</a>
+        <a href="compare/">Porównanie</a>
       </nav>
 
       <div class="header-actions">
@@ -62,6 +64,8 @@
         <a
           class="button button-small button-ghost github-link"
           href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
           target="_blank"
           rel="noreferrer"
         >
@@ -76,18 +80,20 @@
         <div class="hero-copy">
           <a class="eyebrow" href="#wydania">
             <span class="status-dot" aria-hidden="true"></span>
-            <span id="latest-label">Najnowsza stabilna wersja v1.0.30</span>
+            <span id="latest-label">Najnowsza stabilna wersja</span>
             <span aria-hidden="true">→</span>
           </a>
-          <h1>Tunele SSH.<br /><em>Bez tarcia.</em></h1>
+          <h1>Tunele SSH i narzędzia serwera w jednej aplikacji.</h1>
           <p class="hero-lead">
-            Natywna aplikacja do zarządzania port forwardingiem, serwerami i plikami.
-            Działa z zasobnika systemowego — bez przeglądarki, chmury i osobnego serwera.
+            Tunele, terminal, pliki, Docker i statystyki serwera. Działa na Twoim
+            <code>~/.ssh/config</code>.
           </p>
           <div class="hero-actions">
             <a
               class="button button-primary download-auto"
               href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest"
+              data-umami-event="download"
+              data-umami-event-location="hero"
             >
               <span class="download-icon" aria-hidden="true">↓</span>
               <span class="auto-download-label">Pobierz aplikację</span>
@@ -97,13 +103,16 @@
               href="https://github.com/JustCodePL/ssh-tunnel-manager"
               target="_blank"
               rel="noreferrer"
+              data-umami-event="github-click"
+              data-umami-event-location="hero"
             >
               Zobacz kod źródłowy
               <span aria-hidden="true">↗</span>
             </a>
           </div>
           <ul class="trust-list" aria-label="Najważniejsze cechy">
-            <li><span aria-hidden="true">✓</span> Open source</li>
+            <li><span aria-hidden="true">✓</span> Open source (MIT)</li>
+            <li><span aria-hidden="true">✓</span> Działa z Twoim ~/.ssh/config</li>
             <li><span aria-hidden="true">✓</span> Dane lokalnie</li>
             <li><span aria-hidden="true">✓</span> Windows · macOS · Linux</li>
           </ul>
@@ -111,58 +120,14 @@
 
         <div class="app-preview" aria-label="Podgląd interfejsu SSH Tunnel Manager">
           <div class="preview-glow" aria-hidden="true"></div>
-          <div class="app-window">
-            <div class="window-bar">
-              <div class="window-brand">
-                <img src="../assets/appicon.png" alt="" width="22" height="22" />
-                <span>SSH TUNNEL MANAGER</span>
-              </div>
-              <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
-            </div>
-            <div class="window-toolbar">
-              <span>3 TUNNELS</span>
-              <div><b>[ IMPORT ]</b><b>[ EXPORT ]</b><b>[ CFG ]</b></div>
-            </div>
-            <div class="window-body">
-              <aside>
-                <small>GROUPS</small>
-                <div class="side-item active"><span>ALL</span><b>3</b></div>
-                <div class="side-item"><span>PRODUCTION</span><b>1</b></div>
-                <div class="side-item"><span>DEVELOPMENT</span><b>2</b></div>
-              </aside>
-              <div class="tunnel-list">
-                <div class="list-heading"><span>ALL TUNNELS</span><b>[ + ADD TUNNEL ]</b></div>
-                <article class="tunnel-card connected">
-                  <div class="tunnel-main">
-                    <span class="tunnel-pulse" aria-hidden="true"></span>
-                    <div><strong>production-api</strong><small>deploy@10.0.4.21:22</small></div>
-                  </div>
-                  <span class="status connected-status">CONNECTED</span>
-                  <div class="forward"><span>LOCAL</span><code>127.0.0.1:5432</code><i>→</i><code>db:5432</code></div>
-                </article>
-                <article class="tunnel-card connected">
-                  <div class="tunnel-main">
-                    <span class="tunnel-pulse cyan" aria-hidden="true"></span>
-                    <div><strong>staging</strong><small>ops@staging.internal:22</small></div>
-                  </div>
-                  <span class="status connected-status">CONNECTED</span>
-                  <div class="forward"><span>LOCAL</span><code>127.0.0.1:8080</code><i>→</i><code>app:80</code></div>
-                </article>
-                <article class="tunnel-card dimmed">
-                  <div class="tunnel-main">
-                    <span class="tunnel-pulse offline" aria-hidden="true"></span>
-                    <div><strong>analytics</strong><small>data@analytics.internal:22</small></div>
-                  </div>
-                  <span class="status">DISCONNECTED</span>
-                  <div class="forward"><span>LOCAL</span><code>127.0.0.1:3000</code><i>→</i><code>grafana:3000</code></div>
-                </article>
-              </div>
-            </div>
-          </div>
-          <div class="connection-toast">
-            <span class="toast-check" aria-hidden="true">✓</span>
-            <div><b>Tunel aktywny</b><small>production-api · 18 ms</small></div>
-          </div>
+          <img
+            class="app-screenshot"
+            src="../assets/screenshots/tunnels-connected-cpu-ram.png"
+            alt="SSH Tunnel Manager z połączonym tunelem, użyciem CPU i RAM oraz narzędziami hosta"
+            width="1800"
+            height="1200"
+            fetchpriority="high"
+          />
         </div>
       </section>
 
@@ -202,13 +167,18 @@
             <div class="feature-icon" aria-hidden="true">⌁</div>
             <h3>Zasobnik zamiast kolejnego okna</h3>
             <p>Połącz, rozłącz i skopiuj port bez odrywania się od bieżącego zadania.</p>
+            <img class="feature-shot" src="../assets/screenshots/tray-menu.png" alt="Menu SSH Tunnel Manager na pasku menu macOS z dwoma aktywnymi tunelami" width="510" height="385" loading="lazy" />
           </article>
 
           <article class="feature-card">
             <span class="feature-number">03</span>
             <div class="feature-icon" aria-hidden="true">⌘</div>
             <h3>Terminal i narzędzia hosta</h3>
-            <p>Terminal, przeglądarka SFTP, statystyki zasobów oraz podgląd kontenerów Docker.</p>
+            <p>Terminal, przeglądarka plików SFTP, użycie dysku, statystyki CPU i RAM oraz podgląd kontenerów Dockera, gdy host ma Dockera.</p>
+            <div class="feature-shots">
+              <img class="feature-shot" src="../assets/screenshots/docker-overview.png" alt="Widok Dockera: kontenery, status, obraz i porty" width="1200" height="800" loading="lazy" />
+              <img class="feature-shot" src="../assets/screenshots/disk-panel.png" alt="Panel użycia dysku połączonego hosta" width="1200" height="800" loading="lazy" />
+            </div>
           </article>
 
           <article class="feature-card">
@@ -246,6 +216,9 @@
               class="button button-secondary asset-download"
               data-platform-cta
               data-asset="ssh-tunnel-manager-amd64-installer.exe"
+              data-umami-event="download"
+              data-umami-event-location="platform-card"
+              data-umami-event-file="ssh-tunnel-manager-amd64-installer.exe"
               href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-amd64-installer.exe"
             >
               <span aria-hidden="true">↓</span> Pobierz instalator
@@ -253,6 +226,9 @@
             <a
               class="text-link asset-download"
               data-asset="ssh-tunnel-manager-windows-amd64.zip"
+              data-umami-event="download"
+              data-umami-event-location="platform-card"
+              data-umami-event-file="ssh-tunnel-manager-windows-amd64.zip"
               href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-windows-amd64.zip"
             >Wersja portable (.zip) →</a>
           </article>
@@ -268,11 +244,17 @@
                 class="button button-secondary asset-download"
                 data-platform-cta
                 data-asset="ssh-tunnel-manager-darwin-arm64.dmg"
+                data-umami-event="download"
+                data-umami-event-location="platform-card"
+                data-umami-event-file="ssh-tunnel-manager-darwin-arm64.dmg"
                 href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-darwin-arm64.dmg"
               ><span aria-hidden="true">↓</span> Apple Silicon</a>
               <a
                 class="text-link asset-download"
                 data-asset="ssh-tunnel-manager-darwin-amd64.dmg"
+                data-umami-event="download"
+                data-umami-event-location="platform-card"
+                data-umami-event-file="ssh-tunnel-manager-darwin-amd64.dmg"
                 href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-darwin-amd64.dmg"
               >Mac z procesorem Intel →</a>
             </div>
@@ -288,6 +270,9 @@
               class="button button-secondary asset-download"
               data-platform-cta
               data-asset="ssh-tunnel-manager-linux-amd64.tar.gz"
+              data-umami-event="download"
+              data-umami-event-location="platform-card"
+              data-umami-event-file="ssh-tunnel-manager-linux-amd64.tar.gz"
               href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest/download/ssh-tunnel-manager-linux-amd64.tar.gz"
             ><span aria-hidden="true">↓</span> Pobierz .tar.gz</a>
             <span class="platform-note">Samodzielny plik wykonywalny</span>
@@ -295,7 +280,7 @@
         </div>
         <p class="download-note">
           Pobierając aplikację, otrzymujesz oprogramowanie na licencji MIT. Wszystkie pliki są
-          publikowane w <a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">GitHub Releases</a>.
+          publikowane w <a data-umami-event="github-click" data-umami-event-location="downloads" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">GitHub Releases</a>.
         </p>
       </section>
 
@@ -332,6 +317,8 @@
             href="https://github.com/JustCodePL/ssh-tunnel-manager/releases"
             target="_blank"
             rel="noreferrer"
+            data-umami-event="github-click"
+            data-umami-event-location="releases"
           >Otwórz GitHub Releases ↗</a>
         </div>
 
@@ -415,6 +402,8 @@
             href="https://github.com/JustCodePL/ssh-tunnel-manager/issues/new/choose"
             target="_blank"
             rel="noreferrer"
+            data-umami-event="github-click"
+            data-umami-event-location="contact"
           >Zgłoś problem na GitHubie <span aria-hidden="true">↗</span></a>
           <a class="button button-secondary" href="mailto:kontakt.justcode@gmail.com">
             kontakt.justcode@gmail.com
@@ -430,8 +419,10 @@
       </a>
       <p>Open source · MIT License · © <span id="current-year">2026</span> JustCode</p>
       <div>
-        <a href="https://github.com/JustCodePL/ssh-tunnel-manager">GitHub</a>
-        <a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="features/" data-umami-event="features-nav" data-umami-event-location="footer">Funkcje</a>
+        <a href="compare/">Co wybrać</a>
         <a href="mailto:kontakt.justcode@gmail.com">Kontakt</a>
       </div>
     </footer>

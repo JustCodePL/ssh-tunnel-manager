@@ -164,6 +164,14 @@ function createReleaseRow(release) {
     link.className = "asset-button";
     link.href = asset.browser_download_url;
     link.setAttribute("aria-label", COPY.downloadAria(metadata.label, release.tag_name));
+    window.AnalyticsEvents.applyAttributes(
+      link,
+      window.AnalyticsEvents.downloadEventAttributes({
+        location: "release-list",
+        file: asset.name,
+        version: release.tag_name,
+      }),
+    );
     const icon = document.createElement("span");
     icon.setAttribute("aria-hidden", "true");
     icon.textContent = "↓";
@@ -176,6 +184,13 @@ function createReleaseRow(release) {
     link.className = "asset-button";
     link.href = release.html_url;
     link.textContent = COPY.viewAssets;
+    window.AnalyticsEvents.applyAttributes(
+      link,
+      window.AnalyticsEvents.downloadEventAttributes({
+        location: "release-list",
+        version: release.tag_name,
+      }),
+    );
     assets.append(link);
   }
 
@@ -214,6 +229,15 @@ function updateLatestDownloads(latest) {
     link.href = preferredAsset?.browser_download_url || latest.html_url;
     link.querySelector(".auto-download-label").textContent =
       COPY.platformDownload[detectedPlatform](latest.tag_name);
+    window.AnalyticsEvents.applyAttributes(
+      link,
+      window.AnalyticsEvents.downloadEventAttributes({
+        location: "hero",
+        file: preferredAsset?.name,
+        version: latest.tag_name,
+        platform: detectedPlatform,
+      }),
+    );
   });
 }
 
