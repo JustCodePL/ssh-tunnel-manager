@@ -27,3 +27,11 @@
 - When a beta or other prerelease is successfully published and verified, replace `develop` with `beta` on every issue included in that prerelease.
 - When the change reaches a stable release, remove both `develop` and `beta`. Preserve all unrelated labels throughout these transitions.
 - Determine the included issues from the linked Linear Release or milestone, the commits since the previous release, and the published release notes. Do not label unrelated diagnostic or administrative issues as part of a product release.
+
+## Project site and feature documentation
+
+- The project site lives in `docs/` and is deployed to GitHub Pages on every merge to `main`. Each user-visible feature has a section on the Features page: `docs/features/index.html` (English) and `docs/pl/features/index.html` (Polish), with a stable anchor such as `#local-forwarding`.
+- Every change to a user-visible feature (new feature, changed UI or behaviour, removal) updates the matching Features section in both languages in the same pull request. Add a section for a new feature, rewrite it for a changed one, and remove it for a removed one. Describe only what the code does; do not announce planned features.
+- When the UI changes, list the screenshots that must be refreshed (file names under `docs/assets/screenshots/`) in the pull request description. Marketing regenerates the screenshot set with its demo script for each release and delivers files named `v<version>-...`; replace the files on the site and keep `alt`, `width` and `height` accurate.
+- When a change affects claims elsewhere on the site, update them in the same pull request too: the home page, `docs/compare/` (EN/PL), the README (Features and Limitations) and `docs/sitemap.xml` for new pages.
+- Run `node --test docs/*.test.cjs` before opening the pull request; the tests check the analytics scripts, the Umami event attributes and the Features sections.
