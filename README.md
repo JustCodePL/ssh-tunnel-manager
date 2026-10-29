@@ -22,10 +22,11 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **Start on login** — optional autostart via Windows registry / macOS Launch Agent / Linux `.desktop` entry
 - **OS keychain** — passphrases stored in Windows Credential Manager, macOS Keychain, or Linux Secret Service
 - **Terminal** (`term`) — an interactive shell on the connected host
-- **File browser** (`files`) — browse, download, upload and edit remote files over SFTP
+- **File browser** (`files`) — browse remote files over SFTP: upload, create folders, download folders as ZIP, edit text files, rename and delete
 - **Disk usage** (`disk`) — mounted filesystems and their usage on the host
 - **CPU/RAM widget** — live host load on active tunnels (*Settings → Monitoring*)
-- **`htop` and Docker** — the `htop` and `docker` buttons appear only when the host has them installed; the Docker view lists containers with status, image and ports
+- **Process monitor and Docker** — the `htop` button (shown only when the host has `htop` installed) opens the app's own process monitor with load, CPU per core, memory and a sortable process list; the `docker` button (shown only when Docker is installed) lists containers with status, image and ports
+- **Logs** (`logs`) — per-tunnel connection log with warnings and reconnects
 - **Auto-update** — checks GitHub Releases on startup; download and install from the Settings panel or the tray menu; choose the *Stable* or *Beta* channel
 
 | Connected tunnels | Tray menu | Settings |
