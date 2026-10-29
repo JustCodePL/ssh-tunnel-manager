@@ -98,7 +98,22 @@
             <p>Tunele są zapisywane jako standardowe bloki <code>Host</code>, a metadane aplikacji trafiają do komentarzy, więc <code>ssh</code> i <code>git</code> widzą te same wpisy. Hosty, które już są w <code>~/.ssh/config</code>, wczytują się przy pierwszym uruchomieniu, a import i eksport do dowolnego pliku konfiguracji SSH są wbudowane.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../../assets/screenshots/tunnels-connected.png" alt="Lista tuneli, każdy wpis z ~/.ssh/config" width="1200" height="800" loading="lazy" />
+            <pre class="feature-code" aria-label="Przykładowe wpisy ~/.ssh/config zapisane przez aplikację"><code># stm:group=production
+# stm:color=#e5534b
+# stm:pinned=true
+Host production-api
+    HostName 10.0.4.21
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519
+    ProxyJump deploy@bastion.example.com
+    LocalForward 5432 db:5432 # primary database
+
+# stm:group=development
+Host staging
+    HostName staging.internal
+    User ops
+    LocalForward 8080 app:80</code></pre>
+            <img src="../../assets/screenshots/import.png" alt="Okno importu z ssh config z przyciskiem wyboru pliku" width="1200" height="214" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="local-forwarding" aria-labelledby="local-forwarding-title">
@@ -138,7 +153,7 @@
             <p>Tunele łączą się ponownie po zerwaniu sieci. Tunel możesz oznaczyć do łączenia przy starcie, aplikację uruchamiać po zalogowaniu (domyślnie zminimalizowaną do zasobnika) i zostawiać w zasobniku po zamknięciu okna.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../../assets/screenshots/settings.png" alt="Ustawienia: start po zalogowaniu, ukrywanie do zasobnika, widget CPU/RAM i kanał aktualizacji" width="1200" height="1072" loading="lazy" />
+            <img src="../../assets/screenshots/startup-window.png" alt="Ustawienia startu i okna: start po zalogowaniu, start zminimalizowany, ukrywanie do zasobnika po zamknięciu" width="872" height="490" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="groups-pin" aria-labelledby="groups-pin-title">
@@ -204,12 +219,15 @@
             <img src="../../assets/screenshots/portless-form.png" alt="Przekierowanie z zaznaczonym portless i nazwą billing w domenie .ssh-local" width="1200" height="242" loading="lazy" />
           </figure>
         </section>
-        <section class="feature-detail no-shot" id="auth" aria-labelledby="auth-title">
+        <section class="feature-detail" id="auth" aria-labelledby="auth-title">
           <div class="feature-detail-copy">
             <span class="feature-number">12</span>
             <h3 id="auth-title">Uwierzytelnianie</h3>
             <p>Pliki kluczy (RSA, ECDSA, Ed25519) z hasłem przechowywanym w systemowym pęku kluczy, działający <code>ssh-agent</code> albo domyślne klucze w <code>~/.ssh</code>. <code>IdentityAgent</code> z <code>~/.ssh/config</code> nie jest jeszcze odczytywany.</p>
           </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/auth-passphrase.png" alt="Monit o hasło do zaszyfrowanego klucza SSH" width="806" height="298" loading="lazy" />
+          </figure>
         </section>
         <section class="feature-detail" id="updates" aria-labelledby="updates-title">
           <div class="feature-detail-copy">
@@ -218,7 +236,7 @@
             <p>Aplikacja sprawdza GitHub Releases przy starcie i informuje o nowszej wersji. Zainstalujesz ją z Ustawień lub z menu w zasobniku, na kanale Stable albo Beta, który dostaje też wydania przedpremierowe.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../../assets/screenshots/settings.png" alt="Ustawienia z kanałem aktualizacji Stable i Beta" width="1200" height="1072" loading="lazy" />
+            <img src="../../assets/screenshots/updates.png" alt="Ustawienia aktualizacji: bieżąca wersja, kanały Stable i Beta oraz sprawdzanie aktualizacji" width="872" height="250" loading="lazy" />
           </figure>
         </section>
         </div>

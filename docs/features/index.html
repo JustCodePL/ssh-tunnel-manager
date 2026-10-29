@@ -98,7 +98,22 @@
             <p>Tunnels are stored as standard <code>Host</code> blocks with app metadata in comments, so <code>ssh</code> and <code>git</code> see the same entries. Hosts already in <code>~/.ssh/config</code> load on first launch, and import and export to any SSH config file are built in.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/tunnels-connected.png" alt="Tunnel list with each entry read from ~/.ssh/config" width="1200" height="800" loading="lazy" />
+            <pre class="feature-code" aria-label="Example ~/.ssh/config entries written by the app"><code># stm:group=production
+# stm:color=#e5534b
+# stm:pinned=true
+Host production-api
+    HostName 10.0.4.21
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519
+    ProxyJump deploy@bastion.example.com
+    LocalForward 5432 db:5432 # primary database
+
+# stm:group=development
+Host staging
+    HostName staging.internal
+    User ops
+    LocalForward 8080 app:80</code></pre>
+            <img src="../assets/screenshots/import.png" alt="Import from ssh config dialog with a choose file button" width="1200" height="214" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="local-forwarding" aria-labelledby="local-forwarding-title">
@@ -138,7 +153,7 @@
             <p>Tunnels reconnect after network drops. Mark a tunnel to connect on startup, start the app on login (minimized to the tray by default) and keep it in the tray when you close the window.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/settings.png" alt="Settings with start on login, hide to tray, CPU/RAM widget and update channel" width="1200" height="1072" loading="lazy" />
+            <img src="../assets/screenshots/startup-window.png" alt="Startup and window settings: start on login, start minimized, hide to tray on close" width="872" height="490" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="groups-pin" aria-labelledby="groups-pin-title">
@@ -204,12 +219,15 @@
             <img src="../assets/screenshots/portless-form.png" alt="Port forward with portless ticked and the name billing under .ssh-local" width="1200" height="242" loading="lazy" />
           </figure>
         </section>
-        <section class="feature-detail no-shot" id="auth" aria-labelledby="auth-title">
+        <section class="feature-detail" id="auth" aria-labelledby="auth-title">
           <div class="feature-detail-copy">
             <span class="feature-number">12</span>
             <h3 id="auth-title">Authentication</h3>
             <p>Key files (RSA, ECDSA, Ed25519) with the passphrase kept in the OS keychain, a running <code>ssh-agent</code>, or the default keys in <code>~/.ssh</code>. <code>IdentityAgent</code> from <code>~/.ssh/config</code> is not read yet.</p>
           </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/auth-passphrase.png" alt="Passphrase prompt for an encrypted SSH key" width="806" height="298" loading="lazy" />
+          </figure>
         </section>
         <section class="feature-detail" id="updates" aria-labelledby="updates-title">
           <div class="feature-detail-copy">
@@ -218,7 +236,7 @@
             <p>The app checks GitHub Releases on startup and tells you when a newer version is out. Install it from Settings or the tray menu, on the Stable channel or on Beta to get prereleases too.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/settings.png" alt="Settings with the Stable and Beta update channel" width="1200" height="1072" loading="lazy" />
+            <img src="../assets/screenshots/updates.png" alt="Update settings with the current version, Stable and Beta channels and a check for updates button" width="872" height="250" loading="lazy" />
           </figure>
         </section>
         </div>

@@ -1211,6 +1211,19 @@ footer > div {
   border-radius: 8px;
 }
 
+.feature-code {
+  overflow-x: auto;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0b100e;
+  color: #c9d6cf;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
 .feature-detail-shots img[width="510"] {
   width: auto;
   max-width: 100%;

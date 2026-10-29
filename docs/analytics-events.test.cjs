@@ -82,6 +82,15 @@ for (const page of ["features/index.html", "pl/features/index.html"]) {
     assert.deepEqual(ids, FEATURE_SECTIONS);
   });
 
+  test(`${page} shows a screenshot or example for every feature`, () => {
+    const sections = readPage(page).split('<section class="feature-detail').slice(1);
+    assert.equal(sections.length, FEATURE_SECTIONS.length);
+    for (const section of sections) {
+      const id = section.match(/id="([^"]+)"/)[1];
+      assert.ok(/<img\b|<pre class="feature-code"/.test(section), `${id} has no screenshot`);
+    }
+  });
+
   test(`${page} gives every screenshot alt text and dimensions that exist on disk`, () => {
     const html = readPage(page);
     const images = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((tag) => tag.includes("screenshots/"));
