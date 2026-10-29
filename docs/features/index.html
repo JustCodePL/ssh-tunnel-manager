@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="Every SSH Tunnel Manager feature: tunnels in ~/.ssh/config, local port forwards, ProxyJump, tray, CPU/RAM, Docker, terminal and SFTP, Portless, updates."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Features · SSH Tunnel Manager: tunnels in your ~/.ssh/config" />
+    <meta
+      property="og:description"
+      content="Every SSH Tunnel Manager feature: tunnels in ~/.ssh/config, local port forwards, ProxyJump, tray, CPU/RAM, Docker, terminal and SFTP, Portless, updates."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/features/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og-en.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/features/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/features/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/features/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/features/" />
+    <link rel="icon" type="image/png" href="../assets/appicon.png" />
+    <link rel="stylesheet" href="../styles.css" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <title>Features · SSH Tunnel Manager: tunnels in your ~/.ssh/config</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="../" aria-label="SSH Tunnel Manager — home page">
+        <img src="../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Main navigation">
+        <a href="./" aria-current="page">Features</a>
+        <a href="../#download">Download</a>
+        <a href="../#releases">Releases</a>
+        <a href="../#faq">FAQ</a>
+        <a href="../compare/">Compare</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Choose language">
+          <span aria-current="page">EN</span>
+          <a href="../pl/features/" lang="pl" hreflang="pl">PL</a>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// FEATURES</p>
+          <h2>Everything the app does today.</h2>
+          <p>What SSH Tunnel Manager does in v1.0.36, one section per feature. Local port forwarding only for now: no SOCKS and no remote forwards.</p>
+        </div>
+
+        <nav class="feature-toc" aria-label="On this page">
+          <ol>
+          <li><a href="#ssh-config">Your tunnels live in ~/.ssh/config</a></li>
+          <li><a href="#local-forwarding">Several local port forwards per tunnel</a></li>
+          <li><a href="#proxyjump">Hosts behind a bastion</a></li>
+          <li><a href="#tray">Work from the system tray</a></li>
+          <li><a href="#reconnect-startup">Connections that come back</a></li>
+          <li><a href="#groups-pin">Groups and pinned tunnels</a></li>
+          <li><a href="#resources">CPU, RAM and disk at a glance</a></li>
+          <li><a href="#docker">Docker containers on the host</a></li>
+          <li><a href="#terminal-files">Terminal and file browser</a></li>
+          <li><a href="#logs-htop">Logs and htop</a></li>
+          <li><a href="#portless">Portless: a name instead of a port</a></li>
+          <li><a href="#auth">Authentication</a></li>
+          <li><a href="#updates">Updates from GitHub Releases</a></li>
+          </ol>
+        </nav>
+
+        <div class="feature-details">
+        <section class="feature-detail" id="ssh-config" aria-labelledby="ssh-config-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">01</span>
+            <h3 id="ssh-config-title">Your tunnels live in ~/.ssh/config</h3>
+            <p>Tunnels are stored as standard <code>Host</code> blocks with app metadata in comments, so <code>ssh</code> and <code>git</code> see the same entries. Hosts already in <code>~/.ssh/config</code> load on first launch, and import and export to any SSH config file are built in.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/tunnels-connected.png" alt="Tunnel list with each entry read from ~/.ssh/config" width="1200" height="800" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="local-forwarding" aria-labelledby="local-forwarding-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">02</span>
+            <h3 id="local-forwarding-title">Several local port forwards per tunnel</h3>
+            <p>Map as many local ports to remote hosts as you need in one tunnel. Copy <code>127.0.0.1:port</code> with one click, from the tunnel card or from the tray menu.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/forwards-form.png" alt="Port forward editor mapping local port 15432 to localhost:5432" width="1200" height="225" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="proxyjump" aria-labelledby="proxyjump-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">03</span>
+            <h3 id="proxyjump-title">Hosts behind a bastion</h3>
+            <p>Reach hosts behind a bastion with ProxyJump or ProxyCommand, set per tunnel in the advanced (proxy) section of the tunnel form.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/proxy-form.png" alt="Advanced proxy settings with ProxyCommand and ProxyJump fields" width="1200" height="259" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="tray" aria-labelledby="tray-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">04</span>
+            <h3 id="tray-title">Work from the system tray</h3>
+            <p>Connect, disconnect and copy ports without opening the window. The tray icon shows the overall state: grey when everything is disconnected, green when a tunnel is connected and red when one has an error.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/tray-menu.png" alt="Tray menu with two active tunnels" width="510" height="385" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="reconnect-startup" aria-labelledby="reconnect-startup-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">05</span>
+            <h3 id="reconnect-startup-title">Connections that come back</h3>
+            <p>Tunnels reconnect after network drops. Mark a tunnel to connect on startup, start the app on login (minimized to the tray by default) and keep it in the tray when you close the window.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/settings.png" alt="Settings with start on login, hide to tray, CPU/RAM widget and update channel" width="1200" height="1072" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail no-shot" id="groups-pin" aria-labelledby="groups-pin-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">06</span>
+            <h3 id="groups-pin-title">Groups and pinned tunnels</h3>
+            <p>Put tunnels into groups and connect or disconnect a whole group at once. Pin the tunnels you use most to keep them at the top of the list.</p>
+          </div>
+        </section>
+        <section class="feature-detail" id="resources" aria-labelledby="resources-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">07</span>
+            <h3 id="resources-title">CPU, RAM and disk at a glance</h3>
+            <p>Connected hosts show live CPU and RAM usage on the tunnel card; turn it on in Settings → Monitoring. The disk button lists mounted filesystems and how full they are.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/tunnels-connected-cpu-ram.png" alt="Connected tunnel with live CPU and RAM usage" width="1800" height="1200" loading="lazy" />
+            <img src="../assets/screenshots/disk-panel.png" alt="Disk panel listing mounted filesystems and their usage" width="1200" height="800" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="docker" aria-labelledby="docker-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">08</span>
+            <h3 id="docker-title">Docker containers on the host</h3>
+            <p>When Docker is installed on a connected host, a docker button opens its containers with status, image and published ports. Sort them by name, CPU or RAM.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/docker-overview.png" alt="Docker view with running containers, images and ports" width="1200" height="800" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail no-shot" id="terminal-files" aria-labelledby="terminal-files-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">09</span>
+            <h3 id="terminal-files-title">Terminal and file browser</h3>
+            <p>Open an interactive terminal on the host from the tunnel card. The files button browses the host over SFTP: download files and folders, upload, create folders, rename, delete and edit text files.</p>
+          </div>
+        </section>
+        <section class="feature-detail no-shot" id="logs-htop" aria-labelledby="logs-htop-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">10</span>
+            <h3 id="logs-htop-title">Logs and htop</h3>
+            <p>Each tunnel keeps a log you can open from its card. When htop is installed on the host, an htop button runs it in a terminal window.</p>
+          </div>
+        </section>
+        <section class="feature-detail no-shot" id="portless" aria-labelledby="portless-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">11</span>
+            <h3 id="portless-title">Portless: a name instead of a port</h3>
+            <p>Tick portless on a forward to reach the service at a name under <code>.ssh-local</code> instead of <code>127.0.0.1:port</code>. On macOS 13+ you approve the app's signed system service once; on Linux, ports below 1024 need the <code>CAP_NET_BIND_SERVICE</code> capability; Windows needs no extra step.</p>
+          </div>
+        </section>
+        <section class="feature-detail no-shot" id="auth" aria-labelledby="auth-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">12</span>
+            <h3 id="auth-title">Authentication</h3>
+            <p>Key files (RSA, ECDSA, Ed25519) with the passphrase kept in the OS keychain, a running <code>ssh-agent</code>, or the default keys in <code>~/.ssh</code>. <code>IdentityAgent</code> from <code>~/.ssh/config</code> is not read yet.</p>
+          </div>
+        </section>
+        <section class="feature-detail" id="updates" aria-labelledby="updates-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">13</span>
+            <h3 id="updates-title">Updates from GitHub Releases</h3>
+            <p>The app checks GitHub Releases on startup and tells you when a newer version is out. Install it from Settings or the tray menu, on the Stable channel or on Beta to get prereleases too.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/settings.png" alt="Settings with the Stable and Beta update channel" width="1200" height="1072" loading="lazy" />
+          </figure>
+        </section>
+        </div>
+
+        <div class="feature-cta">
+          <h3>Try it on your own ~/.ssh/config.</h3>
+          <div class="hero-actions">
+            <a class="button button-primary" href="../#download">
+              <span class="download-icon" aria-hidden="true">↓</span> Download the app
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager"
+              data-umami-event="github-click"
+              data-umami-event-location="features-cta"
+              target="_blank"
+              rel="noreferrer"
+            >View on GitHub <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../">
+        <img src="../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · MIT License · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Releases</a>
+        <a href="./">Features</a>
+        <a href="../compare/">Which one to use</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Contact</a>
+      </div>
+    </footer>
+  </body>
+</html>

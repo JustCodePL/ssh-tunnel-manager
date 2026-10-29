@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="Wszystkie funkcje SSH Tunnel Manager: tunele w ~/.ssh/config, lokalne przekierowania, ProxyJump, zasobnik, CPU/RAM, Docker, terminal i SFTP, Portless, aktualizacje."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:title" content="Funkcje · SSH Tunnel Manager: tunele w Twoim ~/.ssh/config" />
+    <meta
+      property="og:description"
+      content="Wszystkie funkcje SSH Tunnel Manager: tunele w ~/.ssh/config, lokalne przekierowania, ProxyJump, zasobnik, CPU/RAM, Docker, terminal i SFTP, Portless, aktualizacje."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/pl/features/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/features/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/features/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/features/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/features/" />
+    <link rel="icon" type="image/png" href="../../assets/appicon.png" />
+    <link rel="stylesheet" href="../../styles.css" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <title>Funkcje · SSH Tunnel Manager: tunele w Twoim ~/.ssh/config</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Przejdź do treści</a>
+
+    <header class="site-header">
+      <a class="brand" href="../" aria-label="SSH Tunnel Manager — strona główna">
+        <img src="../../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Główna nawigacja">
+        <a href="./" aria-current="page">Funkcje</a>
+        <a href="../#pobierz">Pobierz</a>
+        <a href="../#wydania">Wydania</a>
+        <a href="../#faq">FAQ</a>
+        <a href="../compare/">Porównanie</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Wybór języka">
+          <a href="../../features/" lang="en" hreflang="en">EN</a>
+          <span aria-current="page">PL</span>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// FUNKCJE</p>
+          <h2>Wszystko, co aplikacja robi dziś.</h2>
+          <p>Co SSH Tunnel Manager robi w wersji v1.0.36, po jednej sekcji na funkcję. Na razie tylko lokalne przekierowania portów: bez SOCKS i bez przekierowań zdalnych.</p>
+        </div>
+
+        <nav class="feature-toc" aria-label="Na tej stronie">
+          <ol>
+          <li><a href="#ssh-config">Tunele mieszkają w ~/.ssh/config</a></li>
+          <li><a href="#local-forwarding">Wiele lokalnych przekierowań w jednym tunelu</a></li>
+          <li><a href="#proxyjump">Hosty za bastionem</a></li>
+          <li><a href="#tray">Praca z zasobnika systemowego</a></li>
+          <li><a href="#reconnect-startup">Połączenia, które wracają same</a></li>
+          <li><a href="#groups-pin">Grupy i przypięte tunele</a></li>
+          <li><a href="#resources">CPU, RAM i dysk na pierwszy rzut oka</a></li>
+          <li><a href="#docker">Kontenery Dockera na hoście</a></li>
+          <li><a href="#terminal-files">Terminal i przeglądarka plików</a></li>
+          <li><a href="#logs-htop">Logi i htop</a></li>
+          <li><a href="#portless">Portless: nazwa zamiast portu</a></li>
+          <li><a href="#auth">Uwierzytelnianie</a></li>
+          <li><a href="#updates">Aktualizacje z GitHub Releases</a></li>
+          </ol>
+        </nav>
+
+        <div class="feature-details">
+        <section class="feature-detail" id="ssh-config" aria-labelledby="ssh-config-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">01</span>
+            <h3 id="ssh-config-title">Tunele mieszkają w ~/.ssh/config</h3>
+            <p>Tunele są zapisywane jako standardowe bloki <code>Host</code>, a metadane aplikacji trafiają do komentarzy, więc <code>ssh</code> i <code>git</code> widzą te same wpisy. Hosty, które już są w <code>~/.ssh/config</code>, wczytują się przy pierwszym uruchomieniu, a import i eksport do dowolnego pliku konfiguracji SSH są wbudowane.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/tunnels-connected.png" alt="Lista tuneli, każdy wpis z ~/.ssh/config" width="1200" height="800" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="local-forwarding" aria-labelledby="local-forwarding-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">02</span>
+            <h3 id="local-forwarding-title">Wiele lokalnych przekierowań w jednym tunelu</h3>
+            <p>Jeden tunel może mapować dowolnie wiele lokalnych portów na zdalne hosty. Adres <code>127.0.0.1:port</code> skopiujesz jednym kliknięciem z karty tunelu albo z menu w zasobniku.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/forwards-form.png" alt="Edytor przekierowań: lokalny port 15432 na localhost:5432" width="1200" height="225" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="proxyjump" aria-labelledby="proxyjump-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">03</span>
+            <h3 id="proxyjump-title">Hosty za bastionem</h3>
+            <p>Do hostów za bastionem dotrzesz przez ProxyJump albo ProxyCommand, ustawiane osobno dla każdego tunelu w sekcji advanced (proxy) formularza.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/proxy-form.png" alt="Zaawansowane ustawienia proxy z polami ProxyCommand i ProxyJump" width="1200" height="259" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="tray" aria-labelledby="tray-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">04</span>
+            <h3 id="tray-title">Praca z zasobnika systemowego</h3>
+            <p>Łączysz, rozłączasz i kopiujesz porty bez otwierania okna. Ikona w zasobniku pokazuje stan ogólny: szara, gdy wszystko jest rozłączone, zielona, gdy działa tunel, i czerwona przy błędzie.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/tray-menu.png" alt="Menu w zasobniku z dwoma aktywnymi tunelami" width="510" height="385" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="reconnect-startup" aria-labelledby="reconnect-startup-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">05</span>
+            <h3 id="reconnect-startup-title">Połączenia, które wracają same</h3>
+            <p>Tunele łączą się ponownie po zerwaniu sieci. Tunel możesz oznaczyć do łączenia przy starcie, aplikację uruchamiać po zalogowaniu (domyślnie zminimalizowaną do zasobnika) i zostawiać w zasobniku po zamknięciu okna.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/settings.png" alt="Ustawienia: start po zalogowaniu, ukrywanie do zasobnika, widget CPU/RAM i kanał aktualizacji" width="1200" height="1072" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail no-shot" id="groups-pin" aria-labelledby="groups-pin-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">06</span>
+            <h3 id="groups-pin-title">Grupy i przypięte tunele</h3>
+            <p>Tunele możesz łączyć w grupy i łączyć lub rozłączać całą grupę naraz. Najczęściej używane tunele przypniesz na górze listy.</p>
+          </div>
+        </section>
+        <section class="feature-detail" id="resources" aria-labelledby="resources-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">07</span>
+            <h3 id="resources-title">CPU, RAM i dysk na pierwszy rzut oka</h3>
+            <p>Połączone hosty pokazują na karcie tunelu bieżące użycie CPU i RAM; włączysz to w Ustawieniach → Monitoring. Przycisk disk pokazuje zamontowane systemy plików i ich zapełnienie.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/tunnels-connected-cpu-ram.png" alt="Połączony tunel z bieżącym użyciem CPU i RAM" width="1800" height="1200" loading="lazy" />
+            <img src="../../assets/screenshots/disk-panel.png" alt="Panel dysku z zamontowanymi systemami plików i ich użyciem" width="1200" height="800" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="docker" aria-labelledby="docker-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">08</span>
+            <h3 id="docker-title">Kontenery Dockera na hoście</h3>
+            <p>Gdy na połączonym hoście jest Docker, przycisk docker pokazuje jego kontenery ze statusem, obrazem i opublikowanymi portami. Możesz je sortować po nazwie, CPU lub RAM.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/docker-overview.png" alt="Widok Dockera z działającymi kontenerami, obrazami i portami" width="1200" height="800" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail no-shot" id="terminal-files" aria-labelledby="terminal-files-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">09</span>
+            <h3 id="terminal-files-title">Terminal i przeglądarka plików</h3>
+            <p>Z karty tunelu otworzysz interaktywny terminal na hoście. Przycisk files przegląda host przez SFTP: pobieranie plików i katalogów, wysyłanie, tworzenie katalogów, zmiana nazw, usuwanie i edycja plików tekstowych.</p>
+          </div>
+        </section>
+        <section class="feature-detail no-shot" id="logs-htop" aria-labelledby="logs-htop-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">10</span>
+            <h3 id="logs-htop-title">Logi i htop</h3>
+            <p>Każdy tunel ma log, który otworzysz z jego karty. Gdy na hoście jest htop, przycisk htop uruchamia go w oknie terminala.</p>
+          </div>
+        </section>
+        <section class="feature-detail no-shot" id="portless" aria-labelledby="portless-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">11</span>
+            <h3 id="portless-title">Portless: nazwa zamiast portu</h3>
+            <p>Zaznacz portless przy przekierowaniu, a usługa będzie dostępna pod nazwą w domenie <code>.ssh-local</code> zamiast <code>127.0.0.1:port</code>. Na macOS 13+ raz zatwierdzasz podpisaną usługę systemową aplikacji; na Linuxie porty poniżej 1024 wymagają uprawnienia <code>CAP_NET_BIND_SERVICE</code>; Windows nie wymaga dodatkowych kroków.</p>
+          </div>
+        </section>
+        <section class="feature-detail no-shot" id="auth" aria-labelledby="auth-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">12</span>
+            <h3 id="auth-title">Uwierzytelnianie</h3>
+            <p>Pliki kluczy (RSA, ECDSA, Ed25519) z hasłem przechowywanym w systemowym pęku kluczy, działający <code>ssh-agent</code> albo domyślne klucze w <code>~/.ssh</code>. <code>IdentityAgent</code> z <code>~/.ssh/config</code> nie jest jeszcze odczytywany.</p>
+          </div>
+        </section>
+        <section class="feature-detail" id="updates" aria-labelledby="updates-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">13</span>
+            <h3 id="updates-title">Aktualizacje z GitHub Releases</h3>
+            <p>Aplikacja sprawdza GitHub Releases przy starcie i informuje o nowszej wersji. Zainstalujesz ją z Ustawień lub z menu w zasobniku, na kanale Stable albo Beta, który dostaje też wydania przedpremierowe.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../../assets/screenshots/settings.png" alt="Ustawienia z kanałem aktualizacji Stable i Beta" width="1200" height="1072" loading="lazy" />
+          </figure>
+        </section>
+        </div>
+
+        <div class="feature-cta">
+          <h3>Wypróbuj na swoim ~/.ssh/config.</h3>
+          <div class="hero-actions">
+            <a class="button button-primary" href="../#pobierz">
+              <span class="download-icon" aria-hidden="true">↓</span> Pobierz aplikację
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/JustCodePL/ssh-tunnel-manager"
+              data-umami-event="github-click"
+              data-umami-event-location="features-cta"
+              target="_blank"
+              rel="noreferrer"
+            >Zobacz na GitHubie <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../">
+        <img src="../../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · Licencja MIT · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="./">Funkcje</a>
+        <a href="../compare/">Co wybrać</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Kontakt</a>
+      </div>
+    </footer>
+  </body>
+</html>
