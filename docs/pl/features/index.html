@@ -68,24 +68,24 @@
       <section class="section">
         <div class="section-intro">
           <p class="kicker">// FUNKCJE</p>
-          <h2>Wszystko, co aplikacja robi dziś.</h2>
-          <p>Co SSH Tunnel Manager robi w wersji v1.0.36, po jednej sekcji na funkcję. Na razie tylko lokalne przekierowania portów: bez SOCKS i bez przekierowań zdalnych.</p>
+          <h2>Funkcje SSH Tunnel Managera</h2>
+          <p>Przekierowania portów SSH, konfiguracja hostów, terminal, pliki i statystyki serwera w jednej aplikacji. Dotyczy wersji 1.0.36. Na razie obsługiwane są tylko lokalne przekierowania portów (bez SOCKS i bez przekierowań zdalnych).</p>
         </div>
 
         <nav class="feature-toc" aria-label="Na tej stronie">
           <ol>
-          <li><a href="#ssh-config">Tunele mieszkają w ~/.ssh/config</a></li>
-          <li><a href="#local-forwarding">Wiele lokalnych przekierowań w jednym tunelu</a></li>
-          <li><a href="#proxyjump">Hosty za bastionem</a></li>
-          <li><a href="#tray">Praca z zasobnika systemowego</a></li>
-          <li><a href="#reconnect-startup">Połączenia, które wracają same</a></li>
+          <li><a href="#ssh-config">Konfiguracja w ~/.ssh/config</a></li>
+          <li><a href="#local-forwarding">Wiele portów, jeden tunel</a></li>
+          <li><a href="#proxyjump">Połączenia przez bastion</a></li>
+          <li><a href="#tray">Dostęp z zasobnika systemowego</a></li>
+          <li><a href="#reconnect-startup">Automatyczne ponowne łączenie</a></li>
           <li><a href="#groups-pin">Grupy i przypięte tunele</a></li>
-          <li><a href="#resources">CPU, RAM i dysk na pierwszy rzut oka</a></li>
-          <li><a href="#docker">Kontenery Dockera na hoście</a></li>
-          <li><a href="#terminal-files">Terminal i przeglądarka plików</a></li>
-          <li><a href="#logs-htop">Logi i monitor procesów</a></li>
-          <li><a href="#portless">Portless: nazwa zamiast portu</a></li>
-          <li><a href="#auth">Uwierzytelnianie</a></li>
+          <li><a href="#resources">Użycie CPU, RAM i dysku</a></li>
+          <li><a href="#docker">Kontenery Docker na serwerze</a></li>
+          <li><a href="#terminal-files">Terminal i pliki serwera</a></li>
+          <li><a href="#logs-htop">Logi i procesy</a></li>
+          <li><a href="#portless">Portless: dostęp po nazwie</a></li>
+          <li><a href="#auth">Metody uwierzytelniania</a></li>
           <li><a href="#updates">Aktualizacje z GitHub Releases</a></li>
           </ol>
         </nav>
@@ -94,7 +94,7 @@
         <section class="feature-detail" id="ssh-config" aria-labelledby="ssh-config-title">
           <div class="feature-detail-copy">
             <span class="feature-number">01</span>
-            <h3 id="ssh-config-title">Tunele mieszkają w ~/.ssh/config</h3>
+            <h3 id="ssh-config-title">Konfiguracja w ~/.ssh/config</h3>
             <p>Tunele są zapisywane jako standardowe bloki <code>Host</code>, a metadane aplikacji trafiają do komentarzy, więc <code>ssh</code> i <code>git</code> widzą te same wpisy. Hosty, które już są w <code>~/.ssh/config</code>, wczytują się przy pierwszym uruchomieniu, a import i eksport do dowolnego pliku konfiguracji SSH są wbudowane.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -119,7 +119,7 @@ Host staging
         <section class="feature-detail" id="local-forwarding" aria-labelledby="local-forwarding-title">
           <div class="feature-detail-copy">
             <span class="feature-number">02</span>
-            <h3 id="local-forwarding-title">Wiele lokalnych przekierowań w jednym tunelu</h3>
+            <h3 id="local-forwarding-title">Wiele portów, jeden tunel</h3>
             <p>Jeden tunel może mapować dowolnie wiele lokalnych portów na zdalne hosty. Adres <code>127.0.0.1:port</code> skopiujesz jednym kliknięciem z karty tunelu albo z menu w zasobniku.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -129,7 +129,7 @@ Host staging
         <section class="feature-detail" id="proxyjump" aria-labelledby="proxyjump-title">
           <div class="feature-detail-copy">
             <span class="feature-number">03</span>
-            <h3 id="proxyjump-title">Hosty za bastionem</h3>
+            <h3 id="proxyjump-title">Połączenia przez bastion</h3>
             <p>Do hostów za bastionem dotrzesz przez ProxyJump albo ProxyCommand, ustawiane osobno dla każdego tunelu w sekcji advanced (proxy) formularza.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -139,7 +139,7 @@ Host staging
         <section class="feature-detail" id="tray" aria-labelledby="tray-title">
           <div class="feature-detail-copy">
             <span class="feature-number">04</span>
-            <h3 id="tray-title">Praca z zasobnika systemowego</h3>
+            <h3 id="tray-title">Dostęp z zasobnika systemowego</h3>
             <p>Łączysz, rozłączasz i kopiujesz porty bez otwierania okna. Ikona w zasobniku pokazuje stan ogólny: szara, gdy wszystko jest rozłączone, zielona, gdy działa tunel, i czerwona przy błędzie.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -149,7 +149,7 @@ Host staging
         <section class="feature-detail" id="reconnect-startup" aria-labelledby="reconnect-startup-title">
           <div class="feature-detail-copy">
             <span class="feature-number">05</span>
-            <h3 id="reconnect-startup-title">Połączenia, które wracają same</h3>
+            <h3 id="reconnect-startup-title">Automatyczne ponowne łączenie</h3>
             <p>Tunele łączą się ponownie po zerwaniu sieci. Tunel możesz oznaczyć do łączenia przy starcie, aplikację uruchamiać po zalogowaniu (domyślnie zminimalizowaną do zasobnika) i zostawiać w zasobniku po zamknięciu okna.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -169,7 +169,7 @@ Host staging
         <section class="feature-detail" id="resources" aria-labelledby="resources-title">
           <div class="feature-detail-copy">
             <span class="feature-number">07</span>
-            <h3 id="resources-title">CPU, RAM i dysk na pierwszy rzut oka</h3>
+            <h3 id="resources-title">Użycie CPU, RAM i dysku</h3>
             <p>Połączone hosty pokazują na karcie tunelu bieżące użycie CPU i RAM; włączysz to w Ustawieniach → Monitoring. Przycisk disk pokazuje zamontowane systemy plików i ich zapełnienie.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -180,7 +180,7 @@ Host staging
         <section class="feature-detail" id="docker" aria-labelledby="docker-title">
           <div class="feature-detail-copy">
             <span class="feature-number">08</span>
-            <h3 id="docker-title">Kontenery Dockera na hoście</h3>
+            <h3 id="docker-title">Kontenery Docker na serwerze</h3>
             <p>Gdy na połączonym hoście jest Docker, przycisk docker pokazuje jego kontenery ze statusem, obrazem i opublikowanymi portami. Możesz je sortować po nazwie, CPU lub RAM.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -190,7 +190,7 @@ Host staging
         <section class="feature-detail" id="terminal-files" aria-labelledby="terminal-files-title">
           <div class="feature-detail-copy">
             <span class="feature-number">09</span>
-            <h3 id="terminal-files-title">Terminal i przeglądarka plików</h3>
+            <h3 id="terminal-files-title">Terminal i pliki serwera</h3>
             <p>Z karty tunelu otworzysz interaktywną powłokę na hoście. Przycisk files przegląda host przez SFTP: katalogi z rozmiarami i datami, wysyłanie, nowe katalogi, pobieranie katalogu jako ZIP, edycja plików tekstowych na miejscu, zmiana nazw i usuwanie.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -201,7 +201,7 @@ Host staging
         <section class="feature-detail" id="logs-htop" aria-labelledby="logs-htop-title">
           <div class="feature-detail-copy">
             <span class="feature-number">10</span>
-            <h3 id="logs-htop-title">Logi i monitor procesów</h3>
+            <h3 id="logs-htop-title">Logi i procesy</h3>
             <p>Każdy tunel prowadzi log połączeń, rozłączeń, ponownych połączeń i ostrzeżeń, który możesz wyczyścić. Gdy na hoście jest htop, przycisk htop otwiera własny monitor procesów aplikacji: obciążenie, czas działania, CPU na rdzeń, pamięć i listę procesów sortowaną po CPU, pamięci, nazwie lub PID.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -212,7 +212,7 @@ Host staging
         <section class="feature-detail" id="portless" aria-labelledby="portless-title">
           <div class="feature-detail-copy">
             <span class="feature-number">11</span>
-            <h3 id="portless-title">Portless: nazwa zamiast portu</h3>
+            <h3 id="portless-title">Portless: dostęp po nazwie</h3>
             <p>Zaznacz portless przy przekierowaniu i wpisz nazwę; aplikacja dopisze <code>.ssh-local</code>, więc usługa będzie dostępna pod <code>nazwa.ssh-local</code> zamiast <code>127.0.0.1:port</code>. Na macOS 13+ raz zatwierdzasz podpisaną usługę systemową aplikacji; na Linuxie porty poniżej 1024 wymagają uprawnienia <code>CAP_NET_BIND_SERVICE</code>; Windows nie wymaga dodatkowych kroków.</p>
           </div>
           <figure class="feature-detail-shots">
@@ -222,7 +222,7 @@ Host staging
         <section class="feature-detail" id="auth" aria-labelledby="auth-title">
           <div class="feature-detail-copy">
             <span class="feature-number">12</span>
-            <h3 id="auth-title">Uwierzytelnianie</h3>
+            <h3 id="auth-title">Metody uwierzytelniania</h3>
             <p>Pliki kluczy (RSA, ECDSA, Ed25519) z hasłem przechowywanym w systemowym pęku kluczy, działający <code>ssh-agent</code> albo domyślne klucze w <code>~/.ssh</code>. <code>IdentityAgent</code> z <code>~/.ssh/config</code> nie jest jeszcze odczytywany.</p>
           </div>
           <figure class="feature-detail-shots">
