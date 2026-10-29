@@ -2,7 +2,7 @@
 
 ![SSH Tunnel Manager connecting two tunnels](docs/assets/screenshots/tunnels-connect.gif)
 
-Your SSH tunnels, in the config you already have: a tray app for Windows, macOS and Linux that keeps your SSH tunnels in your own `~/.ssh/config`. No account, no cloud, no lock-in.
+SSH tunnels and server tools in one app for Windows, macOS and Linux: tunnels, terminal, files, Docker and server stats. It works on your existing `~/.ssh/config`. Tunnels are stored as standard `Host` blocks, so `ssh` and `git` see the same entries.
 
 [Website](https://justcodepl.github.io/ssh-tunnel-manager/) · [Download](https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest) · [Which one to use](https://justcodepl.github.io/ssh-tunnel-manager/compare/)
 
