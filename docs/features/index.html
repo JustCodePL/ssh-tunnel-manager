@@ -83,7 +83,7 @@
           <li><a href="#resources">CPU, RAM and disk at a glance</a></li>
           <li><a href="#docker">Docker containers on the host</a></li>
           <li><a href="#terminal-files">Terminal and file browser</a></li>
-          <li><a href="#logs-htop">Logs and htop</a></li>
+          <li><a href="#logs-htop">Logs and process monitor</a></li>
           <li><a href="#portless">Portless: a name instead of a port</a></li>
           <li><a href="#auth">Authentication</a></li>
           <li><a href="#updates">Updates from GitHub Releases</a></li>
@@ -141,12 +141,15 @@
             <img src="../assets/screenshots/settings.png" alt="Settings with start on login, hide to tray, CPU/RAM widget and update channel" width="1200" height="1072" loading="lazy" />
           </figure>
         </section>
-        <section class="feature-detail no-shot" id="groups-pin" aria-labelledby="groups-pin-title">
+        <section class="feature-detail" id="groups-pin" aria-labelledby="groups-pin-title">
           <div class="feature-detail-copy">
             <span class="feature-number">06</span>
             <h3 id="groups-pin-title">Groups and pinned tunnels</h3>
             <p>Put tunnels into groups and connect or disconnect a whole group at once. Pin the tunnels you use most to keep them at the top of the list.</p>
           </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/groups.png" alt="Tunnel list with a pinned tunnel and development and production groups with connect all" width="1200" height="933" loading="lazy" />
+          </figure>
         </section>
         <section class="feature-detail" id="resources" aria-labelledby="resources-title">
           <div class="feature-detail-copy">
@@ -169,26 +172,37 @@
             <img src="../assets/screenshots/docker-overview.png" alt="Docker view with running containers, images and ports" width="1200" height="800" loading="lazy" />
           </figure>
         </section>
-        <section class="feature-detail no-shot" id="terminal-files" aria-labelledby="terminal-files-title">
+        <section class="feature-detail" id="terminal-files" aria-labelledby="terminal-files-title">
           <div class="feature-detail-copy">
             <span class="feature-number">09</span>
             <h3 id="terminal-files-title">Terminal and file browser</h3>
-            <p>Open an interactive terminal on the host from the tunnel card. The files button browses the host over SFTP: download files and folders, upload, create folders, rename, delete and edit text files.</p>
+            <p>Open an interactive shell on the host from the tunnel card. The files button browses the host over SFTP: folders with sizes and dates, upload, new folders, download a folder as a ZIP, edit text files in place, rename and delete.</p>
           </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/terminal.png" alt="Built-in terminal session on a connected host" width="1200" height="593" loading="lazy" />
+            <img src="../assets/screenshots/files-sftp.png" alt="SFTP file browser with folders, sizes, upload, mkdir, ZIP download, edit, rename and delete" width="1200" height="498" loading="lazy" />
+          </figure>
         </section>
-        <section class="feature-detail no-shot" id="logs-htop" aria-labelledby="logs-htop-title">
+        <section class="feature-detail" id="logs-htop" aria-labelledby="logs-htop-title">
           <div class="feature-detail-copy">
             <span class="feature-number">10</span>
-            <h3 id="logs-htop-title">Logs and htop</h3>
-            <p>Each tunnel keeps a log you can open from its card. When htop is installed on the host, an htop button runs it in a terminal window.</p>
+            <h3 id="logs-htop-title">Logs and process monitor</h3>
+            <p>Each tunnel keeps a log of connections, disconnects, reconnects and warnings that you can clear. When htop is installed on the host, an htop button opens the app's own process monitor: load, uptime, CPU per core, memory and a process list you can sort by CPU, memory, name or PID.</p>
           </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/logs.png" alt="Tunnel log with INFO and WARN entries for connects, a failed keep-alive and a reconnect" width="1200" height="311" loading="lazy" />
+            <img src="../assets/screenshots/htop.png" alt="Process monitor with load, uptime, CPU per core, memory and a sortable process list" width="1200" height="742" loading="lazy" />
+          </figure>
         </section>
-        <section class="feature-detail no-shot" id="portless" aria-labelledby="portless-title">
+        <section class="feature-detail" id="portless" aria-labelledby="portless-title">
           <div class="feature-detail-copy">
             <span class="feature-number">11</span>
             <h3 id="portless-title">Portless: a name instead of a port</h3>
-            <p>Tick portless on a forward to reach the service at a name under <code>.ssh-local</code> instead of <code>127.0.0.1:port</code>. On macOS 13+ you approve the app's signed system service once; on Linux, ports below 1024 need the <code>CAP_NET_BIND_SERVICE</code> capability; Windows needs no extra step.</p>
+            <p>Tick portless on a forward and type a name; the app adds <code>.ssh-local</code>, so the service is reachable at <code>name.ssh-local</code> instead of <code>127.0.0.1:port</code>. On macOS 13+ you approve the app's signed system service once; on Linux, ports below 1024 need the <code>CAP_NET_BIND_SERVICE</code> capability; Windows needs no extra step.</p>
           </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/portless-form.png" alt="Port forward with portless ticked and the name billing under .ssh-local" width="1200" height="242" loading="lazy" />
+          </figure>
         </section>
         <section class="feature-detail no-shot" id="auth" aria-labelledby="auth-title">
           <div class="feature-detail-copy">
