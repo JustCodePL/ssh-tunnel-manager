@@ -56,7 +56,7 @@ Get the latest release from the [Releases page](https://github.com/JustCodePL/ss
 
 **Windows** — run the NSIS installer. It places the app in `Program Files`, creates a Start Menu entry, and registers an uninstaller.
 
-**macOS** — open the DMG and drag `SSH Tunnel Manager.app` to `/Applications`. The app is signed with an Apple Developer ID and notarized by Apple, so it opens without a security override.
+**macOS** — open the DMG and drag `SSH Tunnel Manager.app` to `/Applications`. The app is signed with an Apple Developer ID and notarized by Apple, so it opens without a security override. Since v1.1.0 the notarization ticket is stapled to the app itself, so the first launch also works without an internet connection.
 
 **Linux** — extract the binary to `~/.local/bin/` or `/usr/local/bin/` and run it. For autostart, enable *Start on login* in Settings.
 
