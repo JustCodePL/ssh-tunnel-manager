@@ -1078,7 +1078,7 @@ func (a *App) emitStatus(event ssh.StatusEvent) {
 		return
 	}
 	runtime.EventsEmit(a.ctx, "tunnel:status-changed", event)
-	if event.Error != "" {
+	if event.Status == config.StatusError {
 		runtime.EventsEmit(a.ctx, "tunnel:error", event)
 	}
 }

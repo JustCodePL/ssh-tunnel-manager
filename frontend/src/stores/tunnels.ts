@@ -1,7 +1,8 @@
-import { writable, derived } from "svelte/store";
+import { get, writable, derived } from "svelte/store";
 import type { TunnelConfig, TunnelStatus, StatusEvent, ConfigFileInfo } from "../types";
 import { GetTunnels, GetTunnelStatuses, AddTunnel, UpdateTunnel, DeleteTunnel, ConnectTunnel, DisconnectTunnel, SelectFile, ImportPreview, ImportTunnels, SelectSaveFile, ExportTunnels, SetTunnelPinned, ConnectGroup, DisconnectGroup, RenameGroup, GetIncludedConfigFiles } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
+import { showToast } from "./toast";
 
 export const tunnels = writable<TunnelConfig[]>([]);
 export const statuses = writable<Record<string, StatusEvent>>({});
@@ -97,6 +98,10 @@ export function initEventListeners() {
       ...s,
       [event.tunnelId]: event,
     }));
+  });
+  EventsOn("tunnel:error", (event: StatusEvent) => {
+    const name = get(tunnels).find((t) => t.id === event.tunnelId)?.name ?? event.tunnelId;
+    showToast(`${name}: ${event.error ?? "connection failed"}`, "error", 6000);
   });
   EventsOn("tunnels:changed", () => {
     loadTunnels();

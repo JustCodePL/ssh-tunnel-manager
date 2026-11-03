@@ -79,7 +79,8 @@ func (t *Tray) Stop() {
 }
 
 // HandleStatusEvent processes a tunnel status change — updates internal state,
-// refreshes the tray icon and menu, and sends desktop notifications.
+// refreshes the tray icon and menu, and sends desktop notifications. Tunnel
+// errors are not notified here: the frontend shows them inside the app.
 func (t *Tray) HandleStatusEvent(event ssh.StatusEvent) {
 	t.mu.Lock()
 	prev, hadPrev := t.statuses[event.TunnelID]
@@ -98,12 +99,6 @@ func (t *Tray) HandleStatusEvent(event ssh.StatusEvent) {
 		if prev.Status != config.StatusConnected {
 			notify("Connected", fmt.Sprintf("Tunnel %q is now connected", event.TunnelID))
 		}
-	case config.StatusError:
-		msg := event.Error
-		if msg == "" {
-			msg = "unknown error"
-		}
-		notify("Tunnel Error", fmt.Sprintf("%s: %s", event.TunnelID, msg))
 	case config.StatusDisconnected:
 		if prev.Status == config.StatusConnected {
 			notify("Disconnected", fmt.Sprintf("Tunnel %q disconnected", event.TunnelID))
@@ -423,7 +418,7 @@ func (t *Tray) addTunnelMenuItem(tc config.TunnelConfig, se ssh.StatusEvent, par
 	case config.StatusReconnecting:
 		prefix = "◌ "
 	case config.StatusError:
-		prefix = "✖ "
+		prefix = "! "
 	default:
 		prefix = "○ "
 	}

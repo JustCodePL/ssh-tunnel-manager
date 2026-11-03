@@ -16,7 +16,11 @@
 </script>
 
 <span class="badge" class:animated={isAnimated}>
-  <span class="dot" style="color: {s.color}; text-shadow: {s.glow};">●</span>
+  {#if status === "error"}
+    <span class="alert" style="color: {s.color}; text-shadow: {s.glow};" aria-hidden="true">!</span>
+  {:else}
+    <span class="dot" style="color: {s.color}; text-shadow: {s.glow};">●</span>
+  {/if}
   <span class="label" style="color: {s.color};">{s.label}</span>
 </span>
 
@@ -32,6 +36,12 @@
 
   .dot {
     font-size: 8px;
+    line-height: 1;
+  }
+
+  .alert {
+    font-size: 14px;
+    font-weight: 700;
     line-height: 1;
   }
 

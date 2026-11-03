@@ -20,7 +20,7 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **Groups** — organise tunnels into named groups with Connect All / Disconnect All
 - **Import from SSH config** — parse `~/.ssh/config` and import selected hosts in one step
 - **Export to SSH config** — write selected tunnels back to a standard SSH config file
-- **Auto-reconnect** — tunnels reconnect automatically on network interruption
+- **Connection retries** — a tunnel that can't connect is retried up to 3 times, then stops and shows the error in the app
 - **Start on login** — optional autostart via Windows registry / macOS Launch Agent / Linux `.desktop` entry
 - **OS keychain** — passphrases stored in Windows Credential Manager, macOS Keychain, or Linux Secret Service
 - **Terminal** (`term`) — an interactive shell on the connected host
