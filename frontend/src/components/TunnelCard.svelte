@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TunnelConfig, TunnelStatus } from "../types";
+  import type { PortForward, TunnelConfig, TunnelStatus } from "../types";
   import { PORTLESS_TLD } from "../types";
   import { connectTunnel, disconnectTunnel, deleteTunnel, setTunnelPinned } from "../stores/tunnels";
   import StatusBadge from "./StatusBadge.svelte";
@@ -8,6 +8,9 @@
   import DockerWindow from "./DockerWindow.svelte";
   import MonitorWindow from "./MonitorWindow.svelte";
   import RDPWindow from "./RDPWindow.svelte";
+  import FileBrowserWindow from "./FileBrowserWindow.svelte";
+  import TerminalWindow from "./TerminalWindow.svelte";
+  import { effectiveForwardProtocol } from "../lib/portForwards.js";
   import { CopyToClipboard } from "../../wailsjs/go/main/App";
   import { showResourceStats } from "../stores/prefs";
   import { capabilities, refreshCapabilities, verifyTool, type ToolName } from "../stores/capabilities";
@@ -25,6 +28,9 @@
   let showDocker = false;
   let showHtop = false;
   let showRdp = false;
+  let rdpForward: PortForward | null = null;
+  let filesForward: PortForward | null = null;
+  let terminalForward: PortForward | null = null;
 
   // Tool buttons are driven by persisted capabilities, so they stay stable
   // across reconnects (and app restarts) without re-probing. capsKnown means
@@ -100,6 +106,9 @@
     showDocker = false;
     showHtop = false;
     showRdp = false;
+    rdpForward = null;
+    filesForward = null;
+    terminalForward = null;
   }
 </script>
 
@@ -154,6 +163,30 @@
               >
                 {pf.localPort}→{pf.remoteHost}:{pf.remotePort}
               </button>
+            {/if}
+            {#if effectiveForwardProtocol(pf) === "rdp"}
+              <button
+                type="button"
+                class="forward-action"
+                on:click={() => (rdpForward = pf)}
+                disabled={!isConnected}
+                title={isConnected ? `open remote desktop on ${pf.remoteHost}:${pf.remotePort}` : "connect to view"}
+              >rdp</button>
+            {:else if effectiveForwardProtocol(pf) === "ssh"}
+              <button
+                type="button"
+                class="forward-action"
+                on:click={() => (terminalForward = pf)}
+                disabled={!isConnected}
+                title={isConnected ? `open a terminal on ${pf.remoteHost}:${pf.remotePort}` : "connect to view"}
+              >term</button>
+              <button
+                type="button"
+                class="forward-action"
+                on:click={() => (filesForward = pf)}
+                disabled={!isConnected}
+                title={isConnected ? `browse files on ${pf.remoteHost}:${pf.remotePort}` : "connect to view"}
+              >files</button>
             {/if}
           {/each}
         </div>
@@ -230,6 +263,15 @@
 {/if}
 {#if showRdp}
   <RDPWindow {tunnel} on:close={() => (showRdp = false)} />
+{/if}
+{#if rdpForward}
+  <RDPWindow {tunnel} forward={rdpForward} on:close={() => (rdpForward = null)} />
+{/if}
+{#if filesForward}
+  <FileBrowserWindow {tunnel} forward={filesForward} on:close={() => (filesForward = null)} />
+{/if}
+{#if terminalForward}
+  <TerminalWindow {tunnel} forward={terminalForward} on:close={() => (terminalForward = null)} />
 {/if}
 {#if showDocker}
   <DockerWindow {tunnel} on:close={() => (showDocker = false)} />
@@ -328,6 +370,19 @@
     margin-top: 4px;
   }
 
+  .forward-action {
+    background: none;
+    border: 1px solid #00ff88;
+    border-radius: 2px;
+    color: #00ff88;
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    padding: 1px 6px;
+    margin-right: 6px;
+  }
+  .forward-action:hover:not(:disabled) { background: rgba(0, 255, 136, 0.1); }
+  .forward-action:disabled { border-color: #333; color: #555; cursor: not-allowed; }
   .forward-tag {
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;

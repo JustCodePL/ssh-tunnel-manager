@@ -59,6 +59,8 @@ export namespace config {
 	    exposePort?: number;
 	    hostHeader?: string;
 	    hostHeaderOn?: boolean;
+	    protocol?: string;
+	    sshUser?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PortForward(source);
@@ -75,6 +77,8 @@ export namespace config {
 	        this.exposePort = source["exposePort"];
 	        this.hostHeader = source["hostHeader"];
 	        this.hostHeaderOn = source["hostHeaderOn"];
+	        this.protocol = source["protocol"];
+	        this.sshUser = source["sshUser"];
 	    }
 	}
 	export class TunnelConfig {
@@ -142,6 +146,20 @@ export namespace config {
 
 export namespace main {
 	
+	export class ForwardTarget {
+	    remoteHost: string;
+	    remotePort: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ForwardTarget(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.remoteHost = source["remoteHost"];
+	        this.remotePort = source["remotePort"];
+	    }
+	}
 	export class PortlessFallbackStatus {
 	    tunnelId: string;
 	    message: string;
@@ -216,6 +234,7 @@ export namespace main {
 	}
 	export class RDPSession {
 	    id: string;
+	    stateKey: string;
 	    proxyAddress: string;
 	    token: string;
 	    destination: string;
@@ -230,6 +249,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
+	        this.stateKey = source["stateKey"];
 	        this.proxyAddress = source["proxyAddress"];
 	        this.token = source["token"];
 	        this.destination = source["destination"];

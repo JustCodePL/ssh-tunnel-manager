@@ -62,8 +62,8 @@ export function ExportTunnels(arg1, arg2) {
   return window['go']['main']['App']['ExportTunnels'](arg1, arg2);
 }
 
-export function ForgetRDPLogin(arg1) {
-  return window['go']['main']['App']['ForgetRDPLogin'](arg1);
+export function ForgetRDPLogin(arg1, arg2) {
+  return window['go']['main']['App']['ForgetRDPLogin'](arg1, arg2);
 }
 
 export function GetAutostart() {
@@ -106,8 +106,8 @@ export function GetProcessStats(arg1) {
   return window['go']['main']['App']['GetProcessStats'](arg1);
 }
 
-export function GetRDPLogin(arg1) {
-  return window['go']['main']['App']['GetRDPLogin'](arg1);
+export function GetRDPLogin(arg1, arg2) {
+  return window['go']['main']['App']['GetRDPLogin'](arg1, arg2);
 }
 
 export function GetSavedCapabilities() {
@@ -170,12 +170,20 @@ export function OpenCommandTerminal(arg1, arg2) {
   return window['go']['main']['App']['OpenCommandTerminal'](arg1, arg2);
 }
 
+export function OpenForwardSFTP(arg1, arg2) {
+  return window['go']['main']['App']['OpenForwardSFTP'](arg1, arg2);
+}
+
+export function OpenForwardTerminal(arg1, arg2) {
+  return window['go']['main']['App']['OpenForwardTerminal'](arg1, arg2);
+}
+
 export function OpenPortlessServiceSettings() {
   return window['go']['main']['App']['OpenPortlessServiceSettings']();
 }
 
-export function OpenRDP(arg1, arg2) {
-  return window['go']['main']['App']['OpenRDP'](arg1, arg2);
+export function OpenRDP(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenRDP'](arg1, arg2, arg3);
 }
 
 export function OpenSFTP(arg1) {
@@ -238,8 +246,8 @@ export function SFTPWriteText(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SFTPWriteText'](arg1, arg2, arg3, arg4);
 }
 
-export function SaveRDPLogin(arg1, arg2) {
-  return window['go']['main']['App']['SaveRDPLogin'](arg1, arg2);
+export function SaveRDPLogin(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRDPLogin'](arg1, arg2, arg3);
 }
 
 export function SelectFile() {
@@ -282,8 +290,8 @@ export function TerminalWrite(arg1, arg2) {
   return window['go']['main']['App']['TerminalWrite'](arg1, arg2);
 }
 
-export function TrustRDPCertificate(arg1, arg2) {
-  return window['go']['main']['App']['TrustRDPCertificate'](arg1, arg2);
+export function TrustRDPCertificate(arg1, arg2, arg3) {
+  return window['go']['main']['App']['TrustRDPCertificate'](arg1, arg2, arg3);
 }
 
 export function UninstallPortlessService() {

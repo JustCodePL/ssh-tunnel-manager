@@ -4,9 +4,11 @@
   import { EventsOn } from "../../wailsjs/runtime/runtime";
   import { loadIronRdp } from "../lib/ironrdp";
   import { createMacKeyMapper } from "../lib/macKeyMapper.js";
-  import type { TunnelConfig } from "../types";
+  import type { PortForward, TunnelConfig } from "../types";
 
   export let tunnel: TunnelConfig;
+  // The forward to open a desktop on. Without one, the host's own RDP server.
+  export let forward: PortForward | null = null;
   const dispatch = createEventDispatcher<{ close: void }>();
 
   type View = "loading" | "login" | "connecting" | "connected" | "paused" | "ended" | "certificate";
@@ -15,7 +17,14 @@
   const ERROR_WRONG_PASSWORD = 1;
   const ERROR_LOGON_FAILURE = 2;
   const ERROR_ACCESS_DENIED = 3;
+  const ERROR_RDCLEANPATH = 4;
   const ERROR_NEGOTIATION = 6;
+
+  const target = forward
+    ? { remoteHost: forward.remoteHost, remotePort: forward.remotePort }
+    : { remoteHost: "", remotePort: 0 };
+  const targetLabel = forward ? `${tunnel.name} → ${forward.remoteHost}:${forward.remotePort}` : tunnel.name;
+  let stateKey = "";
 
   let view: View = "loading";
   let message = "";
@@ -91,6 +100,8 @@
       message = "This account has no remote desktop access.";
     } else if (kind === ERROR_NEGOTIATION) {
       message = "The server does not accept the security settings this client offers.";
+    } else if (kind === ERROR_RDCLEANPATH) {
+      message = `Could not connect to the RDP server of ${targetLabel}.`;
     } else {
       message = text;
     }
@@ -108,12 +119,13 @@
     try {
       const backend = await loadIronRdp();
       if (current !== attempt) return;
-      const session = await OpenRDP(tunnel.id, login as any);
+      const session = await OpenRDP(tunnel.id, target as any, login as any);
       if (current !== attempt) {
         CloseRDP(session.id).catch(() => {});
         return;
       }
       sessionId = session.id;
+      stateKey = session.stateKey;
       activeLogin = { username: session.username, domain: session.domain, password: session.password };
       const created = document.createElement("iron-remote-desktop");
       created.setAttribute("scale", "fit");
@@ -150,7 +162,7 @@
       element?.focus();
       if (saveAfterConnect && activeLogin) {
         saveAfterConnect = false;
-        SaveRDPLogin(tunnel.id, activeLogin as any).catch((e) => console.error("saving RDP login failed:", e));
+        SaveRDPLogin(tunnel.id, target as any, activeLogin as any).catch((e) => console.error("saving RDP login failed:", e));
       }
       info
         .run()
@@ -185,7 +197,7 @@
   async function trustCertificate() {
     if (!certificateChange) return;
     try {
-      await TrustRDPCertificate(tunnel.id, certificateChange.actual);
+      await TrustRDPCertificate(tunnel.id, target as any, certificateChange.actual);
       certificateChange = null;
       start();
     } catch (e: any) {
@@ -225,7 +237,7 @@
   }
 
   const offCertificateChanged = EventsOn("rdp:certificate-changed", (change: any) => {
-    if (change.tunnelId === tunnel.id) {
+    if (change.stateKey === stateKey) {
       certificateChange = { expected: change.expected, actual: change.actual };
     }
   });
@@ -235,7 +247,7 @@
     window.addEventListener("keydown", onKeyCapture, true);
     window.addEventListener("keyup", onKeyCapture, true);
     try {
-      const saved = await GetRDPLogin(tunnel.id);
+      const saved = await GetRDPLogin(tunnel.id, target as any);
       if (saved.username) username = saved.username;
       domain = saved.domain ?? "";
       if (saved.hasPassword) {
@@ -261,7 +273,7 @@
 
 <div class="rdp-overlay">
   <div class="rdp-titlebar">
-    <span class="rdp-title">rdp — {tunnel.name}</span>
+    <span class="rdp-title">rdp — {targetLabel}</span>
     <div class="rdp-actions">
       {#if view === "connected"}
         <button class="rdp-text-btn" on:click={() => interaction?.ctrlAltDel()} title="Send Ctrl+Alt+Del">ctrl+alt+del</button>

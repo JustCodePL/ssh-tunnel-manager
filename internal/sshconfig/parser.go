@@ -23,6 +23,8 @@ type PortForwardEntry struct {
 	ExposePort   int
 	HostHeader   string
 	HostHeaderOn bool
+	Protocol     string
+	SSHUser      string
 }
 
 // HostEntry holds the parsed fields of a single Host block in an SSH config
@@ -153,6 +155,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var pendingFwdExposePort int
 	var pendingFwdHostHeader string
 	var pendingFwdHostHeaderOn bool
+	var pendingFwdProtocol string
+	var pendingFwdSSHUser string
 	inMatch := false
 
 	resetPendingForward := func() {
@@ -161,6 +165,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 		pendingFwdExposePort = 0
 		pendingFwdHostHeader = ""
 		pendingFwdHostHeaderOn = false
+		pendingFwdProtocol = ""
+		pendingFwdSSHUser = ""
 	}
 
 	for scanner.Scan() {
@@ -202,6 +208,13 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				pendingFwdHostHeaderOn = true
 			case "forward-host-header-on":
 				pendingFwdHostHeaderOn = val == "true"
+			case "forward-protocol":
+				pendingFwdProtocol = ""
+				if val == "rdp" || val == "ssh" || val == "none" {
+					pendingFwdProtocol = val
+				}
+			case "forward-ssh-user":
+				pendingFwdSSHUser = val
 			}
 			continue
 		}
@@ -301,6 +314,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				pf.ExposePort = pendingFwdExposePort
 				pf.HostHeader = pendingFwdHostHeader
 				pf.HostHeaderOn = pendingFwdHostHeaderOn
+				pf.Protocol = pendingFwdProtocol
+				pf.SSHUser = pendingFwdSSHUser
 				current.PortForwards = append(current.PortForwards, pf)
 			}
 			resetPendingForward()
@@ -388,6 +403,12 @@ func RenderHostBlock(e HostEntry) string {
 			if pf.HostHeader != "" {
 				fmt.Fprintf(&b, "    # stm:forward-host-header=%s\n", pf.HostHeader)
 			}
+		}
+		if pf.Protocol != "" {
+			fmt.Fprintf(&b, "    # stm:forward-protocol=%s\n", pf.Protocol)
+		}
+		if pf.SSHUser != "" {
+			fmt.Fprintf(&b, "    # stm:forward-ssh-user=%s\n", pf.SSHUser)
 		}
 		// LocalForward needs a numeric port — use LocalPort if set, otherwise
 		// fall back to RemotePort so the line stays valid for plain `ssh`

@@ -568,12 +568,18 @@ func NewSFTPManager(getPassphrase PassphraseFunc) *SFTPManager {
 // OpenSession establishes a new SSH+SFTP connection for the given tunnel
 // configuration. Returns the session ID and the remote home directory.
 func (sm *SFTPManager) OpenSession(cfg config.TunnelConfig) (string, string, error) {
+	return sm.OpenSessionVia(cfg, nil)
+}
+
+// OpenSessionVia is like OpenSession, but carries the connection over an
+// existing tunnel when via is set.
+func (sm *SFTPManager) OpenSessionVia(cfg config.TunnelConfig, via RemoteDialer) (string, string, error) {
 	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase)
 	if err != nil {
 		return "", "", fmt.Errorf("building SSH config for SFTP: %w", err)
 	}
 
-	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase}
+	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", "", fmt.Errorf("connecting SFTP to %s: %w", cfg.Host, err)

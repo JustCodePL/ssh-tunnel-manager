@@ -2,7 +2,7 @@
   import type { TunnelConfig, PortForward } from "../types";
   import { PORTLESS_TLD } from "../types";
   import { addTunnel, updateTunnel, tunnels, includedConfigFiles } from "../stores/tunnels";
-  import { preparePortForwardsForSave } from "../lib/portForwards";
+  import { effectiveForwardProtocol, preparePortForwardsForSave } from "../lib/portForwards";
   import { createEventDispatcher, onMount } from "svelte";
   import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 
@@ -82,6 +82,17 @@
 
   function addPortForward() {
     portForwards = [...portForwards, { localPort: 0, remoteHost: "127.0.0.1", remotePort: 0, description: "" }];
+  }
+
+  const FORWARD_PROTOCOLS: { value: "rdp" | "ssh" | "none"; label: string }[] = [
+    { value: "rdp", label: "rdp" },
+    { value: "ssh", label: "ssh" },
+    { value: "none", label: "undefined" },
+  ];
+
+  function setForwardProtocol(index: number, protocol: "rdp" | "ssh" | "none") {
+    portForwards[index].protocol = protocol;
+    portForwards = portForwards;
   }
 
   function removePortForward(index: number) {
@@ -428,6 +439,32 @@
                 max="65535"
               />
             </div>
+            <div class="protocol-row">
+              <span class="protocol-label">type</span>
+              {#each FORWARD_PROTOCOLS as option}
+                <label class="protocol-option">
+                  <input
+                    type="radio"
+                    name="forward-protocol-{i}"
+                    value={option.value}
+                    checked={effectiveForwardProtocol(pf) === option.value}
+                    on:change={() => setForwardProtocol(i, option.value)}
+                  />
+                  {option.label}
+                </label>
+              {/each}
+              {#if effectiveForwardProtocol(pf) === "ssh"}
+                <input
+                  type="text"
+                  bind:value={pf.sshUser}
+                  class="field-input ssh-user-input"
+                  placeholder={user || "ssh user"}
+                  autocomplete="off"
+                  spellcheck="false"
+                  title="user on the target machine. leave empty to use this tunnel's user"
+                />
+              {/if}
+            </div>
             <div class="portless-row">
               <label class="portless-toggle" on:click|preventDefault={() => togglePortless(i)}>
                 <span class="hacker-check small" class:checked={pf.portless}>
@@ -744,6 +781,17 @@
 
   .port-input.dimmed { opacity: 0.4; }
 
+  .protocol-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 11px;
+  }
+  .protocol-label { color: #666; }
+  .protocol-option { display: flex; align-items: center; gap: 4px; color: #aaa; cursor: pointer; }
+  .protocol-option input { accent-color: #00ff88; margin: 0; }
+  .ssh-user-input { flex: 1; min-width: 80px; padding: 3px 6px; font-size: 11px; }
   .portless-row {
     display: flex;
     align-items: center;

@@ -315,6 +315,9 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 	if err := validateRDPPort(t.RDPPort); err != nil {
 		return err
 	}
+	if err := validateForwardProtocols(t.PortForwards); err != nil {
+		return err
+	}
 	t.ID = t.Name
 	if err := a.store.AddTunnel(t); err != nil {
 		return err
@@ -329,6 +332,9 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 // the user having to toggle the tunnel manually.
 func (a *App) UpdateTunnel(t config.TunnelConfig) error {
 	if err := validateRDPPort(t.RDPPort); err != nil {
+		return err
+	}
+	if err := validateForwardProtocols(t.PortForwards); err != nil {
 		return err
 	}
 	wasActive := a.isTunnelActive(t.ID)
@@ -352,7 +358,7 @@ func (a *App) UpdateTunnel(t config.TunnelConfig) error {
 	}
 	a.tray.RefreshMenu()
 	if t.ID != t.Name {
-		a.moveRDPState(t.ID, t.Name)
+		a.moveRDPState(t.ID, t.Name, t.PortForwards)
 	}
 
 	if wasActive {
@@ -383,10 +389,11 @@ func (a *App) isTunnelActive(id string) bool {
 // DeleteTunnel removes a tunnel by ID. Disconnects it first if running.
 func (a *App) DeleteTunnel(id string) error {
 	_ = a.manager.Disconnect(id) // ignore error if not connected
+	deleted, _ := a.store.GetTunnel(id)
 	if err := a.store.DeleteTunnel(id); err != nil {
 		return err
 	}
-	a.removeRDPState(id)
+	a.removeRDPState(id, deleted.PortForwards)
 	a.tray.RefreshMenu()
 	return nil
 }
@@ -1417,6 +1424,8 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 			Portless:    pf.Portless,
 			Domain:      pf.Domain,
 			ExposePort:  pf.ExposePort,
+			Protocol:    pf.Protocol,
+			SSHUser:     pf.SSHUser,
 		})
 	}
 	return t
@@ -1447,6 +1456,8 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 			Portless:    pf.Portless,
 			Domain:      pf.Domain,
 			ExposePort:  pf.ExposePort,
+			Protocol:    pf.Protocol,
+			SSHUser:     pf.SSHUser,
 		})
 	}
 	return e

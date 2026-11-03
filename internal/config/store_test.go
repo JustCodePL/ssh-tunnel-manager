@@ -572,3 +572,22 @@ func TestRDPPortPersists(t *testing.T) {
 		t.Fatalf("after clearing: %+v", got)
 	}
 }
+
+func TestEffectiveProtocol(t *testing.T) {
+	cases := []struct {
+		pf   PortForward
+		want string
+	}{
+		{PortForward{RemotePort: 3389}, ForwardProtocolRDP},
+		{PortForward{RemotePort: 22}, ForwardProtocolSSH},
+		{PortForward{RemotePort: 8080}, ForwardProtocolNone},
+		{PortForward{RemotePort: 3389, Protocol: ForwardProtocolNone}, ForwardProtocolNone},
+		{PortForward{RemotePort: 8080, Protocol: ForwardProtocolRDP}, ForwardProtocolRDP},
+		{PortForward{RemotePort: 2222, Protocol: ForwardProtocolSSH}, ForwardProtocolSSH},
+	}
+	for _, c := range cases {
+		if got := c.pf.EffectiveProtocol(); got != c.want {
+			t.Errorf("%+v = %q, want %q", c.pf, got, c.want)
+		}
+	}
+}

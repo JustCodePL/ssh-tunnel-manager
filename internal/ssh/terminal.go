@@ -85,18 +85,24 @@ func NewTerminalManager(getPassphrase PassphraseFunc) *TerminalManager {
 // OpenSession establishes a new SSH connection and opens an interactive PTY shell.
 // emitFn is called with output data; closedFn is called when the session ends.
 func (tm *TerminalManager) OpenSession(cfg config.TunnelConfig, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
-	return tm.openSession(cfg, "", emitFn, closedFn)
+	return tm.openSession(cfg, "", nil, emitFn, closedFn)
+}
+
+// OpenSessionVia is like OpenSession, but carries the connection over an
+// existing tunnel.
+func (tm *TerminalManager) OpenSessionVia(cfg config.TunnelConfig, via RemoteDialer, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
+	return tm.openSession(cfg, "", via, emitFn, closedFn)
 }
 
 // OpenCommandSession is like OpenSession but runs command in the PTY instead of
 // a login shell — used for full-screen TUI tools such as htop.
 func (tm *TerminalManager) OpenCommandSession(cfg config.TunnelConfig, command string, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
-	return tm.openSession(cfg, command, emitFn, closedFn)
+	return tm.openSession(cfg, command, nil, emitFn, closedFn)
 }
 
 // openSession opens an interactive PTY session. If command is empty it starts a
 // login shell; otherwise it runs command in the PTY.
-func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
+func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, via RemoteDialer, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
 	// Build SSH client config (reuse same logic as Tunnel)
 	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase)
 	if err != nil {
@@ -104,7 +110,7 @@ func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, 
 	}
 
 	// Dial SSH connection (own connection, separate from tunnel)
-	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase}
+	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", fmt.Errorf("connecting terminal to %s: %w", cfg.Host, err)

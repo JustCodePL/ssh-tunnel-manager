@@ -37,6 +37,9 @@ const (
 	// the UI ("saving..." spinner during UpdateTunnel) doesn't lock up. Stray
 	// goroutines wake up and clean themselves up shortly after.
 	shutdownTimeout = 5 * time.Second
+	// viaHandshakeTimeout bounds an SSH handshake carried over a tunnel when the
+	// client config sets no timeout of its own.
+	viaHandshakeTimeout = 15 * time.Second
 )
 
 // PassphraseFunc is called when an encrypted key needs a passphrase.
@@ -61,9 +64,16 @@ type Tunnel struct {
 	// IP and register the *.ssh-local domain. nil disables portless mode.
 	DNSRegistry dns.ForwardRegistry
 
+	// Via, when set, carries the SSH connection over an existing tunnel instead
+	// of dialing directly. ProxyCommand and ProxyJump are then ignored.
+	Via RemoteDialer
+
 	mu     sync.Mutex
 	client *ssh.Client
 }
+
+// RemoteDialer opens a TCP connection to addr as seen from another SSH server.
+type RemoteDialer func(ctx context.Context, addr string) (net.Conn, error)
 
 func (t *Tunnel) log(level, msg string) {
 	if t.LogFunc != nil {
@@ -278,6 +288,31 @@ func (t *Tunnel) DialRemote(ctx context.Context, addr string) (net.Conn, error) 
 	}
 }
 
+// dialVia runs the SSH handshake over a connection opened through a tunnel. The
+// connection does not support deadlines, so a timeout closes it instead.
+func (t *Tunnel) dialVia(ctx context.Context, addr string, sshConfig *ssh.ClientConfig) (*ssh.Client, error) {
+	timeout := sshConfig.Timeout
+	if timeout <= 0 {
+		timeout = viaHandshakeTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	conn, err := t.Via(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
+
+	c, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("SSH handshake with %s through tunnel: %w", addr, err)
+	}
+	return ssh.NewClient(c, chans, reqs), nil
+}
+
 // IsRemoteDialRefused reports whether DialRemote failed because the SSH server
 // answered that it could not open the connection, as opposed to a problem with
 // the SSH connection itself.
@@ -292,6 +327,9 @@ func (t *Tunnel) dial(ctx context.Context, sshConfig *ssh.ClientConfig) (*ssh.Cl
 	addr := fmt.Sprintf("%s:%d", t.Config.Host, t.Config.Port)
 
 	switch {
+	case t.Via != nil:
+		t.log("info", fmt.Sprintf("Connecting to %s@%s:%d through a tunnel", t.Config.User, t.Config.Host, t.Config.Port))
+		return t.dialVia(ctx, addr, sshConfig)
 	case t.Config.ProxyCommand != "":
 		t.log("info", fmt.Sprintf("Connecting to %s@%s:%d via ProxyCommand", t.Config.User, t.Config.Host, t.Config.Port))
 		return t.dialViaProxyCommand(ctx, addr, sshConfig)

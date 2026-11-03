@@ -403,6 +403,13 @@ func (m *Manager) DialRemote(ctx context.Context, tunnelID, addr string) (net.Co
 	return tun.DialRemote(ctx, addr)
 }
 
+// RemoteDialerFor returns a dialer that reaches addresses through a tunnel.
+func (m *Manager) RemoteDialerFor(tunnelID string) RemoteDialer {
+	return func(ctx context.Context, addr string) (net.Conn, error) {
+		return m.DialRemote(ctx, tunnelID, addr)
+	}
+}
+
 func (m *Manager) connectedTunnel(tunnelID string) (*Tunnel, error) {
 	m.mu.Lock()
 	rt, exists := m.tunnels[tunnelID]

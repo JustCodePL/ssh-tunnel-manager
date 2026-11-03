@@ -60,6 +60,7 @@ type RDPSavedLogin struct {
 // password, because the client performs NLA in the webview.
 type RDPSession struct {
 	ID           string `json:"id"`
+	StateKey     string `json:"stateKey"`
 	ProxyAddress string `json:"proxyAddress"`
 	Token        string `json:"token"`
 	Destination  string `json:"destination"`
@@ -68,10 +69,10 @@ type RDPSession struct {
 	Password     string `json:"password"`
 }
 
-// RDPCertificateChange tells the frontend that a host's certificate differs
+// RDPCertificateChange tells the frontend that a server's certificate differs
 // from the pinned one, so the user can decide whether to trust it.
 type RDPCertificateChange struct {
-	TunnelID string `json:"tunnelId"`
+	StateKey string `json:"stateKey"`
 	Expected string `json:"expected"`
 	Actual   string `json:"actual"`
 }
@@ -96,9 +97,36 @@ func (a *App) probeRDP(tunnelID string) (bool, error) {
 	return rdp.Probe(ctx, conn)
 }
 
-// GetRDPLogin returns the stored login for a host, without its password.
-func (a *App) GetRDPLogin(tunnelID string) (RDPSavedLogin, error) {
-	credentials, found, err := keychain.GetRDPCredentials(tunnelID)
+// resolveRDPTarget returns the key under which a target's login and certificate
+// are stored, and the address it is reached at through the tunnel. An empty
+// target means the host's own RDP server. Any other target must be a forward
+// configured on the host, so the frontend cannot open arbitrary connections.
+func (a *App) resolveRDPTarget(tunnelID string, target ForwardTarget) (string, string, error) {
+	cfg, ok := a.store.GetTunnel(tunnelID)
+	if !ok {
+		return "", "", &tunnelNotFoundError{tunnelID}
+	}
+	if target.RemoteHost == "" {
+		return tunnelID, rdpRemoteAddress(cfg), nil
+	}
+	if _, err := findForward(cfg, target, config.ForwardProtocolRDP); err != nil {
+		return "", "", err
+	}
+	return rdpForwardKey(tunnelID, target), target.address(), nil
+}
+
+// rdpForwardKey is the storage key of a forward target's login and certificate.
+func rdpForwardKey(tunnelID string, target ForwardTarget) string {
+	return tunnelID + ">" + target.address()
+}
+
+// GetRDPLogin returns the stored login for a target, without its password.
+func (a *App) GetRDPLogin(tunnelID string, target ForwardTarget) (RDPSavedLogin, error) {
+	key, _, err := a.resolveRDPTarget(tunnelID, target)
+	if err != nil {
+		return RDPSavedLogin{}, err
+	}
+	credentials, found, err := keychain.GetRDPCredentials(key)
 	if err != nil {
 		return RDPSavedLogin{}, err
 	}
@@ -110,34 +138,42 @@ func (a *App) GetRDPLogin(tunnelID string) (RDPSavedLogin, error) {
 
 // SaveRDPLogin stores a login in the OS keychain. The frontend calls this once
 // the login has worked, so a mistyped password is never stored.
-func (a *App) SaveRDPLogin(tunnelID string, login RDPLogin) error {
-	return keychain.SetRDPCredentials(tunnelID, keychain.RDPCredentials{
+func (a *App) SaveRDPLogin(tunnelID string, target ForwardTarget, login RDPLogin) error {
+	key, _, err := a.resolveRDPTarget(tunnelID, target)
+	if err != nil {
+		return err
+	}
+	return keychain.SetRDPCredentials(key, keychain.RDPCredentials{
 		Username: login.Username,
 		Domain:   login.Domain,
 		Password: login.Password,
 	})
 }
 
-// ForgetRDPLogin removes the stored login for a host.
-func (a *App) ForgetRDPLogin(tunnelID string) error {
-	return keychain.DeleteRDPCredentials(tunnelID)
+// ForgetRDPLogin removes the stored login for a target.
+func (a *App) ForgetRDPLogin(tunnelID string, target ForwardTarget) error {
+	key, _, err := a.resolveRDPTarget(tunnelID, target)
+	if err != nil {
+		return err
+	}
+	return keychain.DeleteRDPCredentials(key)
 }
 
-// OpenRDP registers a bridge session to the host's RDP server. The tunnel must
-// be connected, and the session uses its SSH connection.
-func (a *App) OpenRDP(tunnelID string, login RDPLogin) (*RDPSession, error) {
-	cfg, ok := a.store.GetTunnel(tunnelID)
-	if !ok {
-		return nil, &tunnelNotFoundError{tunnelID}
+// OpenRDP registers a bridge session to an RDP server: the host's own, or the
+// one behind a forward. The tunnel must be connected, and the session uses its
+// SSH connection, so a forward's target is reached from the host.
+func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*RDPSession, error) {
+	key, address, err := a.resolveRDPTarget(tunnelID, target)
+	if err != nil {
+		return nil, err
 	}
-	address := rdpRemoteAddress(cfg)
 	if login.Password == "" {
-		stored, found, err := keychain.GetRDPCredentials(tunnelID)
+		stored, found, err := keychain.GetRDPCredentials(key)
 		if err != nil {
 			return nil, err
 		}
 		if !found {
-			return nil, errors.New("no stored RDP login for this host")
+			return nil, errors.New("no stored RDP login for this target")
 		}
 		login = RDPLogin{Username: stored.Username, Domain: stored.Domain, Password: stored.Password}
 	}
@@ -148,14 +184,15 @@ func (a *App) OpenRDP(tunnelID string, login RDPLogin) (*RDPSession, error) {
 			return a.manager.DialRemote(ctx, tunnelID, address)
 		},
 		CheckCertificate: func(fingerprint string) error {
-			return a.checkRDPCertificate(tunnelID, fingerprint)
+			return a.checkRDPCertificate(key, fingerprint)
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("opening RDP session for %s: %w", tunnelID, err)
+		return nil, fmt.Errorf("opening RDP session for %s: %w", key, err)
 	}
 	return &RDPSession{
 		ID:           session.ID,
+		StateKey:     key,
 		ProxyAddress: session.ProxyAddress,
 		Token:        session.Token,
 		Destination:  address,
@@ -171,29 +208,33 @@ func (a *App) CloseRDP(sessionID string) {
 }
 
 // TrustRDPCertificate pins a new certificate after the user accepted a change.
-func (a *App) TrustRDPCertificate(tunnelID, fingerprint string) error {
+func (a *App) TrustRDPCertificate(tunnelID string, target ForwardTarget, fingerprint string) error {
+	key, _, err := a.resolveRDPTarget(tunnelID, target)
+	if err != nil {
+		return err
+	}
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
-	return a.pinRDPCertificate(tunnelID, fingerprint)
+	return a.pinRDPCertificate(key, fingerprint)
 }
 
 // checkRDPCertificate trusts a host's certificate on first use, and refuses a
 // different one afterwards until the user accepts it.
-func (a *App) checkRDPCertificate(tunnelID, fingerprint string) error {
+func (a *App) checkRDPCertificate(stateKey, fingerprint string) error {
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
-	pinned := a.prefs.Get().RDPCertificates[tunnelID]
+	pinned := a.prefs.Get().RDPCertificates[stateKey]
 	switch pinned {
 	case fingerprint:
 		return nil
 	case "":
-		slog.Info("pinning RDP certificate on first use", "tunnel", tunnelID, "sha256", fingerprint)
-		return a.pinRDPCertificate(tunnelID, fingerprint)
+		slog.Info("pinning RDP certificate on first use", "target", stateKey, "sha256", fingerprint)
+		return a.pinRDPCertificate(stateKey, fingerprint)
 	}
-	slog.Warn("RDP certificate changed", "tunnel", tunnelID, "expected", pinned, "actual", fingerprint)
+	slog.Warn("RDP certificate changed", "target", stateKey, "expected", pinned, "actual", fingerprint)
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, eventRDPCertificateChanged, RDPCertificateChange{
-			TunnelID: tunnelID,
+			StateKey: stateKey,
 			Expected: pinned,
 			Actual:   fingerprint,
 		})
@@ -227,25 +268,34 @@ func withRDPCertificate(certificates map[string]string, tunnelID, fingerprint st
 	return updated
 }
 
-// moveRDPState carries a host's RDP login, pinned certificate and detection
-// result over to its new ID after a rename, so renaming neither loses the login
-// nor resets certificate trust.
-func (a *App) moveRDPState(oldID, newID string) {
-	if credentials, found, err := keychain.GetRDPCredentials(oldID); err != nil {
-		slog.Warn("reading RDP login during rename failed", "tunnel", oldID, "error", err)
-	} else if found {
-		if err := keychain.SetRDPCredentials(newID, credentials); err != nil {
-			slog.Warn("moving RDP login failed", "tunnel", newID, "error", err)
-		} else if err := keychain.DeleteRDPCredentials(oldID); err != nil {
-			slog.Warn("removing old RDP login failed", "tunnel", oldID, "error", err)
+// moveRDPState carries RDP logins, pinned certificates and the detection result
+// over to a host's new ID after a rename, so renaming neither loses a login nor
+// resets certificate trust.
+func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
+	moves := map[string]string{oldID: newID}
+	for _, pf := range forwards {
+		target := ForwardTarget{RemoteHost: pf.RemoteHost, RemotePort: pf.RemotePort}
+		moves[rdpForwardKey(oldID, target)] = rdpForwardKey(newID, target)
+	}
+	for from, to := range moves {
+		if credentials, found, err := keychain.GetRDPCredentials(from); err != nil {
+			slog.Warn("reading RDP login during rename failed", "target", from, "error", err)
+		} else if found {
+			if err := keychain.SetRDPCredentials(to, credentials); err != nil {
+				slog.Warn("moving RDP login failed", "target", to, "error", err)
+			} else if err := keychain.DeleteRDPCredentials(from); err != nil {
+				slog.Warn("removing old RDP login failed", "target", from, "error", err)
+			}
 		}
 	}
 
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
 	p := a.prefs.Get()
-	if pinned, ok := p.RDPCertificates[oldID]; ok {
-		p.RDPCertificates = withRDPCertificate(withRDPCertificate(p.RDPCertificates, oldID, ""), newID, pinned)
+	for from, to := range moves {
+		if pinned, ok := p.RDPCertificates[from]; ok {
+			p.RDPCertificates = withRDPCertificate(withRDPCertificate(p.RDPCertificates, from, ""), to, pinned)
+		}
 	}
 	if tools, ok := p.HostTools[oldID]; ok {
 		p.HostTools = cloneHostTools(p.HostTools)
@@ -253,23 +303,36 @@ func (a *App) moveRDPState(oldID, newID string) {
 		p.HostTools[newID] = tools
 	}
 	if err := a.prefs.Set(p); err != nil {
-		slog.Warn("moving RDP state failed", "tunnel", newID, "error", err)
+		slog.Warn("moving RDP state failed", "target", newID, "error", err)
 	}
 }
 
-// removeRDPState forgets a deleted host's RDP login and pinned certificate.
-func (a *App) removeRDPState(tunnelID string) {
-	if err := keychain.DeleteRDPCredentials(tunnelID); err != nil {
-		slog.Warn("removing RDP login failed", "tunnel", tunnelID, "error", err)
+// removeRDPState forgets the RDP logins and pinned certificates of a deleted
+// host and of its forwards.
+func (a *App) removeRDPState(tunnelID string, forwards []config.PortForward) {
+	keys := []string{tunnelID}
+	for _, pf := range forwards {
+		keys = append(keys, rdpForwardKey(tunnelID, ForwardTarget{RemoteHost: pf.RemoteHost, RemotePort: pf.RemotePort}))
+	}
+	for _, key := range keys {
+		if err := keychain.DeleteRDPCredentials(key); err != nil {
+			slog.Warn("removing RDP login failed", "target", key, "error", err)
+		}
 	}
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
 	p := a.prefs.Get()
-	if _, ok := p.RDPCertificates[tunnelID]; !ok {
+	changed := false
+	for _, key := range keys {
+		if _, ok := p.RDPCertificates[key]; ok {
+			p.RDPCertificates = withRDPCertificate(p.RDPCertificates, key, "")
+			changed = true
+		}
+	}
+	if !changed {
 		return
 	}
-	p.RDPCertificates = withRDPCertificate(p.RDPCertificates, tunnelID, "")
 	if err := a.prefs.Set(p); err != nil {
-		slog.Warn("removing RDP certificate failed", "tunnel", tunnelID, "error", err)
+		slog.Warn("removing RDP certificates failed", "tunnel", tunnelID, "error", err)
 	}
 }

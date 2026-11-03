@@ -2,9 +2,9 @@
   import { onMount, onDestroy } from "svelte";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
-  import { OpenTerminal, OpenCommandTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
+  import { OpenForwardTerminal, OpenTerminal, OpenCommandTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
   import { EventsOn, EventsOff, ClipboardGetText, ClipboardSetText } from "../../wailsjs/runtime/runtime";
-  import type { TunnelConfig } from "../types";
+  import type { PortForward, TunnelConfig } from "../types";
   import { createEventDispatcher } from "svelte";
 
   export let tunnel: TunnelConfig;
@@ -12,6 +12,9 @@
   // shell. label overrides the window/pill title prefix ("terminal" by default).
   export let command: string = "";
   export let label: string = "terminal";
+  // The SSH forward to open a shell on. Without one, the host itself.
+  export let forward: PortForward | null = null;
+  $: targetLabel = forward ? `${tunnel.name} → ${forward.sshUser || tunnel.user}@${forward.remoteHost}:${forward.remotePort}` : `${tunnel.name} (${tunnel.user}@${tunnel.host})`;
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let termEl: HTMLDivElement;
@@ -77,9 +80,11 @@
     });
 
     try {
-      sessionId = command
-        ? await OpenCommandTerminal(tunnel.id, command)
-        : await OpenTerminal(tunnel.id);
+      sessionId = forward
+        ? await OpenForwardTerminal(tunnel.id, { remoteHost: forward.remoteHost, remotePort: forward.remotePort } as any)
+        : command
+          ? await OpenCommandTerminal(tunnel.id, command)
+          : await OpenTerminal(tunnel.id);
       loading = false;
       // Fit again now that we have a session, to send correct initial size
       setTimeout(() => {
@@ -142,7 +147,7 @@
 <div class="terminal-overlay" class:hidden={minimized}>
   <div class="terminal-window">
     <div class="terminal-titlebar">
-      <span class="terminal-title">{label} — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
+      <span class="terminal-title">{label} — {targetLabel}</span>
       <div class="titlebar-actions">
         <button class="title-btn minimize-btn" on:click={minimize} title="Minimize">−</button>
         <button class="close-btn" on:click={handleClose} title="Close">×</button>
