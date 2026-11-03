@@ -18,6 +18,10 @@ const (
 	initialBackoff = 1 * time.Second
 	maxBackoff     = 60 * time.Second
 	backoffFactor  = 2.0
+	// maxConnectAttempts is how many consecutive failed connection attempts a
+	// tunnel gets before it stops retrying and stays in the error state until
+	// the user connects it again.
+	maxConnectAttempts = 3
 	// disconnectTimeout caps how long DisconnectAndWait blocks waiting for the
 	// tunnel's goroutine to fully exit. Tunnel.Connect already has its own
 	// shorter shutdown timeout; this is a belt-and-suspenders bound so the
@@ -152,8 +156,9 @@ func NewManager(emitter EventEmitter, getPassphrase PassphraseFunc) *Manager {
 }
 
 // Connect starts a tunnel in a new goroutine. Returns immediately.
-// If the tunnel drops unexpectedly, it will auto-reconnect with
-// exponential backoff until explicitly disconnected.
+// A failed connection is retried with exponential backoff, up to
+// maxConnectAttempts consecutive attempts, after which the tunnel stays in the
+// error state until Connect is called again.
 func (m *Manager) Connect(cfg config.TunnelConfig) error {
 	m.mu.Lock()
 	if rt, exists := m.tunnels[cfg.ID]; exists && rt.status == config.StatusConnected {
@@ -218,8 +223,8 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 			m.mu.Lock()
 			rt.status = config.StatusReconnecting
 			m.mu.Unlock()
-			reconnMsg := fmt.Sprintf("reconnecting in %s", backoff.Truncate(time.Second))
-			m.emitLog(cfg.ID, "warn", fmt.Sprintf("Reconnecting in %s (attempt %d)", backoff.Truncate(time.Second), attempt))
+			reconnMsg := fmt.Sprintf("Retrying in %s (attempt %d of %d)", backoff.Truncate(time.Second), attempt+1, maxConnectAttempts)
+			m.emitLog(cfg.ID, "warn", reconnMsg)
 			m.emit(StatusEvent{
 				TunnelID: cfg.ID,
 				Status:   config.StatusReconnecting,
@@ -265,6 +270,7 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 				m.mu.Unlock()
 				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusConnected})
 				backoff = initialBackoff // reset backoff on successful connection
+				attempt = 0
 			},
 		}
 		if logEmitter != nil {
@@ -318,11 +324,19 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 			}
 
 			m.emitLog(cfg.ID, "error", fmt.Sprintf("Connection failed: %s", errMsg))
-			m.mu.Lock()
-			rt.status = config.StatusError
-			rt.errMsg = errMsg
-			m.mu.Unlock()
-			m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: errMsg})
+
+			// Out of attempts: stop until the user connects again.
+			if attempt >= maxConnectAttempts {
+				failedMsg := fmt.Sprintf("Connection failed after %d attempts: %s", attempt, errMsg)
+				m.emitLog(cfg.ID, "error", "Giving up. Not retrying.")
+				m.mu.Lock()
+				rt.status = config.StatusError
+				rt.errMsg = failedMsg
+				m.mu.Unlock()
+				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: failedMsg})
+				cancel()
+				return
+			}
 
 			// Increase backoff for next attempt
 			backoff = time.Duration(math.Min(

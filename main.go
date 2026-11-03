@@ -173,8 +173,8 @@ func openLogFileAt(dir string) *os.File {
 	return f
 }
 
-// maxLogFileSize bounds app.log so a tunnel stuck retrying forever (every
-// attempt logged, see internal/ssh.Manager) can't grow it without limit.
+// maxLogFileSize bounds app.log so repeated connection attempts (every attempt
+// is logged, see internal/ssh.Manager) can't grow it without limit.
 const maxLogFileSize = 5 * 1024 * 1024 // 5 MiB
 
 // rotateLogFileIfLarge renames an oversized log out of the way, keeping one

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PortForward, TunnelConfig, TunnelStatus } from "../types";
   import { PORTLESS_TLD } from "../types";
-  import { connectTunnel, disconnectTunnel, deleteTunnel, setTunnelPinned } from "../stores/tunnels";
+  import { connectTunnel, disconnectTunnel, deleteTunnel, setTunnelPinned, statuses } from "../stores/tunnels";
   import StatusBadge from "./StatusBadge.svelte";
   import ResourceWidget from "./ResourceWidget.svelte";
   import DiskWindow from "./DiskWindow.svelte";
@@ -95,6 +95,7 @@
   $: isActive = status === "connected" || status === "connecting" || status === "reconnecting";
   $: isConnected = status === "connected";
   $: isError = status === "error";
+  $: errorMessage = isError ? $statuses[tunnel.id]?.error : undefined;
 
   // Re-probe + persist tools on every connect so newly installed tools (e.g.
   // docker) are detected; close any open monitoring windows when the
@@ -126,6 +127,9 @@
         <StatusBadge {status} />
       </div>
       <div class="card-host">{tunnel.user}@{tunnel.host}:{tunnel.port}</div>
+      {#if errorMessage}
+        <div class="card-error" role="alert">{errorMessage}</div>
+      {/if}
       {#if isConnected && $showResourceStats}
         <ResourceWidget tunnelId={tunnel.id} />
       {/if}
@@ -315,6 +319,13 @@
   .tunnel-card.error {
     border-left-color: #ff4444;
     box-shadow: -2px 0 6px rgba(255, 68, 68, 0.15);
+  }
+
+  .card-error {
+    margin-top: 4px;
+    color: #ff4444;
+    font-size: 11px;
+    overflow-wrap: anywhere;
   }
 
   .card-header {
