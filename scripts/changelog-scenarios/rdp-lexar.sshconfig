@@ -1,0 +1,6 @@
+# A real RDP server. The address comes from $CHANGELOG_RDP_HOST.
+# stm:autoconnect=true
+Host lexar
+    HostName @RDP_HOST@
+    User artur
+    IdentityFile @HOME@/.ssh/id_rsa

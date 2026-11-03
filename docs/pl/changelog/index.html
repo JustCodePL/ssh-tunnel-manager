@@ -152,6 +152,649 @@
           </div>
           <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.1" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
         </article>
+
+        <article class="changelog-entry" id="v1.1.0">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.1.0">v1.1.0</a> <span class="release-badge">STABLE</span> <time datetime="2026-10-29">29 października 2026</time></p>
+            <h3>Portless na macOS działa po restarcie, a aplikacja w DMG jest notaryzowana</h3>
+            <p>Na macOS 13+ Portless działa też po restarcie komputera. Wystarczy raz zatwierdzić podpisaną usługę systemową.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Usługa systemowa Portless na macOS</h4>
+              <p>Usługa przywraca przy starcie systemu DNS, aliasy loopback i przekierowania na portach uprzywilejowanych, dla wszystkich kont na macOS. Gdy jej rejestracja jest nieaktualna, aplikacja podpowiada, jak to naprawić. Awaryjnie zostają porty lokalne.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Logi, aktualizacje i DMG</h4>
+              <p>Logi aplikacji trafiają do prywatnego pliku z rotacją, więc nie rosną bez końca. Dotyczy to też uruchomień w tle. Aplikacja uruchomiona przy logowaniu poprawnie startuje ponownie po aktualizacji. Aplikacja macOS w każdym DMG ma własny, dołączony bilet notaryzacji. W formularzu przekierowań przycisk dodawania jest teraz pod listą.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Na macOS 13+ raz zatwierdź podpisaną usługę systemową Portless.</li>
+                <li>W Ustawieniach możesz ją sprawdzić, odświeżyć albo usunąć.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.1.0" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.36">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.36">v1.0.36</a> <span class="release-badge">STABLE</span> <time datetime="2026-08-31">31 sierpnia 2026</time></p>
+            <h3>Pewniejszy Portless, aktualizacje i praca w tle</h3>
+            <p>To stabilne wydanie przynosi zmiany przetestowane w serii beta od v1.0.32 do v1.0.36.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Aktualizacje na macOS</h4>
+              <p>Aktualizacje działają niezależnie od ścieżki DMG, po zmianie nazwy pakietu aplikacji, przy przejściu z Beta na Stable i wtedy, gdy aplikacja należy do innego konta administratora.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Portless</h4>
+              <p>Automatyczne przekierowania są zachowywane, a błędy przekierowań SSH są czytelniejsze. Na macOS działa uprzywilejowany port 80. Wspólny rejestr DNS obsługuje kilka sesji użytkowników naraz.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Praca w tle</h4>
+              <p>Po zalogowaniu aplikacja startuje po cichu, a gdy jest ukryta, wstrzymuje odpytywanie o zasoby. <code>ProxyCommand</code> uruchamiany z Findera lub LaunchAgenta znów ma dostęp do typowych lokalizacji programów pomocniczych.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.36" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.31">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.31">v1.0.31</a> <span class="release-badge">STABLE</span> <time datetime="2026-08-10">10 sierpnia 2026</time></p>
+            <h3>Kanały aktualizacji Stable i Beta</h3>
+            <p>Możesz wybrać kanał aktualizacji, a aplikacja zapamięta ten wybór.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Kanały aktualizacji</h4>
+              <p>Stable albo Beta wybierasz w Ustawieniach. Sprawdzanie aktualizacji rozpoczęte na jednym kanale nie przenosi się już na drugi po jego zmianie.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/updates.png"><img src="../../assets/screenshots/updates.png" alt="Ustawienia aktualizacji: numer wersji, kanały Stable i Beta oraz przycisk sprawdzania aktualizacji" width="872" height="250" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Zasobnik, macOS i strona</h4>
+              <p>Przebudowa menu w zasobniku nie tworzy już zdublowanych ani częściowo posortowanych pozycji. macOS dostaje pulę aliasów loopback potrzebną przekierowaniom portless. W Ustawieniach są skróty do strony i GitHuba. Projekt ma teraz stronę pobierania na GitHub Pages z FAQ, danymi kontaktowymi i pełnym archiwum starszych wersji.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>W Ustawieniach, w sekcji <code>UPDATES</code>, wybierz <code>STABLE</code> albo <code>BETA</code>. Beta dostaje też wydania przedpremierowe.</li>
+                <li>Kliknij <code>check for updates</code>, żeby sprawdzić od razu.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.31" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.30">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.30">v1.0.30</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-19">19 czerwca 2026</time></p>
+            <h3>Więcej informacji w widokach Dockera i htop</h3>
+            <p>Widok Dockera ma grupy, szczegóły kontenerów i sortowanie, a widok htop sortuje procesy.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Docker</h4>
+              <p>Kontenery są podzielone na grupy active i stopped, przy czym stopped jest domyślnie zwinięta. Po kliknięciu kontenera widać bieżące użycie CPU i RAM, opublikowane porty, montowania, sieci i zmienne środowiskowe. Pasek sortowania układa listę po nazwie, CPU lub RAM. Automatycznego odświeżania już nie ma: lista odświeża się po otwarciu okna, kliknięciu ⟳ albo zmianie sortowania. Zwykła lista uruchamia tylko <code>docker ps</code>, więc na małych VPS-ach ładuje się dużo szybciej.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/docker-overview.png"><img src="../../assets/screenshots/docker-overview.png" alt="Widok Dockera z grupami kontenerów active i stopped oraz paskiem sortowania po nazwie, CPU i RAM" width="1200" height="800" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>htop</h4>
+              <p>Pasek sortowania układa procesy po CPU, pamięci, nazwie lub PID.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/htop.png"><img src="../../assets/screenshots/htop.png" alt="Monitor procesów z paskiem sortowania po CPU, pamięci, nazwie i PID nad listą procesów" width="1200" height="742" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Niezawodność</h4>
+              <p>Docker i htop są wykrywane przy każdym połączeniu, więc narzędzie zainstalowane od ostatniego połączenia pojawia się bez restartu aplikacji. Polecenia zdalne nie są już przerywane po sztywno ustawionych 8 sekundach. Polecenia Dockera mają 45 sekund, a błąd przekroczenia czasu podaje, ile naprawdę trwało oczekiwanie.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.30" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.29">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.29">v1.0.29</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-14">14 czerwca 2026</time></p>
+            <h3>Podgląd zdalnego hosta na żywo</h3>
+            <p>Połączony tunel pokazuje bieżące dane ze zdalnego hosta. Dane idą istniejącym połączeniem SSH, bez dodatkowych połączeń i agentów na serwerze.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>CPU i RAM</h4>
+              <p>Na każdym połączonym tunelu, pod hostem, pojawia się mały pasek użycia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/tunnels-connected-cpu-ram.png"><img src="../../assets/screenshots/tunnels-connected-cpu-ram.png" alt="Połączony tunel z paskami bieżącego użycia CPU i RAM pod hostem" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Dysk</h4>
+              <p>Przycisk <code>disk</code> otwiera okno z listą wszystkich montowań i paskami użycia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/disk-panel.png"><img src="../../assets/screenshots/disk-panel.png" alt="Okno dysku z listą zamontowanych systemów plików i paskami użycia" width="1200" height="800" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Docker i htop</h4>
+              <p>Na hostach z wykrytym Dockerem przycisk <code>docker</code> otwiera podgląd kontenerów na żywo. Na hostach z wykrytym htop przycisk <code>htop</code> otwiera monitor graficzny: paski CPU dla każdego rdzenia, RAM i swap, średnie obciążenie, czas działania i najbardziej obciążające procesy. Pełną powłokę nadal daje <code>term</code>. Wykryte narzędzia są zapamiętywane dla każdego hosta, więc przyciski zostają po restarcie aplikacji, ale są wyłączone do ponownego połączenia. Kliknięcie sprawdza narzędzie jeszcze raz i informuje, jeśli nie jest już zainstalowane.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Widżet CPU i RAM włączysz lub wyłączysz w Ustawieniach, w sekcji <code>monitoring</code>.</li>
+                <li>Na połączonym tunelu kliknij <code>disk</code>, <code>docker</code> albo <code>htop</code>.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.29" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.28">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.28">v1.0.28</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-03">3 czerwca 2026</time></p>
+            <h3>Bezpieczniejsze ustawienia Portless i poprawione aktualizacje na Linuksie</h3>
+            <p>Przepisywanie nagłówka Host na przekierowaniach portless trzeba teraz włączyć samemu, a po aktualizacji na Linuksie uruchamia się nowa wersja.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Przepisywanie nagłówka Host jest opcjonalne</h4>
+              <p>Na przekierowaniach portless przepisywanie jest domyślnie wyłączone i działa tylko wtedy, gdy włączysz je dla danego przekierowania w jego ustawieniach (⚙). Wcześniejsze automatyczne przepisywanie dla nazw FQDN psuło zwykłe TCP i inne usługi spoza HTTP. Konfiguracje z jawnie ustawioną wartością działają dalej.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Aktualizacje na Linuksie</h4>
+              <p>Po instalacji aktualizacji aplikacja uruchamia się już z nowego pliku binarnego, tak jak na macOS i Windows. Wcześniej po <code>Install &amp; Restart</code> nadal działała stara wersja.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.28" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.27">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.27">v1.0.27</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-29">29 maja 2026</time></p>
+            <h3>Uprzywilejowane porty Portless na Linuksie</h3>
+            <p>Na Linuksie działają teraz przekierowania portless na portach uprzywilejowanych, takich jak <code>:80</code>. Nie dotyczy to macOS i Windows.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Czytelny błąd i naprawa jednym kliknięciem</h4>
+              <p>Takie przekierowania nie działały bez żadnego komunikatu, bo procesowi brakowało <code>CAP_NET_BIND_SERVICE</code>. Ślad zostawał tylko w logu, łatwy do przeoczenia. Teraz aplikacja wykrywa ten problem i pokazuje baner oraz powiadomienie systemowe z dokładnym poleceniem <code>setcap</code> dla Twojego pliku binarnego. Aktualizator po podmianie pliku nadaje to uprawnienie ponownie. Twórcy pakietów dostają plik polityki PolicyKit, a README ma sekcję o trybie portless na Linuksie.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Kliknij <code>[ AUTHORIZE ]</code>. Aplikacja użyje PolicyKit i <code>pkexec setcap</code>.</li>
+                <li>Kliknij <code>[ RESTART NOW ]</code>, żeby zastosować zmianę.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.27" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.26">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.26">v1.0.26</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-29">29 maja 2026</time></p>
+            <h3>Wbudowana edycja plików przez SFTP</h3>
+            <p>Pliki tekstowe, konfiguracyjne i źródłowe otwierają się z przeglądarki SFTP od razu we wbudowanym edytorze.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Edytor</h4>
+              <p>Działa na CodeMirror i podświetla składnię typowych formatów webowych i DevOps. Pliki są wczytywane i zapisywane przez SFTP, bez lokalnych kopii tymczasowych. Nieznane formaty można wymusić jako zwykły tekst. Edytować można obok listy plików albo w osobnym oknie z minimalizacją, tak jak w terminalu.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Zapisywanie</h4>
+              <p>Jeśli plik zmienił się na serwerze od chwili otwarcia, aplikacja ostrzega przed nadpisaniem. Zapis jest atomowy i zachowuje uprawnienia pliku. Przy przejściu do innego pliku z niezapisanymi zmianami aplikacja pyta, czy zapisać, odrzucić zmiany, czy anulować.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Łączenie przy starcie</h4>
+              <p>Tunele oznaczone do łączenia przy starcie teraz faktycznie łączą się po uruchomieniu aplikacji.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.26" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.25">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.25">v1.0.25</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 maja 2026</time></p>
+            <h3>Nadpisywanie nagłówka Host na przekierowaniach Portless</h3>
+            <p>Przekierowania portless mogą nadpisywać nagłówek Host wysyłany do usługi, a rozłączanie tuneli portless już się nie zawiesza.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Nadpisywanie nagłówka Host</h4>
+              <p>Usługi za reverse proxy kierującym ruch po nazwie hosta (Portainer, Traefik, nginx) działają teraz także przez <code>*.ssh-local</code>. W tym wydaniu przełącznik jest domyślnie włączony. Gdy pole jest puste, a <code>RemoteHost</code> wygląda jak FQDN, ta nazwa jest używana automatycznie. Ustawienie jest zapisywane w <code>~/.ssh/config</code>.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Rozłączanie i okno ustawień</h4>
+              <p>Zamykanie tunelu portless ma teraz limit czasu, więc wskaźnik zapisu w formularzu tunelu nie może się zablokować. Przeciągnięcie zaznaczenia tekstu poza pole nie zamyka już okna ustawień przekierowania.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Kliknij ⚙ przy przekierowaniu i uzupełnij pole <code>Host header override</code>.</li>
+                <li>Żeby zrezygnować, wyłącz przełącznik.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Nadpisywanie działa tylko dla HTTP.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.25" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.24">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.24">v1.0.24</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 maja 2026</time></p>
+            <h3>Poprawione automatyczne aktualizacje na Linuksie</h3>
+            <p>Automatyczna aktualizacja na Linuksie nie kończy się już błędem <code>extracting update: exit status 2</code>.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.24" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.23">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.23">v1.0.23</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 maja 2026</time></p>
+            <h3>Domeny .ssh-local w trybie Portless</h3>
+            <p>Przekierowanie może mieć własną nazwę w domenie <code>.ssh-local</code> zamiast portu na <code>127.0.0.1</code>.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Tryb portless</h4>
+              <p>Po włączeniu <code>portless</code> przekierowanie dostaje osobny adres loopback <code>127.0.1.x</code> i jest dostępne jako <code>&lt;domain&gt;.ssh-local</code> przez serwer DNS wbudowany w aplikację. Jeśli adres jest zajęty, aplikacja próbuje kolejnego. Opcjonalny port po nazwie decyduje o tym, co trafia do schowka i menu w zasobniku: adres <code>http://</code> lub <code>https://</code> dla portów 80 i 443, a w pozostałych przypadkach <code>host:port</code>.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/portless-form.png"><img src="../../assets/screenshots/portless-form.png" alt="Przekierowanie z zaznaczonym portless i nazwą billing w domenie .ssh-local" width="1200" height="242" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Jednorazowa konfiguracja z uprawnieniami administratora</h4>
+              <p>Każdy system wymaga jej raz: reguła NRPT na Windows, <code>/etc/resolver</code> na macOS, plik drop-in systemd-resolved na Linuksie. Aplikacja poprosi o nią przy pierwszym połączeniu portless.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Formularz i karty tuneli</h4>
+              <p>Każde przekierowanie ma w formularzu edycji osobny blok z opisem na górze. Kliknięcie znacznika przekierowania na karcie tunelu kopiuje adres i pokazuje toast. Edycja połączonego tunelu od razu łączy go ponownie.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.23" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.22">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.22">v1.0.22</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-27">27 maja 2026</time></p>
+            <h3>Przeglądarka SFTP i jednolite okna nakładkowe</h3>
+            <p>Pliki na serwerze można przeglądać przez SFTP, a logi i formularz tunelu otwierają się w takim samym oknie jak terminal.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Przeglądarka plików SFTP</h4>
+              <p>Możesz przeglądać zdalne systemy plików, a wysyłanie i pobieranie działa równolegle.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/files-sftp.png"><img src="../../assets/screenshots/files-sftp.png" alt="Przeglądarka plików SFTP z katalogami, plikami, rozmiarami, datami i przyciskiem upload" width="1200" height="498" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Okna nakładkowe</h4>
+              <p>Logi oraz formularz nowego tunelu i jego edycji korzystają z tej samej nakładki co terminal i przeglądarka plików: pasek tytułu z minimalizacją i zamykaniem, pastylka przywracania w prawym dolnym rogu i przewijana treść, która dopasowuje się do rozmiaru okna. Terminal dopasowuje się przy każdej zmianie rozmiaru okna. Logi przy zmianie rozmiaru zostają na dole, gdy działa automatyczne przewijanie.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.22" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.21">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.21">v1.0.21</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-27">27 maja 2026</time></p>
+            <h3>Schowek i minimalizacja w terminalu</h3>
+            <p>Terminal ma skróty kopiowania i wklejania, a po zminimalizowaniu sesja działa dalej.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Kopiowanie i wklejanie</h4>
+              <p><code>Ctrl/Cmd+C</code> kopiuje zaznaczenie, a gdy nic nie jest zaznaczone, wysyła SIGINT. <code>Ctrl/Cmd+Shift+C</code> zawsze kopiuje, a <code>Ctrl/Cmd+V</code> wkleja. Prawy przycisk myszy kopiuje albo wkleja, zależnie od zaznaczenia.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Minimalizacja i przywracanie</h4>
+              <p>Terminal zwija się do pływającej pastylki w prawym dolnym rogu, a sesja SSH działa dalej. Kliknięcie pastylki przywraca terminal, a jej przycisk zamykania kończy sesję. Terminal nie zasłania już paska tytułu głównego okna, więc przy otwartym terminalu okno można przeciągać, minimalizować, maksymalizować i zamykać.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.21" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.20">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.20">v1.0.20</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-16">16 marca 2026</time></p>
+            <h3>Nowe logo i start bez okna</h3>
+            <p>Aplikacja ma nowe logo, a opcja <code>StartHidden</code> uruchamia ją od razu w zasobniku, bez pokazywania okna.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.20" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.19">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.19">v1.0.19</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-16">16 marca 2026</time></p>
+            <h3>Podpisane i notaryzowane wydania na macOS</h3>
+            <p>Wydania na macOS są teraz podpisane certyfikatem Developer ID i notaryzowane przez Apple.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.19" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.18">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.18">v1.0.18</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-13">13 marca 2026</time></p>
+            <h3>Zapamiętany rozmiar okna i akcje zbiorcze w zasobniku</h3>
+            <p>Okno zachowuje rozmiar między uruchomieniami, menu w zasobniku ma pozycje <code>Connect all</code> i <code>Disconnect all</code>, a zamykanie z zasobnika jest naprawione.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.18" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.17">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.17">v1.0.17</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-13">13 marca 2026</time></p>
+            <h3>Grupy tuneli, przypięte hosty i uporządkowany interfejs</h3>
+            <p>Grupy można łączyć i zmieniać ich nazwy, hosty można przypinać, a interfejs jest uporządkowany.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Grupy i przypięte hosty</h4>
+              <p>Każdą grupę można połączyć jednym przyciskiem i zmienić jej nazwę, a formularz tunelu ma listę wyboru grupy. Przypięte hosty zostają na górze listy.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/groups.png"><img src="../../assets/screenshots/groups.png" alt="Lista tuneli z przypiętym tunelem oraz grupami development i production z przyciskiem connect all" width="1200" height="933" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Interfejs</h4>
+              <p>Etykiety są po angielsku, kolory neutralne, a kolory etykiet ujednolicone. Przełącznik auto-connect ma nowy wygląd. Nagłówki sekcji, wybór pliku i kolejność widoków są uporządkowane. Na Windows aplikacja radzi sobie bez <code>sh</code>, gdy nie jest dostępny.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Wybierz grupę z listy w formularzu tunelu.</li>
+                <li>Kliknij <code>connect all</code> przy grupie.</li>
+                <li>Kliknij <code>pin</code> na karcie tunelu.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.17" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.16">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.16">v1.0.16</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-12">12 marca 2026</time></p>
+            <h3>Dyrektywa Include w konfiguracji SSH i lepszy start</h3>
+            <p>Aplikacja obsługuje dyrektywy <code>Include</code> w <code>~/.ssh/config</code>, a działanie przycisku zamykania można wybrać.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Dyrektywy Include</h4>
+              <p>Aplikacja obsługuje <code>Include</code> w <code>~/.ssh/config</code> i grupuje hosty według pliku źródłowego.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Przycisk zamykania</h4>
+              <p>Przycisk zamykania może minimalizować aplikację do zasobnika albo ją zamykać.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/startup-window.png"><img src="../../assets/screenshots/startup-window.png" alt="Ustawienia z opcją hide to tray on close w sekcji Window" width="872" height="490" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Autostart na Windows</h4>
+              <p>Ścieżka do pliku exe jest w rejestrze ujęta w cudzysłów, a aplikacja ma nową flagę startową <code>--hidden</code>.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.16" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.15">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.15">v1.0.15</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-09">9 marca 2026</time></p>
+            <h3>Czytelniejsze błędy połączenia przez ProxyCommand</h3>
+            <p>Komunikat błędu jest czytelniejszy, gdy uzgadnianie SSH przez <code>ProxyCommand</code> się nie powiedzie.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.15" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.14">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.14">v1.0.14</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-07">7 marca 2026</time></p>
+            <h3>Interaktywny terminal SSH</h3>
+            <p>Aplikacja ma interaktywny terminal SSH, a błędy uwierzytelniania są czytelniejsze.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Terminal</h4>
+              <p>Prawdziwą powłokę na dowolnym skonfigurowanym hoście otworzysz bezpośrednio z aplikacji.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/terminal.png"><img src="../../assets/screenshots/terminal.png" alt="Sesja wbudowanego terminala na połączonym hoście" width="1200" height="593" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Nieudane uwierzytelnianie</h4>
+              <p>Komunikat błędu podpowiada teraz, żeby sprawdzić klucz SSH, a aplikacja nie ponawia prób.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.14" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.13">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.13">v1.0.13</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-04">4 marca 2026</time></p>
+            <h3>Nowy interfejs w stylu cyberpunk</h3>
+            <p>Interfejs ma nowy wygląd w stylu cyberpunk: okno bez ramki, komponenty shadcn-svelte i nowy układ.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.13" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.12">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.12">v1.0.12</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-04">4 marca 2026</time></p>
+            <h3>Poprawiona obsługa zasobnika na Windows</h3>
+            <p>Na Windows kliknięcia w zasobniku są teraz obsługiwane.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.12" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.11">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.11">v1.0.11</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-04">4 marca 2026</time></p>
+            <h3>Naprawione ikony menu w zasobniku na Windows</h3>
+            <p>Na Windows kropki w menu kontekstowym zasobnika są teraz widoczne.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.11" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.10">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.10">v1.0.10</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-04">4 marca 2026</time></p>
+            <h3>Naprawiona ikona w zasobniku na Windows</h3>
+            <p>Windows pokazuje teraz ikonę w zasobniku.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.10" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.9">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.9">v1.0.9</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-04">4 marca 2026</time></p>
+            <h3>Aktualizacje na Windows z podniesieniem uprawnień</h3>
+            <p>Aktualizator na Windows prosi teraz o podniesienie uprawnień UAC przy uruchamianiu instalatora, dzięki czemu aktualizacja nie kończy się już niepowodzeniem bez komunikatu.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.9" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.8">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.8">v1.0.8</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-04">4 marca 2026</time></p>
+            <h3>Szybszy błąd DNS i prostsza ikona w zasobniku na Windows</h3>
+            <p>Połączenie przy błędzie rozwiązywania nazwy DNS kończy się od razu, bez ponawiania, a ikona w zasobniku jest prostsza ze względu na zgodność z Windows.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.8" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.7">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.7">v1.0.7</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 marca 2026</time></p>
+            <h3>Aktualizacje na macOS przez DMG</h3>
+            <p>Na macOS aktualizator pobiera teraz <code>.dmg</code> zamiast <code>.zip</code> i wybiera plik dla Twojej architektury, <code>arm64</code> albo <code>amd64</code>.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.7" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.6">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.6">v1.0.6</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 marca 2026</time></p>
+            <h3>Logi tuneli i bezpieczniejsza obsługa nieudanego uwierzytelniania</h3>
+            <p>Każdy tunel ma własny podgląd logów, a nieudane uwierzytelnianie nie uruchamia już pętli ponownych połączeń.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Logi tuneli</h4>
+              <p>Nowy podgląd pokazuje log jednego tunelu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/logs.png"><img src="../../assets/screenshots/logs.png" alt="Okno logu tunelu z wpisami INFO i WARN dla jednego tunelu" width="1200" height="311" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Nieudane uwierzytelnianie</h4>
+              <p>Automatyczne ponawianie zatrzymuje się po nieudanym uwierzytelnieniu SSH, więc aplikacja nie zasypuje serwera błędnymi danymi logowania. Poprawiony jest też rozmiar ikony w zasobniku na Windows.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.5">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.5">v1.0.5</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 marca 2026</time></p>
+            <h3>Poprawiony start zasobnika na macOS</h3>
+            <p>To właściwa poprawka awarii AppKit na macOS, której v1.0.4 nie usunęło do końca: zasobnik uruchamia się teraz w głównym wątku przez GCD.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.5" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.4">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.4">v1.0.4</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 marca 2026</time></p>
+            <h3>Poprawka awarii AppKit na macOS</h3>
+            <p>Poprawia awarię AppKit na macOS: zasobnik uruchamia się w głównym wątku.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.4" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.3">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.3">v1.0.3</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 marca 2026</time></p>
+            <h3>Obsługa Maców z procesorem Intel</h3>
+            <p>Oprócz wersji na Apple Silicon jest teraz wersja na macOS dla procesorów Intel (<code>amd64</code>).</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.3" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.2">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.2">v1.0.2</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 marca 2026</time></p>
+            <h3>Instalator DMG na macOS</h3>
+            <p>Wydania na macOS są teraz dostarczane jako instalator <code>.dmg</code>, a nie archiwum <code>.zip</code>.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.2" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.1">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.1">v1.0.1</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-02">2 marca 2026</time></p>
+            <h3>Poprawione sprawdzanie aktualizacji i budowanie wydań</h3>
+            <p>Poprawia błędny adres w sprawdzaniu aktualizacji, a pliki wydań są teraz budowane tylko po wypchnięciu taga.</p>
+          </header>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.1" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.0.0">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.0.0">v1.0.0</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-02">2 marca 2026</time></p>
+            <h3>Pierwsze publiczne wydanie</h3>
+            <p>Pierwsze publiczne wydanie SSH Tunnel Manager, aplikacji do zarządzania tunelami SSH na Windows, macOS i Linuksie.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Tunele i konfiguracja</h4>
+              <p>SSH działa w czystym Go (<code>golang.org/x/crypto/ssh</code>), więc systemowy program <code>ssh</code> nie jest potrzebny. Aplikacja czyta i zapisuje bloki <code>Host</code> w <code>~/.ssh/config</code>, a własne metadane trzyma w komentarzach, które nie giną przy kolejnych zapisach. Dostępne jest lokalne przekierowanie portów.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Zasobnik systemowy</h4>
+              <p>Zasobnik jest głównym interfejsem aplikacji, z plakietką stanu i kolorowymi kropkami.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/screenshots/tray-menu.png"><img src="../../assets/screenshots/tray-menu.png" alt="Menu w zasobniku z dwoma aktywnymi tunelami i kolorowymi kropkami stanu" width="510" height="385" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Instalacja i aktualizacje</h4>
+              <p>Aplikacja aktualizuje się sama z GitHub Releases. Na Windows jest instalator NSIS.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.0" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
       </section>
     </main>
 

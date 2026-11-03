@@ -2,7 +2,12 @@
 # Runs an isolated copy of the app from this checkout and saves a screenshot of
 # its window every second, for the changelog. macOS only.
 #
-#   scripts/changelog-capture.sh <scenario.sshconfig> <output-dir> [seconds]
+#   scripts/changelog-capture.sh <scenario.sshconfig> <output-dir> [seconds] [driver.js]
+#
+# A driver is JavaScript added to the page for this copy only, for states that
+# need clicks. In the scenario and the driver, @HOME@ is the real home directory
+# and @RDP_HOST@ is $CHANGELOG_RDP_HOST. In the driver, @LOGIN@ and @PASSWORD@
+# are read from the login:password file in $CHANGELOG_LOGIN_FILE.
 #
 # The copy uses a temporary HOME and its own single-instance lock, so it can run
 # next to an installed app without touching its tunnels or ~/.ssh/config. Frames
@@ -12,6 +17,8 @@ set -euo pipefail
 scenario=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 out=$2
 seconds=${3:-30}
+driver=${4:-}
+real_home=$HOME
 repo=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d "${TMPDIR:-/tmp}/stm-capture.XXXXXX")
 app_pid=""
@@ -19,6 +26,7 @@ app_pid=""
 cleanup() {
   # The app ignores SIGTERM while it stays in the tray.
   [ -n "$app_pid" ] && kill -9 "$app_pid" 2>/dev/null || true
+  [ -f "$work/index.html" ] && cp "$work/index.html" "$repo/frontend/dist/index.html"
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -26,11 +34,28 @@ trap cleanup EXIT
 mkdir -p "$out" "$work/home/.ssh"
 out=$(cd "$out" && pwd)
 chmod 700 "$work/home/.ssh"
-cp "$scenario" "$work/home/.ssh/config"
+sed -e "s|@HOME@|$real_home|g" -e "s|@RDP_HOST@|${CHANGELOG_RDP_HOST:-}|g" "$scenario" >"$work/home/.ssh/config"
 
 cd "$repo"
 [ -d frontend/node_modules ] || (cd frontend && npm ci)
-(cd frontend && npm run -s build) >/dev/null
+(cd frontend && npm run -s build) >/dev/null 2>&1
+
+if [ -n "$driver" ]; then
+  cp frontend/dist/index.html "$work/index.html"
+  python3 -I - "$driver" frontend/dist/index.html <<'PY'
+import json, os, sys
+
+driver_path, page_path = sys.argv[1:3]
+login, password = "", ""
+if os.environ.get("CHANGELOG_LOGIN_FILE"):
+    login, password = open(os.environ["CHANGELOG_LOGIN_FILE"]).read().rstrip("\n").split(":", 1)
+script = open(driver_path).read()
+for token, value in (("@LOGIN@", login), ("@PASSWORD@", password), ("@RDP_HOST@", os.environ.get("CHANGELOG_RDP_HOST", ""))):
+    script = script.replace('"%s"' % token, json.dumps(value))
+page = open(page_path).read()
+open(page_path, "w").write(page.replace("</body>", "<script>" + script + "</script></body>"))
+PY
+fi
 
 sed 's/com.wails.ssh-tunnel-manager/com.wails.ssh-tunnel-manager.capture/' main.go >"$work/main.go"
 grep -q 'ssh-tunnel-manager.capture' "$work/main.go"

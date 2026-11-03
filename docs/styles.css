@@ -1596,3 +1596,12 @@ footer > div {
     gap: 24px;
   }
 }
+
+.changelog-entry-head + .changelog-release {
+  margin-top: 20px;
+}
+
+.changelog-entry-head code {
+  color: #c9d6cf;
+  font-family: var(--font-mono);
+}
