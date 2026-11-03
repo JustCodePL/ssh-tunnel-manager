@@ -1605,3 +1605,58 @@ footer > div {
   color: #c9d6cf;
   font-family: var(--font-mono);
 }
+
+.changelog-entry .feature-detail-shots a {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  width: min(96vw, 1800px);
+  max-width: none;
+  max-height: 96vh;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.lightbox[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.lightbox-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.lightbox-open {
+  color: var(--green);
+}
+
+.lightbox-close {
+  padding: 4px 10px;
+  border: 1px solid var(--line-bright);
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.lightbox img {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+}

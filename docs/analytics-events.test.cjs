@@ -169,3 +169,9 @@ for (const page of ["changelog/index.html", "pl/changelog/index.html"]) {
     }
   });
 }
+
+for (const page of ["changelog/index.html", "pl/changelog/index.html"]) {
+  test(`${page} loads the screenshot lightbox`, () => {
+    assert.match(readPage(page), /<script src="(\.\.\/)+lightbox\.js[^"]*" defer>/);
+  });
+}
