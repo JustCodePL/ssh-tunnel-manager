@@ -1,0 +1,12 @@
+# A tunnel that can't connect: 192.0.2.0/24 is reserved for documentation.
+# stm:autoconnect=true
+Host nas
+    HostName 192.0.2.1
+    User artur
+    ConnectTimeout 3
+    LocalForward 18080 127.0.0.1:8080
+
+Host example-ok
+    HostName 192.0.2.2
+    User artur
+    LocalForward 18081 127.0.0.1:8080

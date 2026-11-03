@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="Co się zmieniło w każdym wydaniu SSH Tunnel Manager i jak z tego korzystać, ze zrzutami ekranu."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:title" content="Zmiany · SSH Tunnel Manager" />
+    <meta
+      property="og:description"
+      content="Co się zmieniło w każdym wydaniu SSH Tunnel Manager i jak z tego korzystać, ze zrzutami ekranu."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/" />
+    <link rel="icon" type="image/png" href="../../assets/appicon.png" />
+    <link rel="stylesheet" href="../../styles.css" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <title>Zmiany · SSH Tunnel Manager</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Przejdź do treści</a>
+
+    <header class="site-header">
+      <a class="brand" href="../" aria-label="SSH Tunnel Manager — strona główna">
+        <img src="../../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Główna nawigacja">
+        <a href="../features/">Funkcje</a>
+        <a href="../#pobierz">Pobierz</a>
+        <a href="../#wydania">Wydania</a>
+        <a href="../#faq">FAQ</a>
+        <a href="../compare/">Porównanie</a>
+        <a href="./" aria-current="page">Zmiany</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Wybór języka">
+          <a href="../../changelog/" lang="en" hreflang="en">EN</a>
+          <span aria-current="page">PL</span>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// ZMIANY</p>
+          <h2>Co się zmieniło w SSH Tunnel Manager</h2>
+          <p>Co zmienia każde wydanie i jak z tego korzystać, ze zrzutami ekranu. Instalatory i pliki są na stronie wydania.</p>
+        </div>
+
+        <article class="changelog-entry" id="v1.2.0-beta.2">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.2.0-beta.2">v1.2.0-beta.2</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-03">3 listopada 2026</time></p>
+            <h3>Tunel po nieudanych próbach przestaje się łączyć, a błąd widać w aplikacji</h3>
+            <p>Tunel, który nie może się połączyć, nie próbuje już bez końca i nie wysyła powiadomienia systemowego przy każdej próbie.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Trzy próby i koniec</h4>
+              <p>Między próbami tunel ma status <code>reconnecting</code>. Próbuje do 3 razy z rzędu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.2/tunnel-retrying.png"><img src="../../assets/changelog/v1.2.0-beta.2/tunnel-retrying.png" alt="Karta tunelu z pomarańczowym statusem reconnecting w trakcie ponawiania" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Czerwony wykrzyknik i błąd w aplikacji</h4>
+              <p>Po trzeciej nieudanej próbie karta pokazuje czerwony <code>!</code> i treść błędu, a na kilka sekund pojawia się toast. Menu w zasobniku też oznacza tunel znakiem <code>!</code>. Błędy tunelu nie trafiają już do powiadomień systemowych.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.2/tunnel-failed.png"><img src="../../assets/changelog/v1.2.0-beta.2/tunnel-failed.png" alt="Karta tunelu z czerwonym wykrzyknikiem, błędem połączenia i toastem na dole okna" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Usuń przyczynę opisaną w błędzie i kliknij <code>connect</code>. Dostajesz kolejne 3 próby.</li>
+                <li>Kliknij <code>logs</code>, żeby zobaczyć każdą próbę i jej błąd.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Po 3 nieudanych próbach nic nie ponawia się samo. Tunel łączony przy logowaniu, zanim wstanie sieć, trzeba połączyć ręcznie.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.2" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+
+        <article class="changelog-entry" id="v1.2.0-beta.1">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.2.0-beta.1">v1.2.0-beta.1</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-03">3 listopada 2026</time></p>
+            <h3>Wbudowany pulpit zdalny i przyciski przy przekierowaniach</h3>
+            <p>RDP otwiera się w aplikacji, bez zewnętrznego klienta, przez połączenie SSH hosta.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Pulpit zdalny</h4>
+              <p>Host, na którym serwer RDP odpowiada na porcie 3389, dostaje po połączeniu przycisk <code>rdp</code>. Loginy trafiają do keychaina dopiero po udanym logowaniu. Certyfikat serwera jest zapamiętywany przy pierwszym połączeniu, a jego zmianę trzeba zaakceptować.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Przyciski przy przekierowaniach</h4>
+              <p>Każde przekierowanie ma typ: <code>rdp</code>, <code>ssh</code> albo undefined. Przekierowania z typem mają na karcie przyciski <code>rdp</code>, <code>term</code> i <code>files</code>. Otwierają maszynę docelową, więc maszyna za bastionem jest dostępna bezpośrednio.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Połącz host i kliknij <code>rdp</code> na jego karcie.</li>
+                <li>Inny port RDP ustawisz w opcjach zaawansowanych hosta, w polu <code>rdp port</code>. Innych portów aplikacja nie skanuje.</li>
+                <li>Na macOS Cmd działa na pulpicie zdalnym jak Ctrl, a AltGr tylko pod prawym Option.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Brak dźwięku z pulpitu zdalnego.</li>
+                <li>Testowane z GNOME Remote Desktop na Ubuntu. Serwery RDP na Windows, klienci na Windows i Linuksie, schowek i fizyczna klawiatura na macOS nie są jeszcze sprawdzone.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.1" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../">
+        <img src="../../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · Licencja MIT · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="../features/">Funkcje</a>
+        <a href="../compare/">Co wybrać</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Kontakt</a>
+      </div>
+    </footer>
+  </body>
+</html>
