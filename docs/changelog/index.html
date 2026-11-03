@@ -121,17 +121,24 @@
             <h3>Built-in remote desktop and actions on port forwards</h3>
             <p>Open RDP inside the app, with no external client, through the host's SSH connection.</p>
           </header>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
               <h4>Remote desktop</h4>
               <p>A host where an RDP server answers on port 3389 gets an <code>rdp</code> button after connecting. Logins are saved in the OS keychain only after they have worked. The server certificate is remembered on first use, and a change has to be accepted before connecting.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../assets/changelog/v1.2.0-beta.1/rdp-session.png"><img src="../assets/changelog/v1.2.0-beta.1/rdp-session.png" alt="Remote desktop session on lexar inside the app window, with ctrl+alt+del and change login buttons" width="1800" height="1200" loading="lazy" /></a>
+              <a href="../assets/changelog/v1.2.0-beta.1/rdp-login.png"><img src="../assets/changelog/v1.2.0-beta.1/rdp-login.png" alt="Remote desktop login form with user, domain, password and a remember in keychain option" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
           </section>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
               <h4>Actions on port forwards</h4>
               <p>Each forward has a type: <code>rdp</code>, <code>ssh</code> or undefined. Typed forwards get buttons on the tunnel card: <code>rdp</code>, <code>term</code> and <code>files</code>. They open on the forward's target, so a machine behind a bastion is reachable directly.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../assets/changelog/v1.2.0-beta.1/rdp-forward-button.png"><img src="../assets/changelog/v1.2.0-beta.1/rdp-forward-button.png" alt="Connected tunnel card with an rdp button next to its port forward" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
           </section>
           <div class="changelog-notes">
             <div>

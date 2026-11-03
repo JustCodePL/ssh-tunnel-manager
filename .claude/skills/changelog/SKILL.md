@@ -15,7 +15,7 @@ A later beta's entry covers only what is new since the previous beta.
 
 ## 2. Reproduce and capture on the agent Mac
 
-Screenshots come from `MacBook-Pro-Artur-Agent`, from the commit being released. Run there with `delegate_task` and `target.environmentId` when the link works, otherwise `ssh macbook-agent`. It has `go` and `swiftc` in a login shell (`zsh -lc`), and Node in `~/.local/node/bin`, which has to be added to `PATH`. Don't use `brew install node`: this Intel Mac on macOS 13 builds it from source for over 30 minutes.
+Screenshots come from `MacBook-Pro-Artur-Agent`, from the commit being released. Run there with `delegate_task` and `target.environmentId`. Over `ssh macbook-agent` the app runs but `screencapture` can't read its window, because SSH has no Screen Recording permission; if that is still so, capture on Artur's Mac, where the isolated copy works too. It has `go` and `swiftc` in a login shell (`zsh -lc`), and Node in `~/.local/node/bin`, which has to be added to `PATH`. Don't use `brew install node`: this Intel Mac on macOS 13 builds it from source for over 30 minutes.
 
 ```
 cd ~/sources/justcode/ssh-tunnel-manager
@@ -26,7 +26,7 @@ scripts/changelog-capture.sh scripts/changelog-scenarios/<scenario>.sshconfig /t
 - The script runs an isolated copy with a temporary `HOME`. Never drive the installed app or the real `~/.ssh/config`.
 - A scenario is an SSH config for that temporary `HOME`. Add one to `scripts/changelog-scenarios/` per state. `# stm:autoconnect=true` starts a tunnel without a click. Use `192.0.2.x` for a host that must fail, and no real hostnames, users or IPs.
 - A state that needs a click: pass a driver as the script's fourth argument, JavaScript that clicks through the page. See `scripts/changelog-scenarios/rdp-lexar.driver.js`. Don't use `osascript` with System Events: over SSH on the agent Mac it hangs waiting for an Accessibility prompt.
-- A state that needs a real server (RDP, Docker): use `lexar`. Get the login with `request_secret` and `delivery: "file"`, copy it to the agent Mac, set `CHANGELOG_LOGIN_FILE` and `CHANGELOG_RDP_HOST`, and delete the copy afterwards. Keep addresses out of the repo. Check every frame for real addresses, logins and desktop content before using it.
+- A state that needs a real server (RDP, Docker): use `lexar`. Get the login with `request_secret` and `delivery: "file"`, copy it to the agent Mac, set `CHANGELOG_LOGIN_FILE`, and delete the copy afterwards. Reach `lexar` through the `nas` bastion by setting `CHANGELOG_BASTION`, `CHANGELOG_BASTION_USER` and `CHANGELOG_RDP_TARGET`. SSH on its Tailscale address asks for a browser check and the app waits on it. Keep addresses out of the repo. Ask Artur to minimize work windows on `lexar` first, because the session shows the real desktop. Check every frame for real addresses, logins and desktop content before using it, and delete rejected frames. A session can stall on `connecting...`: keep the login file until you have a good frame.
 
 **Look at every frame you keep.** Check that it shows the change and that the app really did what the text will claim, using the app log the script prints. If a change can't be reproduced, say so instead of describing it from the code.
 

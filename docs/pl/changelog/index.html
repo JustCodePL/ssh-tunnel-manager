@@ -121,17 +121,24 @@
             <h3>Wbudowany pulpit zdalny i przyciski przy przekierowaniach</h3>
             <p>RDP otwiera się w aplikacji, bez zewnętrznego klienta, przez połączenie SSH hosta.</p>
           </header>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
               <h4>Pulpit zdalny</h4>
               <p>Host, na którym serwer RDP odpowiada na porcie 3389, dostaje po połączeniu przycisk <code>rdp</code>. Loginy trafiają do keychaina dopiero po udanym logowaniu. Certyfikat serwera jest zapamiętywany przy pierwszym połączeniu, a jego zmianę trzeba zaakceptować.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.1/rdp-session.png"><img src="../../assets/changelog/v1.2.0-beta.1/rdp-session.png" alt="Sesja pulpitu zdalnego lexar w oknie aplikacji, z przyciskami ctrl+alt+del i change login" width="1800" height="1200" loading="lazy" /></a>
+              <a href="../../assets/changelog/v1.2.0-beta.1/rdp-login.png"><img src="../../assets/changelog/v1.2.0-beta.1/rdp-login.png" alt="Formularz logowania do pulpitu zdalnego z polami user, domain, password i opcją remember in keychain" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
           </section>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
               <h4>Przyciski przy przekierowaniach</h4>
               <p>Każde przekierowanie ma typ: <code>rdp</code>, <code>ssh</code> albo undefined. Przekierowania z typem mają na karcie przyciski <code>rdp</code>, <code>term</code> i <code>files</code>. Otwierają maszynę docelową, więc maszyna za bastionem jest dostępna bezpośrednio.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.1/rdp-forward-button.png"><img src="../../assets/changelog/v1.2.0-beta.1/rdp-forward-button.png" alt="Karta połączonego tunelu z przyciskiem rdp obok przekierowania portu" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
           </section>
           <div class="changelog-notes">
             <div>

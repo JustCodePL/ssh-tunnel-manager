@@ -5,9 +5,10 @@
 #   scripts/changelog-capture.sh <scenario.sshconfig> <output-dir> [seconds] [driver.js]
 #
 # A driver is JavaScript added to the page for this copy only, for states that
-# need clicks. In the scenario and the driver, @HOME@ is the real home directory
-# and @RDP_HOST@ is $CHANGELOG_RDP_HOST. In the driver, @LOGIN@ and @PASSWORD@
-# are read from the login:password file in $CHANGELOG_LOGIN_FILE.
+# need clicks. In the scenario, @HOME@ is the real home directory and @BASTION@,
+# @BASTION_USER@ and @RDP_TARGET@ come from $CHANGELOG_BASTION,
+# $CHANGELOG_BASTION_USER and $CHANGELOG_RDP_TARGET. In the driver, @LOGIN@ and
+# @PASSWORD@ are read from the login:password file in $CHANGELOG_LOGIN_FILE.
 #
 # The copy uses a temporary HOME and its own single-instance lock, so it can run
 # next to an installed app without touching its tunnels or ~/.ssh/config. Frames
@@ -20,7 +21,7 @@ seconds=${3:-30}
 driver=${4:-}
 real_home=$HOME
 repo=$(cd "$(dirname "$0")/.." && pwd)
-work=$(mktemp -d "${TMPDIR:-/tmp}/stm-capture.XXXXXX")
+work=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/stm-capture.XXXXXX")" && pwd -P)
 app_pid=""
 
 cleanup() {
@@ -34,7 +35,8 @@ trap cleanup EXIT
 mkdir -p "$out" "$work/home/.ssh"
 out=$(cd "$out" && pwd)
 chmod 700 "$work/home/.ssh"
-sed -e "s|@HOME@|$real_home|g" -e "s|@RDP_HOST@|${CHANGELOG_RDP_HOST:-}|g" "$scenario" >"$work/home/.ssh/config"
+sed -e "s|@HOME@|$real_home|g" -e "s|@BASTION@|${CHANGELOG_BASTION:-}|g" \
+  -e "s|@BASTION_USER@|${CHANGELOG_BASTION_USER:-}|g" -e "s|@RDP_TARGET@|${CHANGELOG_RDP_TARGET:-}|g" "$scenario" >"$work/home/.ssh/config"
 
 cd "$repo"
 [ -d frontend/node_modules ] || (cd frontend && npm ci)
@@ -50,7 +52,7 @@ login, password = "", ""
 if os.environ.get("CHANGELOG_LOGIN_FILE"):
     login, password = open(os.environ["CHANGELOG_LOGIN_FILE"]).read().rstrip("\n").split(":", 1)
 script = open(driver_path).read()
-for token, value in (("@LOGIN@", login), ("@PASSWORD@", password), ("@RDP_HOST@", os.environ.get("CHANGELOG_RDP_HOST", ""))):
+for token, value in (("@LOGIN@", login), ("@PASSWORD@", password)):
     script = script.replace('"%s"' % token, json.dumps(value))
 page = open(page_path).read()
 open(page_path, "w").write(page.replace("</body>", "<script>" + script + "</script></body>"))

@@ -1,7 +1,6 @@
 // Opens the RDP view on the connected host and logs in, pausing on each state
-// so the capture script gets a frame of it. Hides the host's real address.
+// so the capture script gets a frame of it. Hides real addresses and users.
 (function () {
-  const host = "@RDP_HOST@";
   const login = "@LOGIN@";
   const password = "@PASSWORD@";
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,10 +22,15 @@
   }
 
   setInterval(() => {
-    document.querySelectorAll(".card-host, .rdp-title").forEach((el) => {
-      if (el.textContent.includes(host)) el.textContent = el.textContent.replaceAll(host, "lexar");
+    document.querySelectorAll(".card-host, .rdp-title, .forward-tag").forEach((el) => {
+      const masked = el.textContent.replace(/\S+@[^\s:]+/, "artur@lexar").replace(/\d+\.\d+\.\d+\.\d+/g, "lexar");
+      if (masked !== el.textContent) el.textContent = masked;
     });
   }, 50);
+
+  // The window may be covered while capturing, which would pause the session.
+  Object.defineProperty(document, "hidden", { get: () => false });
+  Object.defineProperty(document, "visibilityState", { get: () => "visible" });
 
   (async () => {
     (await until(() => buttonNamed("rdp"))) && (await wait(4000));

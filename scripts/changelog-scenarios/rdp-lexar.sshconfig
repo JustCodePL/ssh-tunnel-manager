@@ -1,6 +1,8 @@
-# A real RDP server. The address comes from $CHANGELOG_RDP_HOST.
+# A real RDP server reached through a bastion. Addresses come from the environment.
 # stm:autoconnect=true
 Host lexar
-    HostName @RDP_HOST@
-    User artur
+    HostName @BASTION@
+    User @BASTION_USER@
     IdentityFile @HOME@/.ssh/id_rsa
+    # stm:forward-protocol=rdp
+    LocalForward 13389 @RDP_TARGET@
