@@ -20,6 +20,7 @@
   let tunnelColor = tunnel?.color ?? "";
   let proxyCommand = tunnel?.proxyCommand ?? "";
   let proxyJump = tunnel?.proxyJump ?? "";
+  let rdpPort = tunnel?.rdpPort ? String(tunnel.rdpPort) : "";
   let selectedConfigFile = tunnel?.sourceFile ?? "";
   let configSelectionKey = tunnel?.id ?? "__new";
 
@@ -36,7 +37,7 @@
   let portForwards: PortForward[] = tunnel?.portForwards?.length
     ? [...tunnel.portForwards]
     : [];
-  let showAdvanced = !!(tunnel?.proxyCommand || tunnel?.proxyJump);
+  let showAdvanced = !!(tunnel?.proxyCommand || tunnel?.proxyJump || tunnel?.rdpPort);
   let hasIncludeOptions = false;
   let minimized = false;
   let pfSettingsIndex: number | null = null;
@@ -217,6 +218,13 @@
       pf.domain = d;
     }
 
+    const rdpPortText = rdpPort.trim();
+    const rdpPortValue = rdpPortText === "" ? 0 : Number(rdpPortText);
+    if (!Number.isInteger(rdpPortValue) || rdpPortValue < 0 || rdpPortValue > 65535 || rdpPortText === "0") {
+      error = "rdp port must be between 1 and 65535";
+      return;
+    }
+
     saving = true;
     try {
       const cfg: TunnelConfig = {
@@ -233,6 +241,7 @@
         group: group.trim(),
         autoConnect,
         pinned: tunnel?.pinned,
+        rdpPort: rdpPortValue || undefined,
       };
       if (hasIncludeOptions && selectedConfigFile) {
         cfg.sourceFile = selectedConfigFile;
@@ -461,7 +470,7 @@
           class="link-btn"
           on:click={() => (showAdvanced = !showAdvanced)}
         >
-          {showAdvanced ? "▾" : "▸"} advanced (proxy)
+          {showAdvanced ? "▾" : "▸"} advanced
         </button>
         {#if showAdvanced}
           <div class="advanced-fields">
@@ -484,6 +493,17 @@
               />
             </div>
             <p class="hint">tokens: %h (host) %p (port) %r (user). use one of proxycommand or proxyjump.</p>
+            <div class="field">
+              <label class="field-label">rdp port</label>
+              <input
+                type="text"
+                inputmode="numeric"
+                bind:value={rdpPort}
+                class="field-input"
+                placeholder="3389"
+              />
+            </div>
+            <p class="hint">only this port is checked for remote desktop. leave empty for the default, 3389.</p>
           </div>
         {/if}
       </div>

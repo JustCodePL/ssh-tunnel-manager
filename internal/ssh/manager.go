@@ -1,11 +1,11 @@
 package ssh
 
 import (
-	"net"
 	"context"
 	"fmt"
 	"log/slog"
 	"math"
+	"net"
 	"strings"
 	"sync"
 	"time"

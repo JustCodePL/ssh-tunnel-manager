@@ -540,3 +540,35 @@ func TestMetadataRoundTrip(t *testing.T) {
 		t.Error("AutoConnect = false, want true")
 	}
 }
+
+func TestRDPPortPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	store, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tunnel := TunnelConfig{ID: "desktop", Name: "desktop", Host: "10.0.0.5", Port: 22, RDPPort: 3390}
+	if err := store.AddTunnel(tunnel); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := reloaded.GetTunnel("desktop")
+	if !ok || got.RDPPort != 3390 {
+		t.Fatalf("after reload: %+v ok=%v", got, ok)
+	}
+
+	got.RDPPort = 0
+	if err := reloaded.UpdateTunnel(got); err != nil {
+		t.Fatal(err)
+	}
+	cleared, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := cleared.GetTunnel("desktop"); got.RDPPort != 0 {
+		t.Fatalf("after clearing: %+v", got)
+	}
+}

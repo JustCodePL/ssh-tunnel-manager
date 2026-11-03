@@ -40,6 +40,7 @@ type HostEntry struct {
 	Group        string
 	AutoConnect  bool
 	Pinned       bool
+	RDPPort      int    // non-default RDP port; 0 means the standard port
 	SourceFile   string // absolute path to the file this entry was parsed from
 }
 
@@ -146,6 +147,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var metaColor string
 	var metaAutoConnect bool
 	var metaPinned bool
+	var metaRDPPort int
 	var pendingFwdPortless bool
 	var pendingFwdDomain string
 	var pendingFwdExposePort int
@@ -177,6 +179,11 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaAutoConnect = val == "true"
 			case "pinned":
 				metaPinned = val == "true"
+			case "rdp-port":
+				metaRDPPort = 0
+				if n, err := strconv.Atoi(val); err == nil && n >= 1 && n <= 65535 {
+					metaRDPPort = n
+				}
 			case "forward-portless":
 				pendingFwdPortless = val == "true"
 			case "forward-domain":
@@ -210,6 +217,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 			metaColor = ""
 			metaAutoConnect = false
 			metaPinned = false
+			metaRDPPort = 0
 			continue
 		}
 
@@ -227,6 +235,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaColor = ""
 				metaAutoConnect = false
 				metaPinned = false
+				metaRDPPort = 0
 				resetPendingForward()
 				continue
 			}
@@ -238,11 +247,13 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				Group:       metaGroup,
 				AutoConnect: metaAutoConnect,
 				Pinned:      metaPinned,
+				RDPPort:     metaRDPPort,
 			}
 			metaGroup = ""
 			metaColor = ""
 			metaAutoConnect = false
 			metaPinned = false
+			metaRDPPort = 0
 			resetPendingForward()
 			continue
 		}
@@ -255,6 +266,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaColor = ""
 				metaAutoConnect = false
 				metaPinned = false
+				metaRDPPort = 0
 			}
 			continue
 		}
@@ -333,6 +345,9 @@ func RenderHostBlock(e HostEntry) string {
 	}
 	if e.Pinned {
 		b.WriteString("# stm:pinned=true\n")
+	}
+	if e.RDPPort > 0 {
+		fmt.Fprintf(&b, "# stm:rdp-port=%d\n", e.RDPPort)
 	}
 
 	fmt.Fprintf(&b, "Host %s\n", e.Alias)

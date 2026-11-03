@@ -71,6 +71,7 @@ type TunnelConfig struct {
 	Group           string        `json:"group"`
 	AutoConnect     bool          `json:"autoConnect"`
 	Pinned          bool          `json:"pinned"`
+	RDPPort         int           `json:"rdpPort,omitempty"` // 0 means the standard RDP port
 	SourceFile      string        `json:"sourceFile,omitempty"`
 	SourceFileLabel string        `json:"sourceFileLabel,omitempty"`
 }

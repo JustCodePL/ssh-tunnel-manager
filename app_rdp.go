@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/keychain"
 	"ssh-tunnel-manager/internal/rdp"
 	"ssh-tunnel-manager/internal/ssh"
@@ -20,9 +22,24 @@ const (
 	eventRDPCertificateChanged = "rdp:certificate-changed"
 )
 
-// rdpRemoteAddress is where RDP is reached: the host's loopback, through its
-// SSH connection. This also covers servers bound to all interfaces.
-var rdpRemoteAddress = net.JoinHostPort("127.0.0.1", fmt.Sprint(rdp.DefaultPort))
+// rdpRemoteAddress is where a host's RDP server is reached: its loopback,
+// through its SSH connection. This also covers servers bound to all interfaces.
+// Only the configured port is used; other ports are never scanned.
+func rdpRemoteAddress(cfg config.TunnelConfig) string {
+	port := cfg.RDPPort
+	if port == 0 {
+		port = rdp.DefaultPort
+	}
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+}
+
+// validateRDPPort rejects a port that could not be written back to the config.
+func validateRDPPort(port int) error {
+	if port < 0 || port > 65535 {
+		return fmt.Errorf("RDP port must be between 1 and 65535, got %d", port)
+	}
+	return nil
+}
 
 // RDPLogin is a login entered by the user. An empty Password means "use the
 // stored login".
@@ -63,9 +80,13 @@ type RDPCertificateChange struct {
 // error means the probe ran and found none. A non-nil error means it could not
 // run, and must not be read as "no RDP".
 func (a *App) probeRDP(tunnelID string) (bool, error) {
+	cfg, ok := a.store.GetTunnel(tunnelID)
+	if !ok {
+		return false, &tunnelNotFoundError{tunnelID}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), rdpProbeTimeout)
 	defer cancel()
-	conn, err := a.manager.DialRemote(ctx, tunnelID, rdpRemoteAddress)
+	conn, err := a.manager.DialRemote(ctx, tunnelID, rdpRemoteAddress(cfg))
 	if err != nil {
 		if ssh.IsRemoteDialRefused(err) {
 			return false, nil
@@ -105,9 +126,11 @@ func (a *App) ForgetRDPLogin(tunnelID string) error {
 // OpenRDP registers a bridge session to the host's RDP server. The tunnel must
 // be connected, and the session uses its SSH connection.
 func (a *App) OpenRDP(tunnelID string, login RDPLogin) (*RDPSession, error) {
-	if _, ok := a.store.GetTunnel(tunnelID); !ok {
+	cfg, ok := a.store.GetTunnel(tunnelID)
+	if !ok {
 		return nil, &tunnelNotFoundError{tunnelID}
 	}
+	address := rdpRemoteAddress(cfg)
 	if login.Password == "" {
 		stored, found, err := keychain.GetRDPCredentials(tunnelID)
 		if err != nil {
@@ -120,9 +143,9 @@ func (a *App) OpenRDP(tunnelID string, login RDPLogin) (*RDPSession, error) {
 	}
 
 	session, err := a.rdpBridge.Open(rdp.Target{
-		Address: rdpRemoteAddress,
+		Address: address,
 		Dial: func(ctx context.Context) (net.Conn, error) {
-			return a.manager.DialRemote(ctx, tunnelID, rdpRemoteAddress)
+			return a.manager.DialRemote(ctx, tunnelID, address)
 		},
 		CheckCertificate: func(fingerprint string) error {
 			return a.checkRDPCertificate(tunnelID, fingerprint)
@@ -135,7 +158,7 @@ func (a *App) OpenRDP(tunnelID string, login RDPLogin) (*RDPSession, error) {
 		ID:           session.ID,
 		ProxyAddress: session.ProxyAddress,
 		Token:        session.Token,
-		Destination:  rdpRemoteAddress,
+		Destination:  address,
 		Username:     login.Username,
 		Domain:       login.Domain,
 		Password:     login.Password,

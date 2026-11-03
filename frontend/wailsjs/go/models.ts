@@ -91,6 +91,7 @@ export namespace config {
 	    group: string;
 	    autoConnect: boolean;
 	    pinned: boolean;
+	    rdpPort?: number;
 	    sourceFile?: string;
 	    sourceFileLabel?: string;
 	
@@ -113,6 +114,7 @@ export namespace config {
 	        this.group = source["group"];
 	        this.autoConnect = source["autoConnect"];
 	        this.pinned = source["pinned"];
+	        this.rdpPort = source["rdpPort"];
 	        this.sourceFile = source["sourceFile"];
 	        this.sourceFileLabel = source["sourceFileLabel"];
 	    }

@@ -31,8 +31,8 @@ import (
 
 // App is the Wails application struct, bridging Go backend and frontend.
 type App struct {
-	rdpBridge *rdp.Bridge
-	rdpMu     sync.Mutex // guards read-modify-write of pinned RDP certificates
+	rdpBridge   *rdp.Bridge
+	rdpMu       sync.Mutex // guards read-modify-write of pinned RDP certificates
 	ctx         context.Context
 	store       *config.Store
 	prefs       *prefs.Store
@@ -312,6 +312,9 @@ func (a *App) GetIncludedConfigFiles() []config.ConfigFileInfo {
 
 // AddTunnel persists a new tunnel configuration. ID is set to Name.
 func (a *App) AddTunnel(t config.TunnelConfig) error {
+	if err := validateRDPPort(t.RDPPort); err != nil {
+		return err
+	}
 	t.ID = t.Name
 	if err := a.store.AddTunnel(t); err != nil {
 		return err
@@ -325,6 +328,9 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 // edits (port forwards, host, portless settings, etc.) take effect without
 // the user having to toggle the tunnel manually.
 func (a *App) UpdateTunnel(t config.TunnelConfig) error {
+	if err := validateRDPPort(t.RDPPort); err != nil {
+		return err
+	}
 	wasActive := a.isTunnelActive(t.ID)
 	slog.Info("UpdateTunnel", "id", t.ID, "wasActive", wasActive)
 	if wasActive {
@@ -1398,6 +1404,7 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 		Group:           e.Group,
 		AutoConnect:     e.AutoConnect,
 		Pinned:          e.Pinned,
+		RDPPort:         e.RDPPort,
 		SourceFile:      e.SourceFile,
 		SourceFileLabel: sshconfig.CollapseTildePath(e.SourceFile),
 	}
@@ -1428,6 +1435,7 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 		Group:        t.Group,
 		AutoConnect:  t.AutoConnect,
 		Pinned:       t.Pinned,
+		RDPPort:      t.RDPPort,
 		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
