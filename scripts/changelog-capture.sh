@@ -85,7 +85,8 @@ for ((i = 1; i <= seconds; i++)); do
   window=$("$work/winid" "$app_pid" || true)
   [ -n "$window" ] || continue
   frame="$out/$(printf '%03d' "$i").png"
-  screencapture -x -o -l "$window" "$frame"
+  # Fails for a moment while the window is still appearing.
+  screencapture -x -o -l "$window" "$frame" 2>/dev/null || continue
   hash=$(shasum "$frame" | cut -d' ' -f1)
   if [ "$hash" = "$previous" ]; then
     rm "$frame"
