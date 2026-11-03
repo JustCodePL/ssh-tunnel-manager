@@ -59,4 +59,4 @@ Give Artur the link to the entry: `https://ssh-tunnel-manager.justcode.ovh/chang
 
 ## 5. Connect it to the release
 
-The release notes end with the `What's new, with screenshots` line from the `release` skill's format. The site's release list links to the entry through `docs/changelog-versions.js`. Merge the entry to `main` before tagging.
+The release notes end with the `What's new` line from the `release` skill's format. The site's release list links to the entry through `docs/changelog-versions.js`. Merge the entry to `main` before tagging.
