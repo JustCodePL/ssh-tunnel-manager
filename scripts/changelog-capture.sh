@@ -65,6 +65,7 @@ CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
 
 cat >"$work/winid.swift" <<'SWIFT'
 import CoreGraphics
+import Foundation
 let pid = Int(CommandLine.arguments[1])!
 let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as! [[String: Any]]
 for w in windows where (w[kCGWindowOwnerPID as String] as? Int) == pid && (w[kCGWindowLayer as String] as? Int) == 0 {
