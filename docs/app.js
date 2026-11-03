@@ -9,6 +9,7 @@ const COPY = IS_POLISH
       locale: "pl-PL",
       installer: "instalator",
       releaseDetails: "Szczegóły zmian są dostępne na stronie wydania.",
+      whatsNew: "Aktualności →",
       betaRelease: "Wydanie beta",
       latestStable: "Najnowsze wydanie stabilne",
       stableRelease: "Wydanie stabilne",
@@ -29,6 +30,7 @@ const COPY = IS_POLISH
       locale: "en-GB",
       installer: "installer",
       releaseDetails: "Release details are available on the release page.",
+      whatsNew: "News →",
       betaRelease: "Beta release",
       latestStable: "Latest stable release",
       stableRelease: "Stable release",
@@ -148,6 +150,18 @@ function createReleaseRow(release) {
   date.dateTime = release.published_at;
   date.textContent = formatDate(release.published_at);
   description.append(title, summary, date);
+
+  if (window.CHANGELOG_VERSIONS.includes(release.tag_name)) {
+    const changelogLink = document.createElement("a");
+    changelogLink.className = "release-changelog";
+    changelogLink.href = `changelog/#${release.tag_name}`;
+    changelogLink.textContent = COPY.whatsNew;
+    window.AnalyticsEvents.applyAttributes(changelogLink, {
+      "data-umami-event": "changelog-click",
+      "data-umami-event-version": release.tag_name,
+    });
+    description.append(document.createElement("br"), changelogLink);
+  }
 
   const assets = document.createElement("div");
   assets.className = "release-assets";

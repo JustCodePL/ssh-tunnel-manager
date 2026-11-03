@@ -1,0 +1,8 @@
+# A real RDP server reached through a bastion. Addresses come from the environment.
+# stm:autoconnect=true
+Host lexar
+    HostName @BASTION@
+    User @BASTION_USER@
+    IdentityFile @HOME@/.ssh/id_rsa
+    # stm:forward-protocol=rdp
+    LocalForward 13389 @RDP_TARGET@

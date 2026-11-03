@@ -41,13 +41,15 @@ Nothing else needs bumping. The app takes its version from the tag at build time
    ```
 3. **Read what ships.** `git log <previous-tag>..HEAD --no-merges --pretty='%h %s'`
 4. **Write the notes** to `/tmp/release-notes/<version>.md`, in the format below.
-5. **Get approval.** Show the version and notes to Artur, and wait.
-6. **Tag and push.** The tag must be annotated, because CI reads the release title and body from its message.
+5. **Write the changelog entry** with the `changelog` skill, unless the release has no user-visible change.
+6. **Get approval.** Show the version, notes and the changelog preview to Artur, and wait.
+7. **Merge the entry to `main`** and pull. Pages deploy on the merge, so the link in the notes works once the release is out.
+8. **Tag and push.** The tag must be annotated, because CI reads the release title and body from its message.
    ```
    git tag -a <version> -F /tmp/release-notes/<version>.md
    git push origin <version>
    ```
-7. **Watch CI and verify** as described below.
+9. **Watch CI and verify** as described below.
 
 ## Publish production
 
@@ -55,7 +57,7 @@ Production promotes a beta that was tested. `v1.1.0` and `v1.1.0-beta.5` are the
 
 1. **Confirm the beta is good.** Ask Artur whether it was tested. Any new fix goes out as another beta first.
 2. **Check the site and docs.** The PR template requires the Features page (`docs/features/`, `docs/pl/features/`), README and comparison page to match. Pages deploy on push to `main`, so a page describing an unreleased feature goes live before its release.
-3. **Write the notes** for everything since the previous production release, not since the last beta. End with `Tested as vX.Y.Z-beta.1 to vX.Y.Z-beta.N.` and the Full Changelog line.
+3. **Write the notes** for everything since the previous production release, not since the last beta. Add a changelog entry for the version that summarizes its betas, with the `changelog` skill. End with `Tested as vX.Y.Z-beta.1 to vX.Y.Z-beta.N.` and the Full Changelog line.
 4. **Get approval.** Show the version and notes to Artur, and wait.
 5. **Tag the beta's commit**, not the tip of `main`, which may contain untested changes.
    ```
@@ -78,6 +80,8 @@ Short title of what changed
 **Known limits in this beta**
 
 - Anything untested or missing. Betas only.
+
+**What's new**: https://justcodepl.github.io/ssh-tunnel-manager/changelog/#<version>
 
 **Full Changelog**: https://github.com/JustCodePL/ssh-tunnel-manager/compare/<previous-tag>...<version>
 ```

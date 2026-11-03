@@ -140,3 +140,38 @@ test("applies attributes to an element", () => {
   applyAttributes({ setAttribute: (name, value) => (set[name] = value) }, { "data-umami-event": "download" });
   assert.deepEqual(set, { "data-umami-event": "download" });
 });
+
+const changelogVersions = require("./changelog-versions.js");
+
+for (const page of ["changelog/index.html", "pl/changelog/index.html"]) {
+  const entries = () => readPage(page).split('<article class="changelog-entry"').slice(1);
+
+  test(`${page} has one entry per version in changelog-versions.js, in order`, () => {
+    const ids = entries().map((entry) => entry.match(/id="([^"]+)"/)[1]);
+    assert.deepEqual(ids, changelogVersions);
+  });
+
+  test(`${page} links every entry to its GitHub release`, () => {
+    for (const entry of entries()) {
+      const id = entry.match(/id="([^"]+)"/)[1];
+      assert.ok(entry.includes(`/releases/tag/${id}"`), `${id} has no release link`);
+    }
+  });
+
+  test(`${page} gives every screenshot alt text and dimensions that exist on disk`, () => {
+    const images = [...readPage(page).matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((tag) => tag.includes("assets/changelog/"));
+    assert.ok(images.length > 0);
+    for (const tag of images) {
+      assert.match(tag, /alt="[^"]{10,}"/);
+      assert.match(tag, /width="\d+" height="\d+"/);
+      const src = tag.match(/src="([^"]+)"/)[1];
+      assert.ok(fs.existsSync(path.join(__dirname, path.dirname(page), src)), `missing ${src}`);
+    }
+  });
+}
+
+for (const page of ["changelog/index.html", "pl/changelog/index.html"]) {
+  test(`${page} loads the screenshot lightbox`, () => {
+    assert.match(readPage(page), /<script src="(\.\.\/)+lightbox\.js[^"]*" defer>/);
+  });
+}
