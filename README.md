@@ -15,6 +15,8 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **Port forwarding** — multiple local→remote mappings per tunnel, with one-click clipboard copy from the tray
 - **Key authentication** — RSA, ECDSA, Ed25519 key files or a running `ssh-agent`; encrypted keys prompt for a passphrase once and store it in the OS keychain
 - **ProxyCommand / ProxyJump** — full support for bastion hosts
+- **Built-in remote desktop** — RDP is detected on connected hosts and opens in the app, through the SSH connection, with no external client (no remote audio). Only the default port, 3389, is checked unless you set another one under the host's advanced options
+- **Actions on forwards** — a forward can be typed `rdp` or `ssh`, inferred from ports 3389 and 22, which adds a remote desktop, terminal or file browser button that opens on the forward's target, for example a machine behind a bastion
 - **Groups** — organise tunnels into named groups with Connect All / Disconnect All
 - **Import from SSH config** — parse `~/.ssh/config` and import selected hosts in one step
 - **Export to SSH config** — write selected tunnels back to a standard SSH config file

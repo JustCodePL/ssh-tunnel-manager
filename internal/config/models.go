@@ -54,6 +54,34 @@ type PortForward struct {
 	ExposePort   int    `json:"exposePort,omitempty"`
 	HostHeader   string `json:"hostHeader,omitempty"`
 	HostHeaderOn bool   `json:"hostHeaderOn,omitempty"`
+	// Protocol says what runs on the remote end, which decides the actions shown
+	// next to the forward. Empty means it is inferred from RemotePort.
+	Protocol string `json:"protocol,omitempty"`
+	// SSHUser overrides the tunnel's user when connecting to an SSH forward.
+	SSHUser string `json:"sshUser,omitempty"`
+}
+
+// Forward protocols. ForwardProtocolNone marks a forward whose port would
+// otherwise be inferred as RDP or SSH.
+const (
+	ForwardProtocolRDP  = "rdp"
+	ForwardProtocolSSH  = "ssh"
+	ForwardProtocolNone = "none"
+)
+
+// EffectiveProtocol returns the forward's protocol: the explicit choice if there
+// is one, otherwise the one inferred from the standard port numbers.
+func (pf PortForward) EffectiveProtocol() string {
+	if pf.Protocol != "" {
+		return pf.Protocol
+	}
+	switch pf.RemotePort {
+	case 3389:
+		return ForwardProtocolRDP
+	case 22:
+		return ForwardProtocolSSH
+	}
+	return ForwardProtocolNone
 }
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.
@@ -71,6 +99,7 @@ type TunnelConfig struct {
 	Group           string        `json:"group"`
 	AutoConnect     bool          `json:"autoConnect"`
 	Pinned          bool          `json:"pinned"`
+	RDPPort         int           `json:"rdpPort,omitempty"` // 0 means the standard RDP port
 	SourceFile      string        `json:"sourceFile,omitempty"`
 	SourceFileLabel string        `json:"sourceFileLabel,omitempty"`
 }

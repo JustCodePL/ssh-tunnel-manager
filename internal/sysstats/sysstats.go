@@ -61,7 +61,8 @@ type DockerContainer struct {
 type Capabilities struct {
 	Docker bool   `json:"docker"`
 	Htop   bool   `json:"htop"`
-	OS     string `json:"os"` // uname -s, e.g. "Linux", "Darwin"
+	RDP    bool   `json:"rdp"` // an RDP server answers on the host's loopback
+	OS     string `json:"os"`  // uname -s, e.g. "Linux", "Darwin"
 }
 
 // ParseCPUSample extracts the aggregate CPU sample from /proc/stat. It reads

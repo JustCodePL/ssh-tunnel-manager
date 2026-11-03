@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
   import {
+    OpenForwardSFTP,
     OpenSFTP,
     CloseSFTP,
     SFTPListDir,
@@ -14,10 +15,13 @@
     CancelSFTPTransfer,
   } from "../../wailsjs/go/main/App";
   import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
-  import type { TunnelConfig } from "../types";
+  import type { TunnelConfig, PortForward } from "../types";
   import type { ssh } from "../../wailsjs/go/models";
 
   export let tunnel: TunnelConfig;
+  // The SSH forward to browse. Without one, the host itself.
+  export let forward: PortForward | null = null;
+  $: targetLabel = forward ? `${tunnel.name} → ${forward.sshUser || tunnel.user}@${forward.remoteHost}:${forward.remotePort}` : `${tunnel.name} (${tunnel.user}@${tunnel.host})`;
   const dispatch = createEventDispatcher<{ close: void }>();
 
   type FileEntry = ssh.FileEntry;
@@ -130,7 +134,9 @@
   onMount(async () => {
     EventsOn("sftp:progress", handleProgressEvent);
     try {
-      const r = await OpenSFTP(tunnel.id);
+      const r = forward
+        ? await OpenForwardSFTP(tunnel.id, { remoteHost: forward.remoteHost, remotePort: forward.remotePort } as any)
+        : await OpenSFTP(tunnel.id);
       sessionId = r.sessionId;
       cwd = r.home || "/";
       await refresh();
@@ -393,7 +399,7 @@
 <div class="fb-overlay" class:hidden={minimized}>
   <div class="fb-window">
     <div class="fb-titlebar">
-      <span class="fb-title">files — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
+      <span class="fb-title">files — {targetLabel}</span>
       <div class="titlebar-actions">
         <button class="title-btn" on:click={minimize} title="Minimize">−</button>
         <button class="close-btn" on:click={handleClose} title="Close">×</button>

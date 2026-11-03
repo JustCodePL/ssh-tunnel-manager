@@ -17,7 +17,9 @@ Go backend + Wails v2 + Svelte frontend. Single binary, no Electron.
 - `internal/config/` — ~/.ssh/config persistence (read/write Host blocks), data models
 - `internal/tray/` — System tray: icon, badge, colored dots, context menu
 - `internal/autostart/` — Platform autostart (registry / launch agent / .desktop)
-- `internal/keychain/` — OS keychain for passphrases
+- `internal/keychain/` — OS keychain for passphrases and RDP logins
+- `internal/rdp/` — Loopback WebSocket bridge between the IronRDP web client and RDP servers, plus RDP detection
+- `frontend/vendor/ironrdp/` — Built IronRDP web client, pinned; rebuild with `scripts/build-ironrdp.sh`
 - `frontend/src/` — Svelte + TypeScript + Tailwind
 
 ## Key Decisions

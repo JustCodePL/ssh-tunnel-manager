@@ -3,6 +3,7 @@
 ## Linear tracking
 
 - Track every non-trivial bug fix or improvement for this repository in the Linear team `JustCode - Artur Czuba` and project `SSH Tunnel Manager`. Reuse an existing issue when it already covers the request; otherwise create one.
+- Exception: the built-in RDP view is tracked on the Notion page `SSH Tunnel Manager: wbudowany widok RDP przez IronRDP` (https://app.notion.com/p/40d238194432814f9011f808494b14ab) instead of Linear, because the Linear workspace reached its free issue limit.
 - Keep the Linear issue status aligned with the actual work state. A commit or completed implementation is not the same as a published release; record both states explicitly.
 - Record the implementation commit SHA and the relevant verification results in the issue. Do not add a GitHub commit link until the commit has been pushed and the link resolves.
 - Link each issue intended for distribution to the corresponding native Linear Release.

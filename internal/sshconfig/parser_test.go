@@ -840,3 +840,85 @@ func TestParseFileSourceFileSet(t *testing.T) {
 		t.Errorf("SourceFile = %q, want %q", entries[0].SourceFile, absPath)
 	}
 }
+
+func parseRDPPortConfig(t *testing.T, content string) []HostEntry {
+	t.Helper()
+	entries, err := Parse(bufio.NewScanner(strings.NewReader(content)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return entries
+}
+
+func TestRDPPortRoundTrip(t *testing.T) {
+	entry := HostEntry{Alias: "desktop", HostName: "10.0.0.5", Port: 22, RDPPort: 3390}
+	rendered := RenderHostBlock(entry)
+	if !strings.Contains(rendered, "# stm:rdp-port=3390\n") {
+		t.Fatalf("rendered block has no RDP port:\n%s", rendered)
+	}
+	if strings.Index(rendered, "# stm:rdp-port") > strings.Index(rendered, "Host desktop") {
+		t.Fatalf("RDP port must precede the Host line:\n%s", rendered)
+	}
+	entries := parseRDPPortConfig(t, rendered)
+	if len(entries) != 1 || entries[0].RDPPort != 3390 {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+func TestRDPPortOmittedByDefault(t *testing.T) {
+	rendered := RenderHostBlock(HostEntry{Alias: "desktop", Port: 22})
+	if strings.Contains(rendered, "rdp-port") {
+		t.Fatalf("default port should not be written:\n%s", rendered)
+	}
+}
+
+func TestRDPPortStaysWithItsHost(t *testing.T) {
+	entries := parseRDPPortConfig(t, "# stm:rdp-port=3390\nHost first\n    HostName a\n\nHost second\n    HostName b\n")
+	if len(entries) != 2 || entries[0].RDPPort != 3390 || entries[1].RDPPort != 0 {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+func TestRDPPortDoesNotCrossWildcardOrMatch(t *testing.T) {
+	for _, directive := range []string{"Host *", "Match all"} {
+		entries := parseRDPPortConfig(t, "# stm:rdp-port=3390\n"+directive+"\n    User x\n\nHost after\n    HostName b\n")
+		if len(entries) != 1 || entries[0].RDPPort != 0 {
+			t.Fatalf("%s: entries = %+v", directive, entries)
+		}
+	}
+}
+
+func TestRDPPortInvalidValuesAreIgnored(t *testing.T) {
+	for _, value := range []string{"0", "-1", "65536", "abc", ""} {
+		entries := parseRDPPortConfig(t, "# stm:rdp-port="+value+"\nHost desktop\n    HostName a\n")
+		if len(entries) != 1 || entries[0].RDPPort != 0 {
+			t.Fatalf("value %q: entries = %+v", value, entries)
+		}
+	}
+}
+
+func TestForwardProtocolRoundTrip(t *testing.T) {
+	rendered := RenderHostBlock(HostEntry{Alias: "bastion", Port: 22, PortForwards: []PortForwardEntry{
+		{LocalPort: 13389, RemoteHost: "10.0.0.5", RemotePort: 8080, Protocol: "rdp"},
+		{LocalPort: 2222, RemoteHost: "10.0.0.6", RemotePort: 22, Protocol: "ssh", SSHUser: "inner"},
+		{LocalPort: 9000, RemoteHost: "10.0.0.7", RemotePort: 9000},
+	}})
+	entries := parseRDPPortConfig(t, rendered)
+	if len(entries) != 1 || len(entries[0].PortForwards) != 3 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	forwards := entries[0].PortForwards
+	if forwards[0].Protocol != "rdp" || forwards[1].Protocol != "ssh" || forwards[1].SSHUser != "inner" {
+		t.Fatalf("forwards = %+v", forwards)
+	}
+	if forwards[2].Protocol != "" || forwards[2].SSHUser != "" {
+		t.Fatalf("metadata bled into the next forward: %+v", forwards[2])
+	}
+}
+
+func TestForwardProtocolUnknownValueIsIgnored(t *testing.T) {
+	entries := parseRDPPortConfig(t, "Host bastion\n    # stm:forward-protocol=vnc\n    LocalForward 1 h:2\n")
+	if len(entries) != 1 || entries[0].PortForwards[0].Protocol != "" {
+		t.Fatalf("entries = %+v", entries)
+	}
+}

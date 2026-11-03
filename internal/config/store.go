@@ -279,6 +279,7 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 		Group:        t.Group,
 		AutoConnect:  t.AutoConnect,
 		Pinned:       t.Pinned,
+		RDPPort:      t.RDPPort,
 		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
@@ -290,6 +291,8 @@ func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 			Portless:     pf.Portless,
 			Domain:       pf.Domain,
 			ExposePort:   pf.ExposePort,
+			Protocol:     pf.Protocol,
+			SSHUser:      pf.SSHUser,
 			HostHeader:   pf.HostHeader,
 			HostHeaderOn: pf.HostHeaderOn,
 		})
@@ -311,6 +314,7 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 		Group:           e.Group,
 		AutoConnect:     e.AutoConnect,
 		Pinned:          e.Pinned,
+		RDPPort:         e.RDPPort,
 		SourceFile:      e.SourceFile,
 		SourceFileLabel: sshconfig.CollapseTildePath(e.SourceFile),
 	}
@@ -323,6 +327,8 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 			Portless:     pf.Portless,
 			Domain:       pf.Domain,
 			ExposePort:   pf.ExposePort,
+			Protocol:     pf.Protocol,
+			SSHUser:      pf.SSHUser,
 			HostHeader:   pf.HostHeader,
 			HostHeaderOn: pf.HostHeaderOn,
 		})

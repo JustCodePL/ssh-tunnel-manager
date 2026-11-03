@@ -10,6 +10,8 @@ export interface PortForward {
   exposePort?: number;
   hostHeader?: string;
   hostHeaderOn?: boolean;
+  protocol?: string;
+  sshUser?: string;
 }
 
 export const PORTLESS_TLD = "ssh-local";
@@ -28,6 +30,7 @@ export interface TunnelConfig {
   group: string;
   autoConnect: boolean;
   pinned?: boolean;
+  rdpPort?: number;
   sourceFile?: string;
   sourceFileLabel?: string;
 }

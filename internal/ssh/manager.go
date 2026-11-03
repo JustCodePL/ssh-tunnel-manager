@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -386,23 +387,47 @@ func (m *Manager) GetStatuses() map[string]StatusEvent {
 // returns its combined output. It errors if the tunnel is unknown or not
 // currently connected.
 func (m *Manager) RunCommand(ctx context.Context, tunnelID, cmd string) (string, error) {
+	tun, err := m.connectedTunnel(tunnelID)
+	if err != nil {
+		return "", err
+	}
+	return tun.RunCommand(ctx, cmd)
+}
+
+// DialRemote opens a TCP connection to addr through a connected tunnel.
+func (m *Manager) DialRemote(ctx context.Context, tunnelID, addr string) (net.Conn, error) {
+	tun, err := m.connectedTunnel(tunnelID)
+	if err != nil {
+		return nil, err
+	}
+	return tun.DialRemote(ctx, addr)
+}
+
+// RemoteDialerFor returns a dialer that reaches addresses through a tunnel.
+func (m *Manager) RemoteDialerFor(tunnelID string) RemoteDialer {
+	return func(ctx context.Context, addr string) (net.Conn, error) {
+		return m.DialRemote(ctx, tunnelID, addr)
+	}
+}
+
+func (m *Manager) connectedTunnel(tunnelID string) (*Tunnel, error) {
 	m.mu.Lock()
 	rt, exists := m.tunnels[tunnelID]
 	if !exists {
 		m.mu.Unlock()
-		return "", fmt.Errorf("tunnel %q not found in manager", tunnelID)
+		return nil, fmt.Errorf("tunnel %q not found in manager", tunnelID)
 	}
 	if rt.status != config.StatusConnected {
 		m.mu.Unlock()
-		return "", fmt.Errorf("tunnel %q is not connected", tunnelID)
+		return nil, fmt.Errorf("tunnel %q is not connected", tunnelID)
 	}
 	tun := rt.tun
 	m.mu.Unlock()
 
 	if tun == nil {
-		return "", fmt.Errorf("tunnel %q has no active connection", tunnelID)
+		return nil, fmt.Errorf("tunnel %q has no active connection", tunnelID)
 	}
-	return tun.RunCommand(ctx, cmd)
+	return tun, nil
 }
 
 func (m *Manager) emit(event StatusEvent) {
