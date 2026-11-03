@@ -14,6 +14,7 @@ build/windows/installer/tmp/
 *.test
 *.out
 vendor/
+!frontend/vendor/
 
 # IDE
 .idea/

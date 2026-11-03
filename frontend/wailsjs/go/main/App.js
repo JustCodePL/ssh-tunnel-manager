@@ -22,6 +22,10 @@ export function ClearTunnelLogs(arg1) {
   return window['go']['main']['App']['ClearTunnelLogs'](arg1);
 }
 
+export function CloseRDP(arg1) {
+  return window['go']['main']['App']['CloseRDP'](arg1);
+}
+
 export function CloseSFTP(arg1) {
   return window['go']['main']['App']['CloseSFTP'](arg1);
 }
@@ -56,6 +60,10 @@ export function DisconnectTunnel(arg1) {
 
 export function ExportTunnels(arg1, arg2) {
   return window['go']['main']['App']['ExportTunnels'](arg1, arg2);
+}
+
+export function ForgetRDPLogin(arg1) {
+  return window['go']['main']['App']['ForgetRDPLogin'](arg1);
 }
 
 export function GetAutostart() {
@@ -96,6 +104,10 @@ export function GetPortlessServiceStatus() {
 
 export function GetProcessStats(arg1) {
   return window['go']['main']['App']['GetProcessStats'](arg1);
+}
+
+export function GetRDPLogin(arg1) {
+  return window['go']['main']['App']['GetRDPLogin'](arg1);
 }
 
 export function GetSavedCapabilities() {
@@ -162,6 +174,10 @@ export function OpenPortlessServiceSettings() {
   return window['go']['main']['App']['OpenPortlessServiceSettings']();
 }
 
+export function OpenRDP(arg1, arg2) {
+  return window['go']['main']['App']['OpenRDP'](arg1, arg2);
+}
+
 export function OpenSFTP(arg1) {
   return window['go']['main']['App']['OpenSFTP'](arg1);
 }
@@ -222,6 +238,10 @@ export function SFTPWriteText(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SFTPWriteText'](arg1, arg2, arg3, arg4);
 }
 
+export function SaveRDPLogin(arg1, arg2) {
+  return window['go']['main']['App']['SaveRDPLogin'](arg1, arg2);
+}
+
 export function SelectFile() {
   return window['go']['main']['App']['SelectFile']();
 }
@@ -260,6 +280,10 @@ export function SubmitPassphrase(arg1) {
 
 export function TerminalWrite(arg1, arg2) {
   return window['go']['main']['App']['TerminalWrite'](arg1, arg2);
+}
+
+export function TrustRDPCertificate(arg1, arg2) {
+  return window['go']['main']['App']['TrustRDPCertificate'](arg1, arg2);
 }
 
 export function UninstallPortlessService() {

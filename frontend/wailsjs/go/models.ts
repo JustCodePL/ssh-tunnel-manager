@@ -19,11 +19,11 @@ export namespace config {
 	    timestamp: any;
 	    level: string;
 	    message: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new LogEntry(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.timestamp = this.convertValues(source["timestamp"], null);
@@ -139,17 +139,17 @@ export namespace config {
 }
 
 export namespace main {
-
+	
 	export class PortlessFallbackStatus {
 	    tunnelId: string;
 	    message: string;
 	    recommendation?: string;
 	    command?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PortlessFallbackStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.tunnelId = source["tunnelId"];
@@ -165,11 +165,11 @@ export namespace main {
 	    current: boolean;
 	    state: string;
 	    message: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PortlessServiceStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.available = source["available"];
@@ -178,6 +178,62 @@ export namespace main {
 	        this.current = source["current"];
 	        this.state = source["state"];
 	        this.message = source["message"];
+	    }
+	}
+	export class RDPLogin {
+	    username: string;
+	    domain: string;
+	    password: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RDPLogin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.username = source["username"];
+	        this.domain = source["domain"];
+	        this.password = source["password"];
+	    }
+	}
+	export class RDPSavedLogin {
+	    username: string;
+	    domain: string;
+	    hasPassword: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RDPSavedLogin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.username = source["username"];
+	        this.domain = source["domain"];
+	        this.hasPassword = source["hasPassword"];
+	    }
+	}
+	export class RDPSession {
+	    id: string;
+	    proxyAddress: string;
+	    token: string;
+	    destination: string;
+	    username: string;
+	    domain: string;
+	    password: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RDPSession(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.proxyAddress = source["proxyAddress"];
+	        this.token = source["token"];
+	        this.destination = source["destination"];
+	        this.username = source["username"];
+	        this.domain = source["domain"];
+	        this.password = source["password"];
 	    }
 	}
 	export class SFTPOpenResult {
@@ -243,6 +299,7 @@ export namespace main {
 	}
 
 }
+
 export namespace ssh {
 	
 	export class FileEntry {
@@ -351,6 +408,7 @@ export namespace sysstats {
 	export class Capabilities {
 	    docker: boolean;
 	    htop: boolean;
+	    rdp: boolean;
 	    os: string;
 	
 	    static createFrom(source: any = {}) {
@@ -361,6 +419,7 @@ export namespace sysstats {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.docker = source["docker"];
 	        this.htop = source["htop"];
+	        this.rdp = source["rdp"];
 	        this.os = source["os"];
 	    }
 	}
@@ -627,3 +686,4 @@ export namespace updater {
 	}
 
 }
+

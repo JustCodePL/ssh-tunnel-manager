@@ -243,6 +243,49 @@ func (t *Tunnel) RunCommand(ctx context.Context, cmd string) (string, error) {
 	}
 }
 
+// DialRemote opens a TCP connection to addr as seen from the SSH server. The
+// returned connection does not support deadlines.
+func (t *Tunnel) DialRemote(ctx context.Context, addr string) (net.Conn, error) {
+	t.mu.Lock()
+	client := t.client
+	t.mu.Unlock()
+	if client == nil {
+		return nil, errors.New("tunnel is not connected")
+	}
+
+	type result struct {
+		conn net.Conn
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		conn, err := client.Dial("tcp", addr)
+		ch <- result{conn, err}
+	}()
+	select {
+	case r := <-ch:
+		if r.err != nil {
+			return nil, fmt.Errorf("dialing %s through SSH: %w", addr, r.err)
+		}
+		return r.conn, nil
+	case <-ctx.Done():
+		go func() {
+			if r := <-ch; r.conn != nil {
+				_ = r.conn.Close()
+			}
+		}()
+		return nil, fmt.Errorf("dialing %s through SSH: %w", addr, ctx.Err())
+	}
+}
+
+// IsRemoteDialRefused reports whether DialRemote failed because the SSH server
+// answered that it could not open the connection, as opposed to a problem with
+// the SSH connection itself.
+func IsRemoteDialRefused(err error) bool {
+	var openErr *ssh.OpenChannelError
+	return errors.As(err, &openErr)
+}
+
 // dial establishes an SSH client connection using the appropriate method:
 // ProxyCommand, ProxyJump, or direct TCP dial.
 func (t *Tunnel) dial(ctx context.Context, sshConfig *ssh.ClientConfig) (*ssh.Client, error) {

@@ -7,6 +7,7 @@
   import DiskWindow from "./DiskWindow.svelte";
   import DockerWindow from "./DockerWindow.svelte";
   import MonitorWindow from "./MonitorWindow.svelte";
+  import RDPWindow from "./RDPWindow.svelte";
   import { CopyToClipboard } from "../../wailsjs/go/main/App";
   import { showResourceStats } from "../stores/prefs";
   import { capabilities, refreshCapabilities, verifyTool, type ToolName } from "../stores/capabilities";
@@ -23,12 +24,13 @@
   let showDisk = false;
   let showDocker = false;
   let showHtop = false;
+  let showRdp = false;
 
   // Tool buttons are driven by persisted capabilities, so they stay stable
   // across reconnects (and app restarts) without re-probing. capsKnown means
   // we've probed this host at least once, so its monitoring buttons stay
   // visible even while disconnected (disabled until reconnected).
-  $: caps = $capabilities[tunnel.id] ?? { docker: false, htop: false };
+  $: caps = $capabilities[tunnel.id] ?? { docker: false, htop: false, rdp: false };
   $: capsKnown = !!$capabilities[tunnel.id];
 
   // Open a tool window, but re-verify with `command -v` first. If the probe
@@ -97,6 +99,7 @@
     showDisk = false;
     showDocker = false;
     showHtop = false;
+    showRdp = false;
   }
 </script>
 
@@ -208,6 +211,14 @@
           title={isConnected ? "" : "connect to view"}
         >htop</button>
       {/if}
+      {#if caps.rdp}
+        <button
+          class="action-btn secondary"
+          on:click={() => openTool("rdp", () => (showRdp = true))}
+          disabled={!isConnected}
+          title={isConnected ? "" : "connect to view"}
+        >rdp</button>
+      {/if}
       <button class="action-btn secondary" on:click={() => dispatch("edit", tunnel)}>edit</button>
       <button class="action-btn danger" on:click={handleDelete}>del</button>
     </div>
@@ -216,6 +227,9 @@
 
 {#if showDisk}
   <DiskWindow {tunnel} on:close={() => (showDisk = false)} />
+{/if}
+{#if showRdp}
+  <RDPWindow {tunnel} on:close={() => (showRdp = false)} />
 {/if}
 {#if showDocker}
   <DockerWindow {tunnel} on:close={() => (showDocker = false)} />

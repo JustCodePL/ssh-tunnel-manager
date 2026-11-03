@@ -21,6 +21,7 @@ import (
 	"ssh-tunnel-manager/internal/netcap"
 	"ssh-tunnel-manager/internal/portless"
 	"ssh-tunnel-manager/internal/prefs"
+	"ssh-tunnel-manager/internal/rdp"
 	"ssh-tunnel-manager/internal/ssh"
 	"ssh-tunnel-manager/internal/sshconfig"
 	"ssh-tunnel-manager/internal/sysstats"
@@ -30,6 +31,8 @@ import (
 
 // App is the Wails application struct, bridging Go backend and frontend.
 type App struct {
+	rdpBridge *rdp.Bridge
+	rdpMu     sync.Mutex // guards read-modify-write of pinned RDP certificates
 	ctx         context.Context
 	store       *config.Store
 	prefs       *prefs.Store
@@ -199,6 +202,7 @@ func (a *App) appendTunnelLog(tunnelID, level, msg string) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.tray.Start()
+	a.rdpBridge = rdp.NewBridge(runtime.Environment(ctx).BuildType == "dev")
 
 	// Refresh the executable path recorded by the platform's autostart
 	// mechanism. This keeps start-on-login working when an update renames or
@@ -259,6 +263,9 @@ func (a *App) shutdown(ctx context.Context) {
 	a.tray.Stop()
 	a.termMgr.CloseAll()
 	a.sftpMgr.CloseAll()
+	if a.rdpBridge != nil {
+		a.rdpBridge.Close()
+	}
 	a.manager.DisconnectAll()
 	a.dnsMu.Lock()
 	srv := a.dnsServer
@@ -338,6 +345,9 @@ func (a *App) UpdateTunnel(t config.TunnelConfig) error {
 		return err
 	}
 	a.tray.RefreshMenu()
+	if t.ID != t.Name {
+		a.moveRDPState(t.ID, t.Name)
+	}
 
 	if wasActive {
 		newID := t.Name // store.UpdateTunnel sets ID = Name on rename
@@ -370,6 +380,7 @@ func (a *App) DeleteTunnel(id string) error {
 	if err := a.store.DeleteTunnel(id); err != nil {
 		return err
 	}
+	a.removeRDPState(id)
 	a.tray.RefreshMenu()
 	return nil
 }
@@ -1609,6 +1620,14 @@ func (a *App) GetServerCapabilities(tunnelID string) (sysstats.Capabilities, err
 		return sysstats.Capabilities{}, err
 	}
 	c := sysstats.ParseCapabilities(out)
+	if present, err := a.probeRDP(tunnelID); err != nil {
+		// The probe could not run, which says nothing about the host. Keep what
+		// we knew so the button does not disappear on a transient failure.
+		c.RDP = a.prefs.Get().HostTools[tunnelID].RDP
+		slog.Debug("RDP probe failed", "tunnel", tunnelID, "error", err)
+	} else {
+		c.RDP = present
+	}
 	if err := a.saveCapabilities(tunnelID, c); err != nil {
 		slog.Warn("failed to persist host capabilities", "tunnel", tunnelID, "error", err)
 	}
@@ -1621,7 +1640,7 @@ func (a *App) GetSavedCapabilities() map[string]sysstats.Capabilities {
 	p := a.prefs.Get()
 	out := make(map[string]sysstats.Capabilities, len(p.HostTools))
 	for id, t := range p.HostTools {
-		out[id] = sysstats.Capabilities{Docker: t.Docker, Htop: t.Htop, OS: t.OS}
+		out[id] = sysstats.Capabilities{Docker: t.Docker, Htop: t.Htop, RDP: t.RDP, OS: t.OS}
 	}
 	return out
 }
@@ -1635,6 +1654,13 @@ func (a *App) GetSavedCapabilities() map[string]sysstats.Capabilities {
 func (a *App) VerifyTool(tunnelID, tool string) (bool, error) {
 	switch tool {
 	case "docker", "htop":
+	case "rdp":
+		present, err := a.probeRDP(tunnelID)
+		if err != nil {
+			return false, err
+		}
+		a.updateSavedTool(tunnelID, tool, present)
+		return present, nil
 	default:
 		return false, fmt.Errorf("unknown tool %q", tool)
 	}
@@ -1652,7 +1678,7 @@ func (a *App) VerifyTool(tunnelID, tool string) (bool, error) {
 func (a *App) saveCapabilities(tunnelID string, c sysstats.Capabilities) error {
 	p := a.prefs.Get()
 	p.HostTools = cloneHostTools(p.HostTools)
-	p.HostTools[tunnelID] = prefs.HostTools{Docker: c.Docker, Htop: c.Htop, OS: c.OS}
+	p.HostTools[tunnelID] = prefs.HostTools{Docker: c.Docker, Htop: c.Htop, RDP: c.RDP, OS: c.OS}
 	return a.prefs.Set(p)
 }
 
@@ -1666,6 +1692,8 @@ func (a *App) updateSavedTool(tunnelID, tool string, present bool) {
 		rec.Docker = present
 	case "htop":
 		rec.Htop = present
+	case "rdp":
+		rec.RDP = present
 	}
 	p.HostTools[tunnelID] = rec
 	if err := a.prefs.Set(p); err != nil {

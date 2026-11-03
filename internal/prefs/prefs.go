@@ -17,6 +17,7 @@ import (
 type HostTools struct {
 	Docker bool   `json:"docker"`
 	Htop   bool   `json:"htop"`
+	RDP    bool   `json:"rdp,omitempty"`
 	OS     string `json:"os,omitempty"`
 }
 
@@ -30,6 +31,10 @@ type Prefs struct {
 	UpdateChannel     string `json:"updateChannel"`
 	// HostTools is keyed by tunnel ID.
 	HostTools map[string]HostTools `json:"hostTools,omitempty"`
+
+	// RDPCertificates pins the SHA-256 fingerprint of each host's RDP server
+	// certificate on first use, keyed by tunnel ID.
+	RDPCertificates map[string]string `json:"rdpCertificates,omitempty"`
 }
 
 // defaultPrefs returns a Prefs with sensible defaults.

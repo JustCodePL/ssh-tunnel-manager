@@ -16,6 +16,8 @@ export function CheckForUpdate():Promise<updater.UpdateInfo>;
 
 export function ClearTunnelLogs(arg1:string):Promise<void>;
 
+export function CloseRDP(arg1:string):Promise<void>;
+
 export function CloseSFTP(arg1:string):Promise<void>;
 
 export function CloseTerminal(arg1:string):Promise<void>;
@@ -33,6 +35,8 @@ export function DisconnectGroup(arg1:string):Promise<void>;
 export function DisconnectTunnel(arg1:string):Promise<void>;
 
 export function ExportTunnels(arg1:string,arg2:Array<string>):Promise<void>;
+
+export function ForgetRDPLogin(arg1:string):Promise<void>;
 
 export function GetAutostart():Promise<boolean>;
 
@@ -53,6 +57,8 @@ export function GetPortlessFallback():Promise<main.PortlessFallbackStatus>;
 export function GetPortlessServiceStatus():Promise<main.PortlessServiceStatus>;
 
 export function GetProcessStats(arg1:string):Promise<sysstats.ProcessStats>;
+
+export function GetRDPLogin(arg1:string):Promise<main.RDPSavedLogin>;
 
 export function GetSavedCapabilities():Promise<Record<string, sysstats.Capabilities>>;
 
@@ -86,6 +92,8 @@ export function OpenCommandTerminal(arg1:string,arg2:string):Promise<string>;
 
 export function OpenPortlessServiceSettings():Promise<void>;
 
+export function OpenRDP(arg1:string,arg2:main.RDPLogin):Promise<main.RDPSession>;
+
 export function OpenSFTP(arg1:string):Promise<main.SFTPOpenResult>;
 
 export function OpenTerminal(arg1:string):Promise<string>;
@@ -116,6 +124,8 @@ export function SFTPUploadFiles(arg1:string,arg2:Array<string>,arg3:string):Prom
 
 export function SFTPWriteText(arg1:string,arg2:string,arg3:string,arg4:number):Promise<main.SFTPWriteResult>;
 
+export function SaveRDPLogin(arg1:string,arg2:main.RDPLogin):Promise<void>;
+
 export function SelectFile():Promise<string>;
 
 export function SelectSaveFile(arg1:string):Promise<string>;
@@ -135,6 +145,8 @@ export function SetUpdateChannel(arg1:string):Promise<void>;
 export function SubmitPassphrase(arg1:string):Promise<void>;
 
 export function TerminalWrite(arg1:string,arg2:string):Promise<void>;
+
+export function TrustRDPCertificate(arg1:string,arg2:string):Promise<void>;
 
 export function UninstallPortlessService():Promise<void>;
 
