@@ -98,7 +98,8 @@ func (b *Bridge) originAllowed(origin string) bool {
 		return false
 	}
 	switch {
-	case parsed.Scheme == "wails" && parsed.Host == "wails":
+	case parsed.Scheme == "wails" && (parsed.Host == "localhost" || parsed.Host == "wails.localhost" || parsed.Host == "wails"):
+		// The page origin under Wails 3's custom scheme.
 		return true
 	case (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Hostname() == "wails.localhost":
 		return true

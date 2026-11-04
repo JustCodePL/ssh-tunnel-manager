@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"ssh-tunnel-manager/internal/config"
 )
@@ -105,12 +104,12 @@ func (a *App) OpenForwardTerminal(tunnelID string, target ForwardTarget) (string
 	sessionID, err := a.termMgr.OpenSessionVia(cfg, a.manager.RemoteDialerFor(tunnelID),
 		func(sessionID, data string) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "terminal:output", map[string]any{"sessionId": sessionID, "data": data})
+				a.emitToSession(sessionID, "terminal:output", map[string]any{"sessionId": sessionID, "data": data})
 			}
 		},
 		func(sessionID string) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "terminal:closed", map[string]any{"sessionId": sessionID})
+				a.emitToSession(sessionID, "terminal:closed", map[string]any{"sessionId": sessionID})
 			}
 		},
 	)
@@ -118,4 +117,15 @@ func (a *App) OpenForwardTerminal(tunnelID string, target ForwardTarget) (string
 		return "", fmt.Errorf("opening terminal on %s: %w", target.address(), err)
 	}
 	return sessionID, nil
+}
+
+var portlessSuffixPattern = regexp.MustCompile(`^[a-z0-9-]+(\.[a-z0-9-]+)*$`)
+
+// validatePortlessSuffix rejects a suffix that is no valid part of a domain, or
+// could not be written back to the SSH config as one comment line.
+func validatePortlessSuffix(suffix string) error {
+	if suffix != "" && !portlessSuffixPattern.MatchString(suffix) {
+		return fmt.Errorf("invalid portless suffix %q: use lowercase letters, digits, dashes and dots", suffix)
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -72,6 +73,14 @@ type TerminalManager struct {
 	sessions      map[string]*TerminalSession
 	nextID        int
 	getPassphrase PassphraseFunc
+	getLogin      LoginFunc
+}
+
+// WithLoginProvider sets where the manager finds a tunnel's password login.
+func (tm *TerminalManager) WithLoginProvider(getLogin LoginFunc) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	tm.getLogin = getLogin
 }
 
 // NewTerminalManager creates a new TerminalManager.
@@ -104,13 +113,16 @@ func (tm *TerminalManager) OpenCommandSession(cfg config.TunnelConfig, command s
 // login shell; otherwise it runs command in the PTY.
 func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, via RemoteDialer, emitFn func(sessionID, data string), closedFn func(sessionID string)) (string, error) {
 	// Build SSH client config (reuse same logic as Tunnel)
-	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase)
+	tm.mu.Lock()
+	getLogin := tm.getLogin
+	tm.mu.Unlock()
+	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase, getLogin)
 	if err != nil {
 		return "", fmt.Errorf("building SSH config for terminal: %w", err)
 	}
 
 	// Dial SSH connection (own connection, separate from tunnel)
-	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, Via: via}
+	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, GetLogin: getLogin, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", fmt.Errorf("connecting terminal to %s: %w", cfg.Host, err)
@@ -272,16 +284,33 @@ func (tm *TerminalManager) cleanupSession(sessionID string) {
 //  1. Explicit key from KeyPath (if set)
 //  2. SSH agent (ssh-agent on Unix, OpenSSH agent on Windows)
 //  3. Default key files (~/.ssh/id_ed25519, id_rsa, etc.) when KeyPath is empty
-func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc) (*ssh.ClientConfig, error) {
+//  4. The tunnel's saved password login, if it has one
+//
+// A tunnel with a password login only talks to a server whose host key passes
+// the login's check, because a password, unlike a key signature, reaches the
+// server itself.
+func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, getLogin LoginFunc) (*ssh.ClientConfig, error) {
 	var authMethods []ssh.AuthMethod
+
+	var login *PasswordLogin
+	if getLogin != nil {
+		var err error
+		if login, err = getLogin(cfg.ID); err != nil {
+			return nil, fmt.Errorf("reading the saved login of %s: %w", cfg.Name, err)
+		}
+	}
 
 	// 1. Explicit key file
 	if cfg.KeyPath != "" {
 		signer, err := loadSigner(cfg.KeyPath, getPassphrase)
-		if err != nil {
+		switch {
+		case err == nil:
+			authMethods = append(authMethods, ssh.PublicKeys(signer))
+		case login == nil:
 			return nil, err
+		default:
+			slog.Debug("skipping unusable key, the tunnel has a saved login", "tunnel", cfg.Name, "error", err)
 		}
-		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	}
 
 	// 2. SSH agent
@@ -310,16 +339,52 @@ func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc) (*
 		}
 	}
 
+	// 4. Saved password login
+	user := cfg.User
+	hostKeyCallback := ssh.InsecureIgnoreHostKey()
+	if login != nil {
+		if login.CheckHostKey == nil {
+			return nil, fmt.Errorf("the saved login of %s has no host key check", cfg.Name)
+		}
+		if login.Username != "" {
+			user = login.Username
+		}
+		authMethods = append(authMethods, ssh.Password(login.Password), passwordChallenge(login.Password))
+		hostKeyCallback = func(address string, _ net.Addr, key ssh.PublicKey) error {
+			return login.CheckHostKey(address, ssh.FingerprintSHA256(key))
+		}
+	}
+
 	if len(authMethods) == 0 {
 		return nil, fmt.Errorf("no authentication methods available for %s (no key, no agent)", cfg.Host)
 	}
 
 	return &ssh.ClientConfig{
-		User:            cfg.User,
+		User:            user,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}, nil
+}
+
+// passwordChallenge answers a keyboard-interactive login that asks for one
+// hidden value, which is how many servers ask for a password. It leaves any
+// other challenge, such as a second factor, unanswered instead of sending the
+// password to it.
+func passwordChallenge(password string) ssh.AuthMethod {
+	return ssh.KeyboardInteractive(func(_, _ string, questions []string, echos []bool) ([]string, error) {
+		return answerPasswordChallenge(password, questions, echos)
+	})
+}
+
+func answerPasswordChallenge(password string, questions []string, echos []bool) ([]string, error) {
+	switch {
+	case len(questions) == 0:
+		return nil, nil
+	case len(questions) == 1 && !echos[0]:
+		return []string{password}, nil
+	}
+	return nil, errors.New("the server asks for more than a password")
 }
 
 // loadSigner reads a private key file and returns an ssh.Signer.

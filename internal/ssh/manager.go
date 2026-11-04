@@ -75,6 +75,7 @@ type Manager struct {
 	tunnels        map[string]*runningTunnel
 	emitter        EventEmitter
 	getPassphrase  PassphraseFunc
+	getLogin       LoginFunc
 	logEmitter     func(tunnelID, level, msg string)
 	bindErrEmit    BindErrorEmitter
 	forwardErrEmit ForwardErrorEmitter
@@ -111,6 +112,13 @@ func (m *Manager) WithDNSRegistry(reg dns.ForwardRegistry) {
 	m.dnsRegistry = reg
 }
 
+// WithLoginProvider sets where the manager finds a tunnel's password login.
+func (m *Manager) WithLoginProvider(getLogin LoginFunc) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getLogin = getLogin
+}
+
 // isAuthError returns true if the error looks like an SSH authentication failure.
 func isAuthError(err error) bool {
 	if err == nil {
@@ -118,10 +126,19 @@ func isAuthError(err error) bool {
 	}
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "unable to authenticate") ||
+		// After a rejected password, x/crypto/ssh reports a server that also refuses
+		// keyboard-interactive outright with this instead of an authentication error.
+		strings.Contains(msg, "unexpected message type 51") ||
 		strings.Contains(msg, "no supported methods remain") ||
 		strings.Contains(msg, "permission denied") ||
 		strings.Contains(msg, "no authentication methods available") ||
 		strings.Contains(msg, "authentication failed")
+}
+
+// isHostKeyRefusal returns true if a saved login's host key check stopped the
+// connection. Retrying cannot help, and the message says what to do.
+func isHostKeyRefusal(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "host key changed")
 }
 
 // isDNSError returns true if the error is a DNS resolution failure.
@@ -255,11 +272,13 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 		bindErrEmit := m.bindErrEmit
 		forwardErrEmit := m.forwardErrEmit
 		dnsRegistry := m.dnsRegistry
+		getLogin := m.getLogin
 		m.mu.Unlock()
 
 		tun := &Tunnel{
 			Config:         cfg,
 			GetPassphrase:  m.getPassphrase,
+			GetLogin:       getLogin,
 			DNSRegistry:    dnsRegistry,
 			OnBindError:    bindErrEmit,
 			OnForwardError: forwardErrEmit,
@@ -299,13 +318,24 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 
 			// Don't retry on authentication errors
 			if isAuthError(err) {
-				authMsg := "Authentication failed — check your SSH key. Not retrying."
+				authMsg := "Authentication failed — check your SSH key or saved login. Not retrying."
 				m.emitLog(cfg.ID, "error", authMsg)
 				m.mu.Lock()
 				rt.status = config.StatusError
 				rt.errMsg = authMsg
 				m.mu.Unlock()
 				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: authMsg})
+				cancel()
+				return
+			}
+
+			if isHostKeyRefusal(err) {
+				m.emitLog(cfg.ID, "error", errMsg)
+				m.mu.Lock()
+				rt.status = config.StatusError
+				rt.errMsg = errMsg
+				m.mu.Unlock()
+				m.emit(StatusEvent{TunnelID: cfg.ID, Status: config.StatusError, Error: errMsg})
 				cancel()
 				return
 			}

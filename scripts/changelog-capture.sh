@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs an isolated copy of the app from this checkout and saves a screenshot of
-# its window every second, for the changelog. macOS only.
+# each of its windows every second, for the changelog. macOS only.
 #
 #   scripts/changelog-capture.sh <scenario.sshconfig> <output-dir> [seconds] [driver.js]
 #
@@ -62,8 +62,7 @@ fi
 sed 's/com.wails.ssh-tunnel-manager/com.wails.ssh-tunnel-manager.capture/' main.go >"$work/main.go"
 grep -q 'ssh-tunnel-manager.capture' "$work/main.go"
 printf '{"Replace":{"%s/main.go":"%s/main.go"}}' "$repo" "$work" >"$work/overlay.json"
-CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
-  go build -tags desktop,production -overlay "$work/overlay.json" -ldflags "-w -s" -o "$work/stm" . 2>/dev/null
+go build -tags production -overlay "$work/overlay.json" -ldflags "-w -s" -o "$work/stm" . 2>/dev/null
 
 cat >"$work/winid.swift" <<'SWIFT'
 import CoreGraphics
@@ -72,7 +71,6 @@ let pid = Int(CommandLine.arguments[1])!
 let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as! [[String: Any]]
 for w in windows where (w[kCGWindowOwnerPID as String] as? Int) == pid && (w[kCGWindowLayer as String] as? Int) == 0 {
   print(w[kCGWindowNumber as String]!)
-  break
 }
 SWIFT
 swiftc -o "$work/winid" "$work/winid.swift"
@@ -84,18 +82,18 @@ previous=""
 captured=0
 for ((i = 1; i <= seconds; i++)); do
   sleep 1
-  window=$("$work/winid" "$app_pid" || true)
-  [ -n "$window" ] || continue
-  frame="$out/$(printf '%03d' "$i").png"
-  # Fails for a moment while the window is still appearing.
-  screencapture -x -o -l "$window" "$frame" 2>/dev/null || continue
-  hash=$(shasum "$frame" | cut -d' ' -f1)
-  if [ "$hash" = "$previous" ]; then
-    rm "$frame"
-  else
-    previous=$hash
-    captured=$((captured + 1))
-  fi
+  for window in $("$work/winid" "$app_pid" || true); do
+    frame="$out/w$window-$(printf '%03d' "$i").png"
+    # Fails for a moment while the window is still appearing.
+    screencapture -x -o -l "$window" "$frame" 2>/dev/null || continue
+    hash=$(shasum "$frame" | cut -d' ' -f1)
+    if grep -qx "$window $hash" "$work/hashes" 2>/dev/null; then
+      rm "$frame"
+    else
+      echo "$window $hash" >>"$work/hashes"
+      captured=$((captured + 1))
+    fi
+  done
 done
 
 if [ "$captured" -eq 0 ]; then

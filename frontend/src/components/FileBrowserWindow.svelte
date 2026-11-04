@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onMount, onDestroy, createEventDispatcher } from "svelte";
+  import { errorText } from "../lib/runtime";
+  import { onMount, onDestroy } from "svelte";
   import {
     OpenForwardSFTP,
-    OpenSFTP,
+    OpenSFTP, BindTabSession,
     CloseSFTP,
     SFTPListDir,
     SFTPDownload,
@@ -13,16 +14,25 @@
     SFTPMkdir,
     SFTPRename,
     CancelSFTPTransfer,
-  } from "../../wailsjs/go/main/App";
-  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+  } from "../../bindings/ssh-tunnel-manager/app";
+  import { createEventScope } from "../lib/runtime";
+  import { breadcrumbs } from "../lib/toolTables.js";
+  import { openTool } from "../lib/openTool";
+  import { askConfirm } from "../stores/confirm";
+  import Icon from "./Icon.svelte";
   import type { TunnelConfig, PortForward } from "../types";
-  import type { ssh } from "../../wailsjs/go/models";
+  import type * as ssh from "../../bindings/ssh-tunnel-manager/internal/ssh/models";
+  const events = createEventScope();
+  let filter = "";
+  $: visibleEntries = entries.filter((e) => !filter.trim() || e.name.toLowerCase().includes(filter.trim().toLowerCase()));
+  $: crumbs = breadcrumbs(cwd || "/");
+  let editingPath = false;
 
   export let tunnel: TunnelConfig;
+  export let tabId = "";
   // The SSH forward to browse. Without one, the host itself.
   export let forward: PortForward | null = null;
   $: targetLabel = forward ? `${tunnel.name} → ${forward.sshUser || tunnel.user}@${forward.remoteHost}:${forward.remotePort}` : `${tunnel.name} (${tunnel.user}@${tunnel.host})`;
-  const dispatch = createEventDispatcher<{ close: void }>();
 
   type FileEntry = ssh.FileEntry;
 
@@ -31,42 +41,22 @@
   let entries: FileEntry[] = [];
   let loading = true;
   let error = "";
-  let minimized = false;
   let statusMsg = "";
   // The file currently open in the editor, shown either as a side-by-side
   // pane (default) or popped out into a standalone window. The editor component
   // (and CodeMirror) is loaded lazily the first time it's needed so it doesn't
-  // weigh on app startup.
-  let editing: FileEntry | null = null;
-  let editorWindowed = false;
-  let editorMinimized = false;
-  let TextEditorComp: typeof import("./TextEditor.svelte").default | null = null;
-  let editorRef: { openFile: (path: string, name: string) => void } | null = null;
 
-  async function openEditor(e: FileEntry) {
+  function openEditor(e: FileEntry) {
     if (e.isDir || e.isLink) return;
-    if (!TextEditorComp) {
-      TextEditorComp = (await import("./TextEditor.svelte")).default;
-    }
-    editorMinimized = false;
-    if (!editing) {
-      // First open: the editor loads this file on mount.
-      editing = e;
-      return;
-    }
-    if (editing.path === e.path) return; // already open; just un-minimized above
-    // Editor already open with another file — delegate so it can guard any
-    // unsaved edits before switching.
-    editorRef?.openFile(e.path, e.name);
+    void openTool({
+      tool: "editor",
+      tunnelId: tunnel.id,
+      remoteHost: forward?.remoteHost,
+      remotePort: forward?.remotePort,
+      path: e.path,
+    });
   }
 
-  function handleEditorFileOpened(ev: CustomEvent<{ path: string; name: string }>) {
-    // The switch target is always a row in the current listing, so keep the
-    // parent's record pointed at that entry. The editor owns the displayed
-    // name/path regardless, so a miss here is harmless.
-    const found = entries.find((x) => x.path === ev.detail.path);
-    if (found) editing = found;
-  }
 
   interface ProgressState {
     transferId: string;
@@ -132,22 +122,24 @@
   }
 
   onMount(async () => {
-    EventsOn("sftp:progress", handleProgressEvent);
+    events.on("sftp:progress", handleProgressEvent);
+    events.on("files:changed", () => void refresh());
     try {
-      const r = forward
+      const r: any = forward
         ? await OpenForwardSFTP(tunnel.id, { remoteHost: forward.remoteHost, remotePort: forward.remotePort } as any)
         : await OpenSFTP(tunnel.id);
       sessionId = r.sessionId;
+      if (tabId) void BindTabSession(tabId, "sftp", sessionId);
       cwd = r.home || "/";
       await refresh();
     } catch (e: any) {
-      error = e?.toString?.() ?? String(e);
+      error = errorText(e);
       loading = false;
     }
   });
 
   onDestroy(() => {
-    EventsOff("sftp:progress");
+    events.off();
     if (sessionId) CloseSFTP(sessionId);
   });
 
@@ -189,7 +181,7 @@
     try {
       entries = await SFTPListDir(sessionId, cwd);
     } catch (e: any) {
-      error = e?.toString?.() ?? String(e);
+      error = errorText(e);
     } finally {
       loading = false;
     }
@@ -221,21 +213,8 @@
     }
   }
 
-  function handleEditorSaved() {
-    void refresh();
-  }
 
-  function handleEditorClose() {
-    editing = null;
-    editorMinimized = false;
-    editorWindowed = false;
-  }
 
-  function toggleEditorWindow() {
-    editorWindowed = !editorWindowed;
-    // Minimize only applies to the windowed editor; docking clears it.
-    if (!editorWindowed) editorMinimized = false;
-  }
 
   async function goUp() {
     await navigate(parentPath(cwd));
@@ -251,7 +230,7 @@
         if (localPath) setStatus(`Downloaded → ${localPath}`);
       }
     } catch (err: any) {
-      const msg = err?.toString?.() ?? String(err);
+      const msg = errorText(err);
       if (/canceled|cancelled|context canceled/i.test(msg)) {
         setStatus("Download cancelled");
       } else {
@@ -261,21 +240,21 @@
   }
 
   async function handleUpload() {
-    let pick: { paths: string[]; conflicts: string[] };
+    let pick: any;
     try {
       pick = await SFTPPickUploadFiles(sessionId, cwd);
     } catch (err: any) {
-      error = err?.toString?.() ?? String(err);
+      error = errorText(err);
       return;
     }
     if (!pick.paths || pick.paths.length === 0) return;
     if (pick.conflicts && pick.conflicts.length > 0) {
       openConfirm({
         kind: "confirm",
-        title: "// overwrite existing files?",
+        title: "Overwrite existing files?",
         message: `${pick.conflicts.length} file${pick.conflicts.length === 1 ? "" : "s"} already exist${pick.conflicts.length === 1 ? "s" : ""} in this directory and will be overwritten:`,
         items: pick.conflicts,
-        submitLabel: "[ overwrite ]",
+        submitLabel: "Overwrite",
         danger: true,
         onSubmit: () => runUpload(pick.paths),
       });
@@ -292,7 +271,7 @@
         await refresh();
       }
     } catch (err: any) {
-      const msg = err?.toString?.() ?? String(err);
+      const msg = errorText(err);
       if (/canceled|cancelled|context canceled/i.test(msg)) {
         setStatus("Upload cancelled");
         await refresh();
@@ -306,17 +285,17 @@
     try {
       await CancelSFTPTransfer(transferId);
     } catch (err: any) {
-      error = err?.toString?.() ?? String(err);
+      error = errorText(err);
     }
   }
 
   function handleMkdir() {
     openPrompt({
       kind: "prompt",
-      title: "// new directory",
+      title: "New directory",
       label: `Create in ${cwd}`,
       placeholder: "directory name",
-      submitLabel: "[ create ]",
+      submitLabel: "Create",
       validate: (v) => {
         if (/[\/\\]/.test(v)) return "Name cannot contain / or \\";
         if (entries.some((e) => e.name === v)) return `"${v}" already exists in this directory`;
@@ -332,31 +311,46 @@
       setStatus(`Created ${name}`);
       await refresh();
     } catch (err: any) {
-      error = err?.toString?.() ?? String(err);
+      error = errorText(err);
     }
   }
 
   async function handleDelete(e: FileEntry) {
     const label = e.isDir ? `directory "${e.name}" and all its contents` : `file "${e.name}"`;
-    if (!confirm(`Delete ${label}?`)) return;
+    if (!(await askConfirm({ title: "Delete", message: `Delete ${label}?`, confirmLabel: "Delete", danger: true }))) return;
     try {
       await SFTPDelete(sessionId, e.path);
       setStatus(`Deleted ${e.name}`);
       await refresh();
     } catch (err: any) {
-      error = err?.toString?.() ?? String(err);
+      error = errorText(err);
     }
   }
 
-  async function handleRename(e: FileEntry) {
-    const newName = prompt(`Rename "${e.name}" to:`, e.name);
+  function handleRename(e: FileEntry) {
+    openPrompt({
+      kind: "prompt",
+      title: "Rename",
+      label: `Rename "${e.name}" to`,
+      initial: e.name,
+      submitLabel: "Rename",
+      validate: (v) => {
+        if (/[\/\\]/.test(v)) return "Name cannot contain / or \\";
+        if (v !== e.name && entries.some((x) => x.name === v)) return `"${v}" already exists in this directory`;
+        return null;
+      },
+      onSubmit: (name: string) => runRename(e, name),
+    });
+  }
+
+  async function runRename(e: FileEntry, newName: string) {
     if (!newName || newName === e.name) return;
     try {
       await SFTPRename(sessionId, e.path, joinPath(cwd, newName.trim()));
       setStatus(`Renamed → ${newName}`);
       await refresh();
     } catch (err: any) {
-      error = err?.toString?.() ?? String(err);
+      error = errorText(err);
     }
   }
 
@@ -377,14 +371,7 @@
     }
   }
 
-  function handleClose() {
-    if (sessionId) CloseSFTP(sessionId);
-    sessionId = "";
-    dispatch("close");
-  }
 
-  function minimize() { minimized = true; }
-  function restore() { minimized = false; }
 
   let pathInput = "";
   $: pathInput = cwd;
@@ -396,150 +383,95 @@
   }
 </script>
 
-<div class="fb-overlay" class:hidden={minimized}>
-  <div class="fb-window">
-    <div class="fb-titlebar">
-      <span class="fb-title">files — {targetLabel}</span>
-      <div class="titlebar-actions">
-        <button class="title-btn" on:click={minimize} title="Minimize">−</button>
-        <button class="close-btn" on:click={handleClose} title="Close">×</button>
-      </div>
-    </div>
-
-    <div class="fb-toolbar">
-      <button class="tb-btn" on:click={refresh} title="Refresh">↻ refresh</button>
+<div class="tool-root" data-testid="files">
+  <div class="tool-bar">
+    <button type="button" class="icon-btn" aria-label="Refresh" on:click={refresh}><Icon name="refresh" /></button>
+    <button type="button" class="icon-btn" aria-label="Parent folder" disabled={cwd === "/" || !cwd} on:click={goUp}><Icon name="up" /></button>
+    {#if editingPath}
+      <!-- svelte-ignore a11y-autofocus -->
       <input
-        class="path-input"
+        class="field-control grow path"
+        autofocus
         bind:value={pathInput}
-        on:keydown={handlePathSubmit}
         spellcheck="false"
         autocomplete="off"
+        aria-label="Path"
+        on:blur={() => (editingPath = false)}
+        on:keydown={(e) => {
+          if (e.key === "Escape") editingPath = false;
+          else void handlePathSubmit(e);
+        }}
       />
-      <button class="tb-btn upload" on:click={handleUpload} disabled={!sessionId} title="Upload files to current directory">⤴ upload</button>
-      <button class="tb-btn" on:click={handleMkdir} disabled={!sessionId} title="Create new directory">+ mkdir</button>
-    </div>
-
-    {#if activeTransfers.length > 0}
-      <div class="transfers-panel">
-        {#each activeTransfers as p (p.transferId)}
-          {@const pct = p.size > 0 ? Math.min(100, (p.transferred / p.size) * 100) : 0}
-          {@const elapsed = Math.max(0.001, (Date.now() - p.startedAt) / 1000)}
-          {@const rate = p.transferred / elapsed}
-          <div class="progress-bar">
-            <div class="progress-label">
-              <span class="progress-kind">{p.kind === "upload" ? "⤴" : "⤵"}</span>
-              <span class="progress-name">{p.name}</span>
-              {#if p.fileTotal > 1}
-                <span class="progress-counter">[{p.fileIndex}/{p.fileTotal}]</span>
-              {/if}
-              <span class="progress-pct">{pct.toFixed(0)}%</span>
-              <span class="progress-rate">{formatSize(rate)}/s</span>
-              <span class="progress-bytes">{formatSize(p.transferred)}{p.size > 0 ? ` / ${formatSize(p.size)}` : ""}</span>
-              <button class="progress-cancel" on:click={() => handleCancelTransfer(p.transferId)} title="Cancel transfer">× cancel</button>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill" style="width: {pct}%"></div>
-            </div>
-          </div>
+    {:else}
+      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+      <div class="crumbs grow" title="Click empty space to type a path" on:click|self={() => (editingPath = true)}>
+        {#each crumbs as crumb, i}
+          {#if i > 1}<span class="sep">/</span>{/if}
+          <button type="button" on:click={() => navigate(crumb.path)}>{crumb.label}</button>
         {/each}
       </div>
     {/if}
-    {#if statusMsg}
-      <div class="status-bar info">{statusMsg}</div>
-    {/if}
-    {#if error}
-      <div class="status-bar error">{error}</div>
-    {/if}
+    <input class="field-control filter" placeholder="Filter" aria-label="Filter files" bind:value={filter} />
+    <button type="button" class="btn primary" disabled={!sessionId} title="Upload files to this folder" on:click={handleUpload}><Icon name="upload" />Upload</button>
+    <button type="button" class="btn" disabled={!sessionId} on:click={handleMkdir}>New folder</button>
+  </div>
 
-    <div class="fb-body">
-      <div class="file-panel">
-      {#if loading}
-        <div class="msg">loading...</div>
-      {:else if entries.length === 0 && (cwd === "/" || cwd === "")}
-        <div class="msg dim">// empty directory</div>
-      {:else}
-        {#if entries.length === 0}
-          <div class="msg dim">// empty directory</div>
-        {/if}
-        <table class="file-table">
-          <thead>
-            <tr>
-              <th class="col-name">name</th>
-              <th class="col-size">size</th>
-              <th class="col-mtime">modified</th>
-              <th class="col-actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#if cwd !== "/" && cwd !== ""}
-              <tr class="dir parent-row">
-                <td class="col-name">
-                  <button class="name-btn" on:click={goUp} on:dblclick={goUp}>
-                    <span class="icon">▴</span>..
-                  </button>
-                </td>
-                <td class="col-size">—</td>
-                <td class="col-mtime"></td>
-                <td class="col-actions"></td>
-              </tr>
-            {/if}
-            {#each entries as e (e.path)}
-              <tr class:dir={e.isDir} class:link={e.isLink}>
-                <td class="col-name">
-                  {#if e.isDir || e.isLink}
-                    <button class="name-btn" on:dblclick={() => openEntry(e)} on:click={() => openEntry(e)}>
-                      <span class="icon">{e.isLink ? "↪" : "▸"}</span>{e.name}{e.isDir ? "/" : ""}
-                    </button>
-                  {:else}
-                    <button class="name-btn" on:dblclick={() => openEntry(e)} on:click={() => openEntry(e)} title="Open in editor">
-                      <span class="icon">·</span>{e.name}
-                    </button>
-                  {/if}
-                </td>
-                <td class="col-size">{e.isDir ? "—" : formatSize(e.size)}</td>
-                <td class="col-mtime">{formatDate(e.modTime)}</td>
-                <td class="col-actions">
+  {#if statusMsg}<div class="notice">{statusMsg}</div>{/if}
+  {#if error}<div class="notice error">{error}</div>{/if}
+
+  <div class="tool-body">
+    {#if loading}
+      <p class="tool-message">Loading</p>
+    {:else if !visibleEntries.length && !error}
+      <p class="tool-message">{filter ? "No files match this filter." : "This folder is empty."}</p>
+    {/if}
+    {#if !loading && visibleEntries.length}
+      <table class="data-table" data-testid="files-table">
+        <thead>
+          <tr><th class="col-name">Name</th><th class="num">Size</th><th>Modified</th><th></th></tr>
+        </thead>
+        <tbody>
+          {#each visibleEntries as e (e.path)}
+            <tr class:dir={e.isDir} data-testid="file-row" data-name={e.name}>
+              <td class="col-name">
+                <button type="button" class="entry" title={e.isDir || e.isLink ? "Open" : "Open in the editor"} on:click={() => (e.isDir || e.isLink ? openEntry(e) : openEditor(e))}>
+                  <Icon name={e.isDir ? "files" : "file"} />{e.name}{#if e.isLink}<small>link</small>{/if}
+                </button>
+              </td>
+              <td class="num">{e.isDir ? "" : formatSize(e.size)}</td>
+              <td class="dim">{formatDate(e.modTime)}</td>
+              <td>
+                <div class="actions">
                   {#if !e.isDir && !e.isLink}
-                    <button class="act-btn" on:click={() => openEditor(e)} title="Edit as text">edit</button>
+                    <button type="button" class="btn small" on:click={() => openEditor(e)}>Edit</button>
                   {/if}
                   {#if !e.isLink}
-                    <button
-                      class="act-btn"
-                      on:click={() => handleDownload(e)}
-                      title={e.isDir ? "Download as ZIP" : "Download"}
-                    >{e.isDir ? "⤵ zip" : "⤵"}</button>
+                    <button type="button" class="icon-btn" title={e.isDir ? "Download as ZIP" : "Download"} aria-label={`Download ${e.name}`} on:click={() => handleDownload(e)}><Icon name="download" /></button>
                   {/if}
-                  <button class="act-btn" on:click={() => handleRename(e)} title="Rename">✎</button>
-                  <button class="act-btn danger" on:click={() => handleDelete(e)} title="Delete">×</button>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-      </div>
-
-      {#if editing && TextEditorComp}
-        <div class="editor-pane" class:windowed={editorWindowed}>
-          <svelte:component
-            this={TextEditorComp}
-            bind:this={editorRef}
-            {sessionId}
-            path={editing.path}
-            name={editing.name}
-            windowed={editorWindowed}
-            minimized={editorMinimized}
-            on:saved={handleEditorSaved}
-            on:close={handleEditorClose}
-            on:togglewindow={toggleEditorWindow}
-            on:minimize={() => (editorMinimized = true)}
-            on:restore={() => (editorMinimized = false)}
-            on:fileopened={handleEditorFileOpened}
-          />
-        </div>
-      {/if}
-    </div>
+                  <button type="button" class="icon-btn" title="Rename" aria-label={`Rename ${e.name}`} on:click={() => handleRename(e)}><Icon name="pen" /></button>
+                  <button type="button" class="icon-btn" title="Delete" aria-label={`Delete ${e.name}`} on:click={() => handleDelete(e)}><Icon name="trash" /></button>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
   </div>
+
+  {#each activeTransfers as p (p.transferId)}
+    {@const pct = p.size > 0 ? Math.min(100, (p.transferred / p.size) * 100) : 0}
+    {@const elapsed = Math.max(0.001, (Date.now() - p.startedAt) / 1000)}
+    <div class="transfer" data-testid="transfer">
+      <i class="transfer-bar" style={`width:${pct}%`}></i>
+      <b>{p.kind === "upload" ? "Uploading" : "Downloading"} {p.name}</b>
+      {#if p.fileTotal > 1}<span>{p.fileIndex} of {p.fileTotal}</span>{/if}
+      <span>{pct.toFixed(0)}%</span>
+      <span>{formatSize(p.transferred / elapsed)}/s</span>
+      <span>{formatSize(p.transferred)}{p.size > 0 ? ` / ${formatSize(p.size)}` : ""}</span>
+      <button type="button" class="btn small" on:click={() => handleCancelTransfer(p.transferId)}>Cancel</button>
+    </div>
+  {/each}
 </div>
 
 {#if modal}
@@ -576,128 +508,190 @@
         {/if}
         <div class="modal-actions">
           <button
-            class="modal-btn accent"
+            class="btn primary"
             class:danger={modal.kind === "confirm" && modal.danger}
             on:click={submitModal}
             disabled={modal.kind === "prompt" && (!modalInput.trim() || !!modalError)}
           >{modal.submitLabel}</button>
-          <button class="modal-btn" on:click={closeModal}>[ cancel ]</button>
+          <button class="btn" on:click={closeModal}>Cancel</button>
         </div>
       </div>
     </div>
   </div>
 {/if}
 
-{#if minimized}
-  <button class="restore-pill" on:click={restore} title="Restore file browser">
-    <span class="pill-icon">▢</span>
-    <span class="pill-text">files — {tunnel.name}</span>
-    <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
-  </button>
-{/if}
-
 <style>
-  .fb-overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 999; display: flex; align-items: center; justify-content: center; }
-  .fb-overlay.hidden { display: none; }
-  .fb-window { width: 90vw; height: 80vh; background: #0a0a0a; border: 1px solid #00d4ff; border-radius: 2px; display: flex; flex-direction: column; }
-  .fb-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; }
-  .fb-title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00d4ff; }
-  .titlebar-actions { display: flex; gap: 4px; }
-  .title-btn, .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
-  .title-btn:hover { color: #00d4ff; border-color: #00d4ff; }
-  .close-btn:hover { color: #ff4444; border-color: #ff4444; }
-
-  .fb-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; }
-  .tb-btn { background: transparent; border: 1px solid #333; color: #888; font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 3px 8px; cursor: pointer; border-radius: 2px; }
-  .tb-btn:hover:not(:disabled) { color: #00d4ff; border-color: #00d4ff; }
-  .tb-btn:disabled { opacity: 0.35; cursor: default; }
-  .tb-btn.upload { color: #00ff88; border-color: #00ff88; }
-  .tb-btn.upload:hover:not(:disabled) { background: rgba(0,255,136,0.1); }
-
-  .path-input { flex: 1; background: #050505; border: 1px solid #222; color: #00d4ff; font-family: "JetBrains Mono", monospace; font-size: 11px; padding: 3px 8px; border-radius: 2px; outline: none; min-width: 0; }
-  .path-input:focus { border-color: #00d4ff; }
-
-  .status-bar { font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 4px 10px; border-bottom: 1px solid #1a1a1a; }
-  .status-bar.info { color: #00ff88; background: rgba(0,255,136,0.05); }
-  .status-bar.error { color: #ff4444; background: rgba(255,68,68,0.05); }
-
-  .transfers-panel { max-height: 30vh; overflow-y: auto; border-bottom: 1px solid #1a1a1a; }
-  .transfers-panel .progress-bar:last-child { border-bottom: none; }
-  .progress-bar { padding: 4px 10px 6px; background: rgba(0, 212, 255, 0.05); border-bottom: 1px solid #1a1a1a; font-family: "JetBrains Mono", monospace; font-size: 10px; color: #ccc; }
-  .progress-label { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-  .progress-kind { color: #00d4ff; font-size: 12px; }
-  .progress-name { color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-  .progress-counter { color: #666; }
-  .progress-pct { color: #00d4ff; font-weight: 600; min-width: 36px; text-align: right; }
-  .progress-rate { color: #888; min-width: 70px; text-align: right; }
-  .progress-bytes { color: #666; min-width: 110px; text-align: right; }
-  .progress-cancel { background: transparent; border: 1px solid #ff4444; color: #ff4444; font-family: "JetBrains Mono", monospace; font-size: 9px; padding: 1px 6px; cursor: pointer; border-radius: 2px; }
-  .progress-cancel:hover { background: rgba(255, 68, 68, 0.1); }
-  .progress-track { height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden; }
-  .progress-fill { height: 100%; background: linear-gradient(90deg, #00d4ff, #00ff88); transition: width 100ms linear; }
-
-  .fb-body { flex: 1; display: flex; flex-direction: row; min-height: 0; }
-  .file-panel { flex: 1 1 0; overflow: auto; min-width: 0; }
-  .editor-pane { flex: 0 0 55%; min-width: 0; display: flex; }
-  /* When the editor is popped out into its own window, the pane must not
-     reserve split space; the editor positions itself as a fixed overlay. */
-  .editor-pane.windowed { display: contents; }
-  .msg { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00d4ff; padding: 20px; }
-  .msg.dim { color: #666; }
-
-  .file-table { width: 100%; border-collapse: collapse; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #ccc; }
-  .file-table th { text-align: left; padding: 6px 10px; background: #0d0d0d; color: #666; font-weight: 400; text-transform: lowercase; border-bottom: 1px solid #1a1a1a; position: sticky; top: 0; z-index: 1; }
-  .file-table td { padding: 4px 10px; border-bottom: 1px solid #111; }
-  .file-table tr:hover td { background: #111; }
-  .file-table tr.dir td.col-name { color: #00d4ff; }
-  .file-table tr.link td.col-name { color: #ffaa00; }
-  .file-table tr.parent-row td { color: #888; border-bottom: 1px solid #1a1a1a; }
-  .file-table tr.parent-row td.col-name { color: #888; }
-
-  .col-name { width: auto; }
-  .col-size { width: 90px; color: #888; text-align: right; }
-  .col-mtime { width: 150px; color: #888; }
-  .col-actions { width: 160px; text-align: right; white-space: nowrap; }
-
-  .name-btn { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-align: left; }
-  .name-btn:hover { color: #00ff88; text-decoration: underline; }
-  .icon { display: inline-block; width: 14px; color: #666; }
-  tr.dir .icon { color: #00d4ff; }
-
-  .act-btn { background: transparent; border: 1px solid #333; color: #888; font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 1px 6px; cursor: pointer; border-radius: 2px; margin-left: 2px; }
-  .act-btn:hover:not(:disabled) { color: #00d4ff; border-color: #00d4ff; }
-  .act-btn.danger:hover:not(:disabled) { color: #ff4444; border-color: #ff4444; }
-  .act-btn:disabled { opacity: 0.35; cursor: default; }
-
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1100; display: flex; align-items: center; justify-content: center; }
-  .modal-panel { background: #0a0a0a; border: 1px solid #00d4ff; border-radius: 2px; width: 100%; max-width: 460px; margin: 0 16px; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
-  .modal-panel.danger { border-color: #ff4444; box-shadow: 0 0 40px rgba(255,68,68,0.2); }
-  .modal-header { padding: 10px 14px; border-bottom: 1px solid #1a1a1a; }
-  .modal-title { font-size: 11px; color: #00d4ff; font-family: "JetBrains Mono", monospace; letter-spacing: 0.05em; }
-  .modal-panel.danger .modal-title { color: #ff4444; }
-  .modal-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-  .modal-label { font-size: 10px; color: #888; font-family: "JetBrains Mono", monospace; }
-  .modal-message { font-size: 11px; color: #ccc; font-family: "JetBrains Mono", monospace; line-height: 1.5; }
-  .modal-items { list-style: none; margin: 0; padding: 6px 10px; background: #050505; border: 1px solid #222; border-radius: 2px; max-height: 200px; overflow-y: auto; font-family: "JetBrains Mono", monospace; font-size: 10px; color: #ffaa00; }
-  .modal-items li { padding: 2px 0; }
-  .modal-input { width: 100%; background: #050505; border: 1px solid #222; color: #ccc; font-family: "JetBrains Mono", monospace; font-size: 12px; padding: 7px 10px; border-radius: 2px; outline: none; box-sizing: border-box; }
-  .modal-input:focus { border-color: #00d4ff; }
-  .modal-input.invalid { border-color: #ff4444; }
-  .modal-input.invalid:focus { border-color: #ff4444; }
-  .modal-validation { font-size: 10px; color: #ff4444; font-family: "JetBrains Mono", monospace; }
-  .modal-actions { display: flex; gap: 6px; margin-top: 6px; }
-  .modal-btn { background: transparent; border: 1px solid #333; color: #888; font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 5px 12px; cursor: pointer; border-radius: 2px; letter-spacing: 0.05em; }
-  .modal-btn:hover:not(:disabled) { color: #ccc; border-color: #888; }
-  .modal-btn.accent { color: #00d4ff; border-color: #00d4ff; }
-  .modal-btn.accent:hover:not(:disabled) { background: rgba(0,212,255,0.1); }
-  .modal-btn.accent.danger { color: #ff4444; border-color: #ff4444; }
-  .modal-btn.accent.danger:hover:not(:disabled) { background: rgba(255,68,68,0.1); }
-  .modal-btn:disabled { opacity: 0.4; cursor: default; }
-
-  .restore-pill { position: fixed; bottom: 12px; right: 220px; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0a0a0a; border: 1px solid #00d4ff; border-radius: 2px; color: #00d4ff; font-family: "JetBrains Mono", monospace; font-size: 11px; cursor: pointer; box-shadow: 0 0 12px rgba(0, 212, 255, 0.3); }
-  .restore-pill:hover { background: #111; box-shadow: 0 0 16px rgba(0, 212, 255, 0.5); }
-  .pill-icon { font-size: 13px; }
-  .pill-text { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pill-close { color: #888; padding: 0 4px; font-size: 14px; line-height: 1; }
-  .pill-close:hover { color: #ff4444; }
+  .path {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .crumbs {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    padding: 4px 8px;
+    font: 12px var(--mono);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: text;
+  }
+  .crumbs button {
+    padding: 0 2px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .crumbs button:hover {
+    color: var(--accent2);
+  }
+  .sep {
+    color: var(--muted);
+    padding: 0 2px;
+  }
+  .filter {
+    width: 120px;
+  }
+  .notice {
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .notice.error {
+    color: var(--error);
+  }
+  .col-name {
+    width: 46%;
+  }
+  .entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .entry :global(svg) {
+    color: var(--muted);
+    flex: none;
+  }
+  .dir .entry :global(svg) {
+    color: var(--accent2);
+  }
+  .entry small {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  th.num {
+    text-align: right;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+  }
+  tr:hover .actions,
+  .actions:focus-within {
+    opacity: 1;
+  }
+  .actions .icon-btn {
+    width: 22px;
+    height: 22px;
+  }
+  .transfer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .transfer b {
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .transfer button {
+    margin-left: auto;
+  }
+  .transfer-bar {
+    position: absolute;
+    top: -1px;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+  }
+  .modal-panel {
+    width: min(420px, calc(100vw - 32px));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .modal-panel.danger {
+    border-color: var(--error);
+  }
+  .modal-header {
+    padding: 10px 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-body {
+    padding: 12px 14px;
+  }
+  .modal-label {
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .modal-input {
+    width: 100%;
+    padding: 5px 8px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .modal-input.invalid {
+    border-color: var(--error);
+  }
+  .modal-validation {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--error);
+  }
+  .modal-message {
+    word-break: break-word;
+  }
+  .modal-items {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 12px;
+  }
 </style>

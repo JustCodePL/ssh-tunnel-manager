@@ -1,715 +1,505 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
-  import type { TunnelConfig } from "../types";
-  import { tunnels, statuses, loading, getStatus, connectGroup, disconnectGroup, disconnectTunnel, renameGroup } from "../stores/tunnels";
-  import TunnelCard from "./TunnelCard.svelte";
-  import TunnelForm from "./TunnelForm.svelte";
-  import TunnelLogs from "./TunnelLogs.svelte";
-  import TerminalWindow from "./TerminalWindow.svelte";
-  import FileBrowserWindow from "./FileBrowserWindow.svelte";
+  import { get } from "svelte/store";
+  import { createEventDispatcher, onDestroy, onMount, tick } from "svelte";
+  import { tunnels, statuses, loading, groups, getStatus, connectGroup, disconnectGroup, renameGroup, includedConfigFiles, connectTunnel, disconnectTunnel, disconnectAll, addGroup, removeGroup } from "../stores/tunnels";
+  import { capabilities, refreshCapabilities } from "../stores/capabilities";
+  import { effective, settingsFor, attachOptionsFor } from "../stores/settings";
+  import { filterTunnels, groupTunnels, isOn, toolsIn, ROW_TOOLS } from "../lib/rowLayout.js";
+  import { openTool } from "../lib/openTool";
+  import TunnelRow from "./TunnelRow.svelte";
+  import Icon from "./Icon.svelte";
 
-  export let filterGroup: string | null = null;
+  export let filter = "all";
+  export let query = "";
+  export let paused = false;
+  export let creatingGroup = false;
 
-  const dispatch = createEventDispatcher<{ groupRenamed: string }>();
+  const dispatch = createEventDispatcher<{ new: string }>();
 
-  let showForm = false;
-  let editingTunnel: TunnelConfig | null = null;
-  let loggingTunnel: TunnelConfig | null = null;
-  let terminalTunnel: TunnelConfig | null = null;
-  let filesTunnel: TunnelConfig | null = null;
-  let collapsedGroups: Record<string, boolean> = {};
-  let collapsedFiles: Record<string, boolean> = {};
-  let renamingGroup = false;
+  const STORAGE_KEY = "stm-collapsed-groups";
+  let collapsed: Record<string, boolean> = {};
+  let expanded: Record<string, boolean> = {};
+  let selectedId = "";
+  let renaming = "";
   let renameValue = "";
+  let attachOptions: Record<string, { protocol: string; label: string }[]> = {};
 
-  function handleAdd() {
-    editingTunnel = null;
-    showForm = true;
-  }
-
-  function handleEdit(event: CustomEvent<TunnelConfig>) {
-    editingTunnel = event.detail;
-    showForm = true;
-  }
-
-  function handleFormClose() {
-    showForm = false;
-    editingTunnel = null;
-  }
-
-  function handleLogs(event: CustomEvent<TunnelConfig>) {
-    loggingTunnel = event.detail;
-  }
-
-  function handleTerminal(event: CustomEvent<TunnelConfig>) {
-    terminalTunnel = event.detail;
-  }
-
-  function handleFiles(event: CustomEvent<TunnelConfig>) {
-    filesTunnel = event.detail;
-  }
-
-  function handleLogsClose() {
-    loggingTunnel = null;
-  }
-
-  function toggleGroup(group: string) {
-    collapsedGroups[group] = !collapsedGroups[group];
-    collapsedGroups = collapsedGroups;
-  }
-
-  function toggleFile(file: string) {
-    collapsedFiles[file] = !collapsedFiles[file];
-    collapsedFiles = collapsedFiles;
-  }
-
-  function shortPath(path: string): string {
-    return path.replace(/^~\/\.ssh\//, "");
-  }
-
-  interface GroupedTunnels {
-    ungrouped: TunnelConfig[];
-    groups: { name: string; tunnels: TunnelConfig[] }[];
-  }
-
-  interface FileSection {
-    file: string;
-    grouped: GroupedTunnels;
-  }
-
-  function groupTunnels(list: TunnelConfig[]): GroupedTunnels {
-    const result: GroupedTunnels = { ungrouped: [], groups: [] };
-    const groupMap = new Map<string, TunnelConfig[]>();
-    for (const t of list) {
-      if (t.group) {
-        const arr = groupMap.get(t.group);
-        if (arr) {
-          arr.push(t);
-        } else {
-          groupMap.set(t.group, [t]);
-        }
-      } else {
-        result.ungrouped.push(t);
-      }
+  onMount(() => {
+    try {
+      collapsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+    } catch {
+      collapsed = {};
     }
-    for (const [name, tunnels] of groupMap) {
-      result.groups.push({ name, tunnels });
+    if (typeof ResizeObserver !== "undefined") {
+      chipObserver = new ResizeObserver(measureChips);
+      chipObserver.observe(filtersEl);
     }
-    result.groups.sort((a, b) => a.name.localeCompare(b.name));
-    return result;
-  }
-
-  function sectionCount(s: FileSection): number {
-    return s.grouped.ungrouped.length + s.grouped.groups.reduce((acc, g) => acc + g.tunnels.length, 0);
-  }
-
-  $: filteredTunnels = (() => {
-    if (filterGroup === null) return $tunnels;
-    if (filterGroup === "__pinned__") return $tunnels.filter(t => t.pinned);
-    if (filterGroup === "__ungrouped__") return $tunnels.filter(t => !t.group);
-    return $tunnels.filter(t => t.group === filterGroup);
-  })();
-
-  $: pinnedTunnels = filterGroup === null ? $tunnels.filter(t => t.pinned) : [];
-  $: unpinnedTunnels = filterGroup === null
-    ? filteredTunnels.filter(t => !t.pinned)
-    : filteredTunnels;
-
-  $: fileSections = (() => {
-    const fileMap = new Map<string, TunnelConfig[]>();
-    for (const t of unpinnedTunnels) {
-      const key = t.sourceFile || "";
-      const arr = fileMap.get(key);
-      if (arr) {
-        arr.push(t);
-      } else {
-        fileMap.set(key, [t]);
-      }
-    }
-    const sections: FileSection[] = [];
-    for (const [file, list] of fileMap) {
-      sections.push({ file, grouped: groupTunnels(list) });
-    }
-    return sections;
-  })();
-
-  $: hasMultipleFiles = (() => {
-    const files = new Set(filteredTunnels.map(t => t.sourceFile || ""));
-    return files.size > 1;
-  })();
-  $: isAllView = filterGroup === null;
-  $: showInlineGroupTitle = filterGroup !== null && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__";
-  $: singleGroupAllConnected = showInlineGroupTitle ? groupAllConnected(filteredTunnels) : false;
-  $: anyActive = filteredTunnels.some(t => {
-    const s = getStatus($statuses, t.id);
-    return s === "connected" || s === "connecting" || s === "reconnecting";
+    measureChips();
   });
-  $: currentTitle = (() => {
-    if (filterGroup === null) return "all tunnels";
-    if (filterGroup === "__pinned__") return "pinned";
-    if (filterGroup === "__ungrouped__") return "unassigned";
-    return filterGroup || "all tunnels";
-  })();
 
-  function groupAllConnected(tunnelList: TunnelConfig[]): boolean {
-    return tunnelList.length > 0 && tunnelList.every(t => {
-      const s = getStatus($statuses, t.id);
-      return s === "connected" || s === "connecting" || s === "reconnecting";
-    });
+  function toggleGroup(key: string) {
+    collapsed = { ...collapsed, [key]: !collapsed[key] };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collapsed));
   }
 
-  function handleGroupConnect(groupName: string) {
-    connectGroup(groupName);
+  async function loadAttachOptions(id: string) {
+    attachOptions = { ...attachOptions, [id]: await attachOptionsFor(id) };
   }
 
-  function handleGroupDisconnect(groupName: string) {
-    disconnectGroup(groupName);
+  // Detected tools decide what Attach offers. Connecting re-probes the host, and
+  // the options follow once the capabilities store has the result.
+  const connectedBefore = new Set<string>();
+  // A tunnel's settings can turn remote desktop on or off.
+  let optionsFor: unknown = null;
+  $: if ($effective !== optionsFor) {
+    optionsFor = $effective;
+    for (const t of $tunnels) void loadAttachOptions(t.id);
   }
-
-  function handleDisconnectFiltered() {
-    for (const t of filteredTunnels) {
-      const s = getStatus($statuses, t.id);
-      if (s === "connected" || s === "connecting" || s === "reconnecting") {
-        disconnectTunnel(t.id);
-      }
+  $: for (const t of $tunnels) {
+    const connected = getStatus($statuses, t.id) === "connected";
+    if (connected && !connectedBefore.has(t.id)) {
+      connectedBefore.add(t.id);
+      void refreshCapabilities(t.id).then(() => loadAttachOptions(t.id));
+    } else if (!connected) {
+      connectedBefore.delete(t.id);
+    }
+    if (!attachOptions[t.id]) {
+      attachOptions[t.id] = [{ protocol: "ssh", label: "Terminal" }];
+      void loadAttachOptions(t.id);
     }
   }
 
-  function startRenameGroup() {
-    if (filterGroup && filterGroup !== "__pinned__" && filterGroup !== "__ungrouped__") {
-      renameValue = filterGroup;
-      renamingGroup = true;
-    }
-  }
+  $: visible = filterTunnels($tunnels, filter, query, (id: string) => getStatus($statuses, id));
+  $: emptyGroups = query.trim() || (filter !== "all" && !filter.startsWith("group:")) ? [] : $groups.filter((name) => filter === "all" || filter === `group:${name}`);
+  $: sections = groupTunnels(visible, emptyGroups);
+  $: flatVisible = sections.flatMap((s) => (collapsed[s.key] ? [] : s.tunnels));
+  $: liveCount = $tunnels.filter((t) => isOn(getStatus($statuses, t.id))).length;
+  $: pinnedCount = $tunnels.filter((t) => t.pinned).length;
+  $: unassignedCount = $tunnels.filter((t) => !t.group).length;
+  $: groupNames = [...new Set([...$tunnels.map((t) => t.group), ...$groups].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  $: sourceFiles = $includedConfigFiles ?? [];
+  $: chips = [
+    { id: "all", label: "All", count: $tunnels.length, title: "" },
+    { id: "live", label: "Live", count: liveCount, title: "" },
+    ...(pinnedCount ? [{ id: "pinned", label: "Pinned", count: pinnedCount, title: "" }] : []),
+    ...groupNames.map((name) => ({ id: `group:${name}`, label: name, count: $tunnels.filter((t) => t.group === name).length, title: "" })),
+    ...(unassignedCount ? [{ id: "unassigned", label: "Unassigned", count: unassignedCount, title: "" }] : []),
+    ...(sourceFiles.length > 1 ? sourceFiles.map((file) => ({ id: `file:${file.path}`, label: file.label, count: $tunnels.filter((t) => t.sourceFile === file.path).length, title: file.path })) : []),
+  ];
+  $: shownChips = chips.slice(0, fitCount);
+  $: hiddenChips = chips.slice(fitCount);
+  $: if (chips && filtersEl) void tick().then(measureChips);
 
-  async function confirmRenameGroup() {
-    if (!renamingGroup || !renameValue.trim() || !filterGroup) {
-      renamingGroup = false;
+  // The chips stay on one line. Those that do not fit go into a dropdown.
+  let filtersEl: HTMLDivElement;
+  let measureEl: HTMLDivElement;
+  let fitCount = Infinity;
+  let showHidden = false;
+  let chipObserver: ResizeObserver | null = null;
+
+  function measureChips() {
+    if (!filtersEl || !measureEl) return;
+    const gap = 2;
+    const widths = [...measureEl.children].map((child) => (child as HTMLElement).offsetWidth + gap);
+    const action = filtersEl.querySelector(".disconnect-all") as HTMLElement | null;
+    const available = filtersEl.clientWidth - 16 - (action ? action.offsetWidth + 8 : 0);
+    const total = widths.reduce((sum, width) => sum + width, 0);
+    if (total <= available) {
+      fitCount = widths.length;
       return;
     }
-    const newName = renameValue.trim();
-    const oldName = filterGroup;
-    renamingGroup = false;
-    if (oldName === newName) return;
-    await renameGroup(oldName, newName);
-    dispatch("groupRenamed", newName);
+    let used = 34; // the dropdown's button
+    let count = 0;
+    for (const width of widths) {
+      if (used + width > available) break;
+      used += width;
+      count += 1;
+    }
+    fitCount = Math.max(count, 1);
   }
 
-  function handleRenameKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") confirmRenameGroup();
-    if (e.key === "Escape") renamingGroup = false;
+  onDestroy(() => chipObserver?.disconnect());
+
+  let newGroupName = "";
+
+  async function finishNewGroup() {
+    const name = newGroupName.trim();
+    creatingGroup = false;
+    newGroupName = "";
+    if (!name) return;
+    filter = "all";
+    await addGroup(name);
+  }
+
+  function liveIn(list: { id: string }[]): number {
+    return list.filter((t) => isOn(getStatus($statuses, t.id))).length;
+  }
+
+  function startRename(group: string) {
+    renaming = group;
+    renameValue = group;
+  }
+
+  async function finishRename() {
+    const from = renaming;
+    const to = renameValue.trim();
+    renaming = "";
+    if (from && to && from !== to) {
+      await renameGroup(from, to);
+      if (filter === `group:${from}`) filter = `group:${to}`;
+    }
+  }
+
+  function moveSelection(step: number) {
+    if (!flatVisible.length) return;
+    const index = flatVisible.findIndex((t) => t.id === selectedId);
+    const next = index < 0 ? (step > 0 ? 0 : flatVisible.length - 1) : (index + step + flatVisible.length) % flatVisible.length;
+    selectedId = flatVisible[next].id;
+    document.querySelector(`[data-name="${CSS.escape(flatVisible[next].name)}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function onKey(event: KeyboardEvent) {
+    if (paused || event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target as HTMLElement;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) {
+      if (event.key === "Escape") target.blur();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "j") {
+      event.preventDefault();
+      moveSelection(1);
+      return;
+    }
+    if (event.key === "ArrowUp" || event.key === "k") {
+      event.preventDefault();
+      moveSelection(-1);
+      return;
+    }
+    if (event.key === "/") {
+      event.preventDefault();
+      (document.querySelector('[data-testid="search"]') as HTMLElement | null)?.focus();
+      return;
+    }
+    const tunnel = flatVisible.find((t) => t.id === selectedId);
+    if (!tunnel) return;
+    const key = event.key.toLowerCase();
+    if (event.key === "Enter") {
+      expanded = { ...expanded, [tunnel.id]: !expanded[tunnel.id] };
+    } else if (event.key === " ") {
+      event.preventDefault();
+      void (isOn(getStatus($statuses, tunnel.id)) ? disconnectTunnel(tunnel.id) : connectTunnel(tunnel.id));
+    } else if (key === "t") {
+      void openTool({ tool: "terminal", tunnelId: tunnel.id });
+    } else if (key === "r" && attachOptions[tunnel.id]?.some((o) => o.protocol === "rdp")) {
+      void openTool({ tool: "rdp", tunnelId: tunnel.id });
+    } else if (key === "s") {
+      void openTool({ tool: "tunnel-settings", tunnelId: tunnel.id });
+    } else {
+      const tool = ROW_TOOLS.find((item) => item.shortcut === key);
+      const row = settingsFor(get(effective), tunnel.id).row;
+      if (tool && toolsIn(row, "panel", $capabilities[tunnel.id]).some((item) => item.key === tool.key)) {
+        void openTool({ tool: tool.tool, tunnelId: tunnel.id });
+      }
+    }
   }
 </script>
 
-{#if loggingTunnel}
-  <TunnelLogs
-    tunnelName={loggingTunnel.name}
-    tunnelId={loggingTunnel.id}
-    on:close={handleLogsClose}
-  />
-{/if}
+<svelte:window on:keydown={onKey} />
 
-{#if terminalTunnel}
-  <TerminalWindow tunnel={terminalTunnel} on:close={() => terminalTunnel = null} />
-{/if}
+<svelte:body on:click={() => (showHidden = false)} />
 
-{#if filesTunnel}
-  <FileBrowserWindow tunnel={filesTunnel} on:close={() => filesTunnel = null} />
-{/if}
-
-{#if showForm}
-  <TunnelForm tunnel={editingTunnel} on:close={handleFormClose} />
-{/if}
-
-<div class="tunnel-list">
-    <div class="list-header">
-      {#if renamingGroup}
-        <input
-          class="rename-input"
-          bind:value={renameValue}
-          on:keydown={handleRenameKeydown}
-          on:blur={confirmRenameGroup}
-          autofocus
-        />
-      {:else}
-        <div class="list-title">{currentTitle}</div>
+<div class="filters" role="tablist" aria-label="Filter tunnels" bind:this={filtersEl}>
+  <div class="chip-measure" bind:this={measureEl} aria-hidden="true">
+    {#each chips as chip}<span class="chip">{chip.label}<b>{chip.count}</b></span>{/each}
+  </div>
+  {#each shownChips as chip (chip.id)}
+    <button
+      type="button"
+      role="tab"
+      class="chip"
+      aria-selected={filter === chip.id}
+      class:on={filter === chip.id}
+      title={chip.title || undefined}
+      data-testid={chip.id === "live" ? "filter-live" : undefined}
+      on:click={() => (filter = chip.id)}
+    >{chip.label}<b>{chip.count}</b></button>
+  {/each}
+  {#if hiddenChips.length}
+    <span class="chip-more">
+      <button
+        type="button"
+        class="chip chip-toggle"
+        class:on={hiddenChips.some((chip) => chip.id === filter)}
+        aria-label="More groups"
+        aria-haspopup="menu"
+        aria-expanded={showHidden}
+        data-testid="more-groups"
+        on:click|stopPropagation={() => (showHidden = !showHidden)}
+      ><span class="toggle-chevron"><Icon name="chevron" size={12} /></span></button>
+      {#if showHidden}
+        <div class="menu" role="menu">
+          {#each hiddenChips as chip (chip.id)}
+            <button type="button" class="menu-item" role="menuitem" class:current={filter === chip.id} on:click={() => { filter = chip.id; showHidden = false; }}>
+              {chip.label}<kbd>{chip.count}</kbd>
+            </button>
+          {/each}
+        </div>
       {/if}
-      <div class="header-actions">
-        {#if showInlineGroupTitle}
-          {#if singleGroupAllConnected}
-            <button class="add-btn disconnect-btn" on:click={() => handleGroupDisconnect(filterGroup)}>disconnect all</button>
-          {:else}
-            <button class="add-btn" on:click={() => handleGroupConnect(filterGroup)}>connect all</button>
-            {#if anyActive}
-              <button class="add-btn disconnect-btn" on:click={() => handleGroupDisconnect(filterGroup)}>disconnect all</button>
-            {/if}
-          {/if}
-          <button class="add-btn" on:click={startRenameGroup} title="Rename group">✎</button>
-        {:else if anyActive}
-          <button class="add-btn disconnect-btn" on:click={handleDisconnectFiltered}>disconnect all</button>
-        {/if}
-        <button class="add-btn" on:click={handleAdd}>+ new tunnel</button>
-      </div>
-    </div>
-
-  {#if $loading}
-    <div class="loading-msg">// loading...</div>
-  {:else}
-    {#if $tunnels.length === 0}
-      <div class="empty-state">
-        <div class="empty-art">
-          <div>┌─────────────────────┐</div>
-          <div>│  no tunnels found   │</div>
-          <div>└─────────────────────┘</div>
-        </div>
-        <button class="add-btn" on:click={handleAdd}>+ add first tunnel</button>
-      </div>
-    {:else if filteredTunnels.length === 0}
-      <div class="empty-state">
-        <div class="empty-art">
-          <div>// no tunnels in this group</div>
-        </div>
-      </div>
-    {:else}
-      <div class="cards">
-        {#if pinnedTunnels.length > 0}
-          <div class="pinned-section">
-            <div class="pinned-header">// pinned</div>
-            <div class="pinned-tunnels">
-              {#each pinnedTunnels as tunnel (tunnel.id)}
-                <TunnelCard
-                  {tunnel}
-                  status={getStatus($statuses, tunnel.id)}
-                  on:edit={handleEdit}
-                  on:logs={handleLogs}
-                  on:terminal={handleTerminal}
-                  on:files={handleFiles}
-                />
-              {/each}
-            </div>
-          </div>
-        {/if}
-        {#each fileSections as section (section.file)}
-          {#if hasMultipleFiles}
-            <div class="file-section">
-              <button
-                class="file-header"
-                on:click={() => toggleFile(section.file)}
-              >
-                <span class="file-arrow">{collapsedFiles[section.file] ? '▸' : '▾'}</span>
-                <span class="file-name">{shortPath(section.file)}</span>
-                <span class="file-count">({sectionCount(section)})</span>
-              </button>
-              {#if !collapsedFiles[section.file]}
-                <div class="file-tunnels">
-                  {#if showInlineGroupTitle}
-                    {#each section.grouped.groups as group}
-                      {#each group.tunnels as tunnel (tunnel.id)}
-                        <TunnelCard
-                          {tunnel}
-                          status={getStatus($statuses, tunnel.id)}
-                          on:edit={handleEdit}
-                          on:logs={handleLogs}
-                          on:terminal={handleTerminal}
-                          on:files={handleFiles}
-                        />
-                      {/each}
-                    {/each}
-                    {#each section.grouped.ungrouped as tunnel (tunnel.id)}
-                      <TunnelCard
-                        {tunnel}
-                        status={getStatus($statuses, tunnel.id)}
-                        on:edit={handleEdit}
-                        on:logs={handleLogs}
-                        on:terminal={handleTerminal}
-                        on:files={handleFiles}
-                      />
-                    {/each}
-                  {:else}
-                  {#if isAllView && section.grouped.groups.length > 0}
-                    <div class="section-subheader">// Groups</div>
-                  {/if}
-                  {#each section.grouped.groups as group (group.name)}
-                    <div class="group-section">
-                      <div class="group-header-row">
-                        <button class="group-header" on:click={() => toggleGroup(group.name)}>
-                          <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
-                          <span class="group-name">{group.name.toUpperCase()}</span>
-                          <span class="group-count">({group.tunnels.length})</span>
-                        </button>
-                        {#if groupAllConnected(group.tunnels)}
-                          <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>disconnect</button>
-                        {:else}
-                          <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>connect all</button>
-                        {/if}
-                      </div>
-                      {#if !collapsedGroups[group.name]}
-                        <div class="group-tunnels">
-                          {#each group.tunnels as tunnel (tunnel.id)}
-                            <TunnelCard
-                              {tunnel}
-                              status={getStatus($statuses, tunnel.id)}
-                              on:edit={handleEdit}
-                              on:logs={handleLogs}
-                              on:terminal={handleTerminal}
-                              on:files={handleFiles}
-                            />
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  {/each}
-                  {#if isAllView && section.grouped.ungrouped.length > 0}
-                    <div class="section-subheader">// Unassigned</div>
-                  {/if}
-                  {#each section.grouped.ungrouped as tunnel (tunnel.id)}
-                    <TunnelCard
-                      {tunnel}
-                      status={getStatus($statuses, tunnel.id)}
-                      on:edit={handleEdit}
-                      on:logs={handleLogs}
-                      on:terminal={handleTerminal}
-                      on:files={handleFiles}
-                    />
-                  {/each}
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {:else}
-            {#if showInlineGroupTitle}
-              {#each section.grouped.groups as group}
-                {#each group.tunnels as tunnel (tunnel.id)}
-                  <TunnelCard
-                    {tunnel}
-                    status={getStatus($statuses, tunnel.id)}
-                    on:edit={handleEdit}
-                    on:logs={handleLogs}
-                    on:terminal={handleTerminal}
-                    on:files={handleFiles}
-                  />
-                {/each}
-              {/each}
-              {#each section.grouped.ungrouped as tunnel (tunnel.id)}
-                <TunnelCard
-                  {tunnel}
-                  status={getStatus($statuses, tunnel.id)}
-                  on:edit={handleEdit}
-                  on:logs={handleLogs}
-                  on:terminal={handleTerminal}
-                  on:files={handleFiles}
-                />
-              {/each}
-            {:else}
-            {#if isAllView && section.grouped.groups.length > 0}
-              <div class="section-subheader">// Groups</div>
-            {/if}
-            {#each section.grouped.groups as group (group.name)}
-              <div class="group-section">
-                <div class="group-header-row">
-                  <button class="group-header" on:click={() => toggleGroup(group.name)}>
-                    <span class="group-arrow">{collapsedGroups[group.name] ? '▸' : '▾'}</span>
-                    <span class="group-name">{group.name.toUpperCase()}</span>
-                    <span class="group-count">({group.tunnels.length})</span>
-                  </button>
-                  {#if groupAllConnected(group.tunnels)}
-                    <button class="group-action-btn disconnect" on:click|stopPropagation={() => handleGroupDisconnect(group.name)}>disconnect</button>
-                  {:else}
-                    <button class="group-action-btn" on:click|stopPropagation={() => handleGroupConnect(group.name)}>connect all</button>
-                  {/if}
-                </div>
-                {#if !collapsedGroups[group.name]}
-                  <div class="group-tunnels">
-                    {#each group.tunnels as tunnel (tunnel.id)}
-                      <TunnelCard
-                        {tunnel}
-                        status={getStatus($statuses, tunnel.id)}
-                        on:edit={handleEdit}
-                        on:logs={handleLogs}
-                        on:terminal={handleTerminal}
-                        on:files={handleFiles}
-                      />
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            {/each}
-            {#if isAllView && section.grouped.ungrouped.length > 0}
-              <div class="section-subheader">// Unassigned</div>
-            {/if}
-            {#each section.grouped.ungrouped as tunnel (tunnel.id)}
-              <TunnelCard
-                {tunnel}
-                status={getStatus($statuses, tunnel.id)}
-                on:edit={handleEdit}
-                on:logs={handleLogs}
-                on:terminal={handleTerminal}
-                on:files={handleFiles}
-              />
-            {/each}
-            {/if}
-          {/if}
-        {/each}
-      </div>
-    {/if}
+    </span>
+  {/if}
+  {#if liveCount > 0}
+    <button type="button" class="disconnect-all" data-testid="disconnect-all" on:click={disconnectAll}>Disconnect all</button>
   {/if}
 </div>
 
+<div class="list" data-testid="tunnel-list">
+  {#if creatingGroup}
+    <div class="band new-group-band">
+      <!-- svelte-ignore a11y-autofocus -->
+      <input
+        class="field-control"
+        autofocus
+        placeholder="Group name"
+        aria-label="Group name"
+        data-testid="new-group-name"
+        bind:value={newGroupName}
+        on:blur={finishNewGroup}
+        on:keydown={(e) => {
+          if (e.key === "Enter") void finishNewGroup();
+          if (e.key === "Escape") { newGroupName = ""; creatingGroup = false; }
+        }}
+      />
+    </div>
+  {/if}
+  {#if $loading && !$tunnels.length}
+    <p class="empty">Loading tunnels</p>
+  {:else if !$tunnels.length && !$groups.length}
+    <p class="empty">No tunnels yet. Add one with the + button, or import your SSH config from there.</p>
+  {:else if !sections.length}
+    <p class="empty">No tunnels match this filter.</p>
+  {/if}
+
+  {#each sections as section (section.key)}
+    {@const live = liveIn(section.tunnels)}
+    <section data-testid="group" data-group={section.label}>
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <div class="band" role="button" tabindex="-1" on:click={() => toggleGroup(section.key)}>
+        <span class="chevron" class:down={!collapsed[section.key]}><Icon name="chevron" size={12} /></span>
+        {#if renaming === section.group && renaming}
+          <!-- svelte-ignore a11y-autofocus -->
+          <input
+            class="field-control"
+            autofocus
+            bind:value={renameValue}
+            on:click|stopPropagation
+            on:blur={finishRename}
+            on:keydown={(e) => {
+              if (e.key === "Enter") void finishRename();
+              if (e.key === "Escape") renaming = "";
+            }}
+          />
+        {:else}
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <strong title={section.group ? "Double-click to rename" : undefined} on:dblclick|stopPropagation={() => section.group && startRename(section.group)}>{section.label}</strong>
+        {/if}
+        <span class="count">{section.tunnels.length && (section.group || section.key === "__pinned__") ? `${live} of ${section.tunnels.length} live` : `${section.tunnels.length} tunnel${section.tunnels.length === 1 ? "" : "s"}`}</span>
+        {#if section.group && !section.tunnels.length}
+          <button type="button" class="band-action" data-testid="delete-group" on:click|stopPropagation={() => removeGroup(section.group)}>Delete group</button>
+        {:else if section.group}
+          {#if live < section.tunnels.length}
+            <button type="button" class="band-action" on:click|stopPropagation={() => connectGroup(section.group)}>Connect all</button>
+          {/if}
+          {#if live > 0}
+            <button type="button" class="band-action" class:first={live === section.tunnels.length} on:click|stopPropagation={() => disconnectGroup(section.group)}>Disconnect all</button>
+          {/if}
+        {/if}
+      </div>
+      {#if !collapsed[section.key]}
+        <div class="members">
+          {#each section.tunnels as tunnel (tunnel.id)}
+            <TunnelRow
+              {tunnel}
+              event={$statuses[tunnel.id]}
+              settings={settingsFor($effective, tunnel.id)}
+              caps={$capabilities[tunnel.id]}
+              attachOptions={attachOptions[tunnel.id] ?? []}
+              expanded={!!expanded[tunnel.id]}
+              selected={selectedId === tunnel.id}
+              on:toggle={() => {
+                selectedId = tunnel.id;
+                expanded = { ...expanded, [tunnel.id]: !expanded[tunnel.id] };
+              }}
+            />
+          {/each}
+          {#if section.key !== "__pinned__"}
+            <button type="button" class="add-row" data-testid="add-to-group" on:click={() => dispatch("new", section.group)}>
+              <Icon name="plus" size={13} />New tunnel
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  {/each}
+</div>
+
 <style>
-  .tunnel-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-    gap: 8px;
-  }
-
-  .rename-input {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--accent);
-    border-radius: 2px;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 2px 6px;
-    outline: none;
-  }
-
-  .header-actions {
+  .filters {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-
-  .list-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text);
-  }
-
-  .section-subheader {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    padding: 6px 0 2px;
-  }
-
-  .add-btn {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 4px 10px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: background 0.15s;
-    letter-spacing: 0.05em;
-  }
-
-  .add-btn:hover {
-    background: rgba(0, 255, 136, 0.1);
-  }
-
-  .add-btn.disconnect-btn {
-    border-color: #ff4444;
-    color: #ff4444;
-  }
-
-  .add-btn.disconnect-btn:hover {
-    background: rgba(255, 68, 68, 0.1);
-  }
-
-  .loading-msg {
-    font-size: 11px;
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    padding: 24px 0;
-    text-align: center;
-  }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 40px 0;
-  }
-
-  .empty-art {
-    font-size: 11px;
-    color: var(--border);
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.6;
-    text-align: center;
-  }
-
-  .cards {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .file-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
-  }
-
-  .file-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: transparent;
-    border: none;
+    gap: 2px;
+    padding: 5px 8px;
+    font-size: 12.5px;
     border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    padding: 6px 0;
-    color: var(--accent2);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-align: left;
+    flex-shrink: 0;
   }
-
-  .file-arrow {
-    font-size: 8px;
-    color: var(--accent);
-  }
-
-  .file-name {
-    letter-spacing: 0.05em;
-    color: var(--accent2);
-  }
-
-  .file-header:hover .file-name {
-    color: var(--accent);
-  }
-
-  .file-count {
+  .chip {
+    flex: none;
+    padding: 3px 9px;
+    border-radius: var(--radius);
     color: var(--muted);
-    font-size: 9px;
-  }
-
-  .file-tunnels {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-left: 10px;
-    border-left: 1px solid var(--border);
-    margin-left: 4px;
-  }
-
-  .group-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .group-header-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .group-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 4px 0;
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-align: left;
-  }
-
-  .group-action-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    padding: 1px 6px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: color 0.15s, border-color 0.15s;
-    letter-spacing: 0.05em;
+    font-size: 12.5px;
     white-space: nowrap;
   }
-
-  .group-action-btn:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .group-action-btn.disconnect:hover {
-    color: #ff4444;
-    border-color: #ff4444;
-  }
-
-  .group-arrow {
-    font-size: 8px;
-    color: var(--accent);
-  }
-
-  .group-name {
-    letter-spacing: 0.1em;
-    color: var(--muted);
-  }
-
-  .group-header:hover .group-name {
+  .chip.on {
+    background: var(--raise);
     color: var(--text);
   }
-
-  .group-count {
+  .chip b {
+    font-weight: 400;
+    margin-left: 5px;
+    opacity: 0.75;
+  }
+  .chip-measure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    gap: 2px;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .chip-more {
+    position: relative;
+    flex: none;
+  }
+  .chip-more .menu {
+    top: calc(100% + 4px);
+    left: 0;
+  }
+  .chip-toggle {
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent);
+  }
+  .toggle-chevron {
+    display: inline-flex;
+    transform: rotate(90deg);
+  }
+  .menu-item.current {
+    color: var(--accent);
+  }
+  .disconnect-all {
+    flex: none;
+    margin-left: auto;
+    padding: 3px 6px;
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .disconnect-all:hover {
+    color: var(--text);
+  }
+  .new-group-band input {
+    flex: 1;
+  }
+  .add-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    height: 32px;
+    padding: 0 14px;
+    color: var(--muted);
+    font-size: 12.5px;
+    text-align: left;
+  }
+  .add-row:hover {
+    color: var(--accent);
+    background: var(--surface);
+  }
+  .list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .empty {
+    padding: 24px;
+    text-align: center;
     color: var(--muted);
   }
-
-  .group-tunnels {
+  .band {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-left: 14px;
-    border-left: 1px solid var(--border);
-    margin-left: 4px;
-  }
-
-  .pinned-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
-  }
-
-  .pinned-header {
-    font-size: 9px;
-    color: var(--accent2);
-    font-family: 'JetBrains Mono', monospace;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 4px 0;
+    align-items: center;
+    gap: 8px;
+    height: 33px;
+    padding: 0 12px 0 11px;
+    background: var(--surface2);
     border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
   }
-
-  .pinned-tunnels {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  section + section .band {
+    border-top: 1px solid var(--border);
+  }
+  .band strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .band .count {
+    flex: 0 100 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+  :global([data-theme="terminal"]) .band strong::before {
+    content: "// ";
+    color: var(--live);
+  }
+  .chevron {
+    display: inline-flex;
+  }
+  .chevron.down {
+    transform: rotate(90deg);
+  }
+  .band-action {
+    flex: none;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+  .band-action:first-of-type {
+    margin-left: auto;
+  }
+  .band-action:hover {
+    color: var(--text);
+  }
+  .members {
+    margin-left: 16px;
+    border-left: 1px solid var(--border);
   }
 </style>

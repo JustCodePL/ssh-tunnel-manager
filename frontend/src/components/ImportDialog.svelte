@@ -65,7 +65,7 @@
 
 <div class="import-container">
   <div class="import-header">
-    <span class="import-title">// import from ssh config</span>
+    <span class="import-title">Import from ssh config</span>
     <button class="close-btn" on:click={() => dispatch("close")}>[ × ]</button>
   </div>
 
@@ -77,8 +77,8 @@
     {#if step === "pick"}
       <p class="hint-text">select an ssh config file to import host entries from.</p>
       <div class="import-actions">
-        <button class="action-btn accent" on:click={handlePickFile}>[ choose file ]</button>
-        <button class="action-btn" on:click={() => dispatch("close")}>[ cancel ]</button>
+        <button class="action-btn accent" on:click={handlePickFile}>Choose file</button>
+        <button class="action-btn" on:click={() => dispatch("close")}>Cancel</button>
       </div>
 
     {:else if step === "preview"}
@@ -126,9 +126,9 @@
           disabled={selectedCount === 0 || importing}
           on:click={handleImport}
         >
-          {importing ? "// importing..." : `[ import ${selectedCount} tunnel${selectedCount !== 1 ? "s" : ""} ]`}
+          {importing ? "Importing..." : `[ import ${selectedCount} tunnel${selectedCount !== 1 ? "s" : ""} ]`}
         </button>
-        <button class="action-btn" on:click={() => dispatch("close")}>[ cancel ]</button>
+        <button class="action-btn" on:click={() => dispatch("close")}>Cancel</button>
       </div>
 
     {:else if step === "done"}
@@ -137,7 +137,7 @@
         imported {importedCount} tunnel{importedCount !== 1 ? "s" : ""} successfully
       </div>
       <div class="import-actions">
-        <button class="action-btn accent" on:click={() => dispatch("close")}>[ done ]</button>
+        <button class="action-btn accent" on:click={() => dispatch("close")}>Done</button>
       </div>
     {/if}
   </div>
@@ -159,9 +159,9 @@
   }
 
   .import-title {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     letter-spacing: 0.05em;
   }
 
@@ -169,24 +169,24 @@
     background: transparent;
     border: none;
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     cursor: pointer;
     padding: 2px 6px;
     transition: color 0.15s;
   }
 
   .close-btn:hover {
-    color: #ff4444;
+    color: var(--error);
   }
 
   .error-bar {
-    background: rgba(255, 68, 68, 0.1);
-    border-bottom: 1px solid rgba(255, 68, 68, 0.3);
-    color: #ff4444;
-    font-size: 10px;
+    background: color-mix(in srgb, var(--error) 14%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--error) 14%, transparent);
+    color: var(--error);
+    font-size: 11.5px;
     padding: 6px 14px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
   }
 
   .import-body {
@@ -197,9 +197,9 @@
   }
 
   .hint-text {
-    font-size: 10px;
+    font-size: 11.5px;
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     margin: 0;
   }
 
@@ -210,15 +210,15 @@
   }
 
   .preview-count {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
   }
 
   .preview-path {
-    font-size: 9px;
-    color: #333;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--border);
+    font-family: var(--ui);
     word-break: break-all;
   }
 
@@ -232,8 +232,8 @@
   .preview-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
   }
 
   .preview-table thead {
@@ -247,7 +247,7 @@
     text-align: left;
     color: var(--muted);
     font-weight: 400;
-    font-size: 9px;
+    font-size: 11.5px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     border-bottom: 1px solid var(--border);
@@ -287,8 +287,8 @@
     background: transparent;
     border: 1px solid var(--border);
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     padding: 5px 12px;
     cursor: pointer;
     border-radius: 2px;
@@ -307,7 +307,7 @@
   }
 
   .action-btn.accent:hover:not(:disabled) {
-    background: rgba(0, 255, 136, 0.1);
+    background: var(--accent-soft);
   }
 
   .action-btn:disabled {
@@ -316,9 +316,9 @@
   }
 
   .done-msg {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -326,6 +326,6 @@
 
   .accent-text {
     color: var(--accent);
-    text-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
+    text-shadow: 0 0 6px var(--accent-soft);
   }
 </style>

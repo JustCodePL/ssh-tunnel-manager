@@ -51,3 +51,16 @@ func TestValidateRDPPort(t *testing.T) {
 		}
 	}
 }
+
+func TestValidatePortlessSuffix(t *testing.T) {
+	for _, suffix := range []string{"", "dev", "team-a.dev", "a1"} {
+		if err := validatePortlessSuffix(suffix); err != nil {
+			t.Errorf("%q: %v", suffix, err)
+		}
+	}
+	for _, suffix := range []string{"Dev", ".dev", "dev.", "a b", "a..b", "dev\n# stm:pinned=true"} {
+		if err := validatePortlessSuffix(suffix); err == nil {
+			t.Errorf("%q was accepted", suffix)
+		}
+	}
+}

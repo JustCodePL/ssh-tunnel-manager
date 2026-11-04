@@ -555,6 +555,14 @@ type SFTPManager struct {
 	sessions      map[string]*SFTPSession
 	nextID        int
 	getPassphrase PassphraseFunc
+	getLogin      LoginFunc
+}
+
+// WithLoginProvider sets where the manager finds a tunnel's password login.
+func (sm *SFTPManager) WithLoginProvider(getLogin LoginFunc) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.getLogin = getLogin
 }
 
 // NewSFTPManager creates a new SFTPManager.
@@ -574,12 +582,15 @@ func (sm *SFTPManager) OpenSession(cfg config.TunnelConfig) (string, string, err
 // OpenSessionVia is like OpenSession, but carries the connection over an
 // existing tunnel when via is set.
 func (sm *SFTPManager) OpenSessionVia(cfg config.TunnelConfig, via RemoteDialer) (string, string, error) {
-	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase)
+	sm.mu.Lock()
+	getLogin := sm.getLogin
+	sm.mu.Unlock()
+	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase, getLogin)
 	if err != nil {
 		return "", "", fmt.Errorf("building SSH config for SFTP: %w", err)
 	}
 
-	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, Via: via}
+	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, GetLogin: getLogin, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", "", fmt.Errorf("connecting SFTP to %s: %w", cfg.Host, err)

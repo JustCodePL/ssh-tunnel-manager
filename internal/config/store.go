@@ -268,19 +268,20 @@ func (s *Store) GetIncludedConfigFiles() ([]ConfigFileInfo, error) {
 
 func toHostEntry(t TunnelConfig) sshconfig.HostEntry {
 	e := sshconfig.HostEntry{
-		Alias:        t.Name,
-		HostName:     t.Host,
-		Port:         t.Port,
-		User:         t.User,
-		IdentityFile: t.KeyPath,
-		ProxyCommand: t.ProxyCommand,
-		ProxyJump:    t.ProxyJump,
-		Color:        t.Color,
-		Group:        t.Group,
-		AutoConnect:  t.AutoConnect,
-		Pinned:       t.Pinned,
-		RDPPort:      t.RDPPort,
-		SourceFile:   t.SourceFile,
+		Alias:          t.Name,
+		HostName:       t.Host,
+		Port:           t.Port,
+		User:           t.User,
+		IdentityFile:   t.KeyPath,
+		ProxyCommand:   t.ProxyCommand,
+		ProxyJump:      t.ProxyJump,
+		Color:          t.Color,
+		Group:          t.Group,
+		AutoConnect:    t.AutoConnect,
+		Pinned:         t.Pinned,
+		RDPPort:        t.RDPPort,
+		PortlessSuffix: t.PortlessSuffix,
+		SourceFile:     t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
 		e.PortForwards = append(e.PortForwards, sshconfig.PortForwardEntry{
@@ -315,6 +316,7 @@ func fromHostEntry(e sshconfig.HostEntry) TunnelConfig {
 		AutoConnect:     e.AutoConnect,
 		Pinned:          e.Pinned,
 		RDPPort:         e.RDPPort,
+		PortlessSuffix:  e.PortlessSuffix,
 		SourceFile:      e.SourceFile,
 		SourceFileLabel: sshconfig.CollapseTildePath(e.SourceFile),
 	}

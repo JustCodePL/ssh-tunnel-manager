@@ -1,26 +1,27 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+  import { createEventScope } from "../lib/runtime";
   import type { PortForwardError } from "../types";
+  const events = createEventScope();
 
   let err: PortForwardError | null = null;
 
   onMount(() => {
-    EventsOn("port-forward:failed", (event: PortForwardError) => {
+    events.on("port-forward:failed", (event: PortForwardError) => {
       err = event;
     });
-    return () => EventsOff("port-forward:failed");
+    return () => events.off();
   });
 </script>
 
 {#if err}
   <div class="forward-banner" role="alert">
     <div class="forward-body">
-      <span class="forward-tag">[ SSH FORWARD ]</span>
+      <span class="forward-tag">SSH FORWARD</span>
       <span class="forward-msg">{err.message}</span>
     </div>
     <div class="forward-actions">
-      <button class="forward-btn" on:click={() => (err = null)}>[ DISMISS ]</button>
+      <button class="forward-btn" on:click={() => (err = null)}>DISMISS</button>
     </div>
   </div>
 {/if}
@@ -35,13 +36,13 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: #0a0a0a;
-    border: 1px solid #ff4444;
+    background: var(--bg);
+    border: 1px solid var(--error);
     border-radius: 2px;
     padding: 10px 14px;
-    box-shadow: 0 2px 16px rgba(255, 68, 68, 0.25);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    box-shadow: 0 2px 16px color-mix(in srgb, var(--error) 14%, transparent);
+    font-family: var(--ui);
+    font-size: 12px;
     color: var(--text);
     animation: slide-up 0.18s ease-out;
   }
@@ -53,7 +54,7 @@
   }
 
   .forward-tag {
-    color: #ff4444;
+    color: var(--error);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -72,7 +73,7 @@
     border: 1px solid var(--border);
     color: var(--text);
     font-family: inherit;
-    font-size: 11px;
+    font-size: 12px;
     padding: 4px 10px;
     border-radius: 2px;
     cursor: pointer;

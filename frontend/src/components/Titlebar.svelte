@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { WindowMinimise, WindowToggleMaximise, Quit } from "../../wailsjs/runtime/runtime";
+  import { WindowMinimise, WindowToggleMaximise, WindowClose } from "../lib/runtime";
 
   function handleDragDblClick() {
     WindowToggleMaximise();
@@ -8,23 +8,33 @@
 
 <div class="titlebar">
   <div class="titlebar-drag" on:dblclick={handleDragDblClick}>
-    <span class="titlebar-title">[ SSH TUNNEL MANAGER ]</span>
+    <span class="titlebar-title">SSH TUNNEL MANAGER</span>
   </div>
   <div class="titlebar-controls">
     <button class="win-btn minimize" on:click={WindowMinimise} title="Minimize">−</button>
     <button class="win-btn maximize" on:click={WindowToggleMaximise} title="Maximize">□</button>
-    <button class="win-btn close" on:click={Quit} title="Close">×</button>
+    <button class="win-btn close" on:click={WindowClose} title="Close">×</button>
   </div>
 </div>
 
 <style>
+  :global([data-theme="terminal"]) .titlebar-title {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--live);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--live) 45%, transparent);
+    font-family: var(--mono);
+  }
+  :global([data-theme="terminal"]) .titlebar-title::before { content: "[ "; }
+  :global([data-theme="terminal"]) .titlebar-title::after { content: " ]"; }
+
   .titlebar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     height: 36px;
-    background: #0d0d0d;
-    border-bottom: 1px solid #1e1e1e;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     padding: 0 8px 0 12px;
     flex-shrink: 0;
     user-select: none;
@@ -39,12 +49,12 @@
   }
 
   .titlebar-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-family: var(--ui);
+    font-size: 12px;
     font-weight: 600;
-    color: #00ff88;
+    color: var(--accent);
     letter-spacing: 0.1em;
-    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    text-shadow: 0 0 8px var(--accent-soft);
   }
 
   .titlebar-controls {
@@ -68,21 +78,21 @@
     justify-content: center;
     border-radius: 2px;
     transition: color 0.15s, background 0.15s;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
   }
 
   .win-btn:hover.minimize {
-    color: #00d4ff;
-    background: rgba(0, 212, 255, 0.1);
+    color: var(--accent2);
+    background: var(--accent-soft);
   }
 
   .win-btn:hover.maximize {
-    color: #00ff88;
-    background: rgba(0, 255, 136, 0.1);
+    color: var(--accent);
+    background: var(--accent-soft);
   }
 
   .win-btn:hover.close {
-    color: #ff4444;
-    background: rgba(255, 68, 68, 0.1);
+    color: var(--error);
+    background: color-mix(in srgb, var(--error) 14%, transparent);
   }
 </style>

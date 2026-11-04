@@ -1,13 +1,17 @@
 <script lang="ts">
+  import { errorText } from "../lib/runtime";
   import { onMount, onDestroy } from "svelte";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
-  import { OpenForwardTerminal, OpenTerminal, OpenCommandTerminal, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../wailsjs/go/main/App";
-  import { EventsOn, EventsOff, ClipboardGetText, ClipboardSetText } from "../../wailsjs/runtime/runtime";
+  import { PingEvents, OpenForwardTerminal, OpenTerminal, OpenCommandTerminal, BindTabSession, TerminalWrite, CloseTerminal, ResizeTerminal } from "../../bindings/ssh-tunnel-manager/app";
+  import { createEventScope, ClipboardGetText, ClipboardSetText, waitForEvents } from "../lib/runtime";
   import type { PortForward, TunnelConfig } from "../types";
   import { createEventDispatcher } from "svelte";
+  const events = createEventScope();
 
   export let tunnel: TunnelConfig;
+  export let tabId = "";
+  export let visible = true;
   // When set, run this command in the PTY (e.g. "htop") instead of a login
   // shell. label overrides the window/pill title prefix ("terminal" by default).
   export let command: string = "";
@@ -15,7 +19,7 @@
   // The SSH forward to open a shell on. Without one, the host itself.
   export let forward: PortForward | null = null;
   $: targetLabel = forward ? `${tunnel.name} → ${forward.sshUser || tunnel.user}@${forward.remoteHost}:${forward.remotePort}` : `${tunnel.name} (${tunnel.user}@${tunnel.host})`;
-  const dispatch = createEventDispatcher<{ close: void }>();
+  const dispatch = createEventDispatcher<{ ended: void }>();
 
   let termEl: HTMLDivElement;
   let term: Terminal;
@@ -23,9 +27,33 @@
   let sessionId: string = "";
   let loading = true;
   let error = "";
-  let minimized = false;
+  // Output that arrives before OpenTerminal has returned the session's ID.
+  let early: { sessionId: string; data: string }[] = [];
   let resizeObserver: ResizeObserver | null = null;
   let fitTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function terminalTheme() {
+    const css = getComputedStyle(document.documentElement);
+    const graphite = document.documentElement.dataset.theme === "graphite";
+    return {
+      background: css.getPropertyValue("--bg").trim(),
+      foreground: graphite ? css.getPropertyValue("--text").trim() : css.getPropertyValue("--accent").trim(),
+      cursor: css.getPropertyValue("--accent").trim(),
+    };
+  }
+
+  $: if (visible && term) {
+    scheduleFit();
+    term.focus();
+  }
+
+  // Each write is its own call to the backend, and calls can overtake each other,
+  // which would swap fast-typed characters. One goes at a time.
+  let writes: Promise<unknown> = Promise.resolve();
+  function send(data: string) {
+    const id = sessionId;
+    writes = writes.then(() => TerminalWrite(id, data)).catch((e) => console.error("terminal write failed:", e));
+  }
 
   function scheduleFit() {
     if (fitTimer) clearTimeout(fitTimer);
@@ -36,8 +64,8 @@
 
   onMount(async () => {
     term = new Terminal({
-      theme: { background: "#0a0a0a", foreground: "#00ff88", cursor: "#00ff88" },
-      fontFamily: "JetBrains Mono, monospace",
+      theme: terminalTheme(),
+      fontFamily: "JetBrains Mono, ui-monospace, Menlo, monospace",
       fontSize: 13,
     });
     fitAddon = new FitAddon();
@@ -45,14 +73,15 @@
     term.open(termEl);
     fitAddon.fit();
 
-    EventsOn("terminal:output", (e: any) => {
+    events.on("terminal:output", (e: any) => {
       if (e.sessionId === sessionId) term.write(e.data);
+      else if (!sessionId) early.push(e);
     });
-    EventsOn("terminal:closed", (e: any) => {
-      if (e.sessionId === sessionId) dispatch("close");
+    events.on("terminal:closed", (e: any) => {
+      if (e.sessionId === sessionId) dispatch("ended");
     });
 
-    term.onData((data) => { if (sessionId) TerminalWrite(sessionId, data); });
+    term.onData((data) => { if (sessionId) send(data); });
     term.onResize(({ cols, rows }) => { if (sessionId) ResizeTerminal(sessionId, cols, rows); });
 
     term.attachCustomKeyEventHandler((ev) => {
@@ -72,7 +101,7 @@
       // Ctrl/Cmd+V or Ctrl/Cmd+Shift+V → paste
       if (key === "v") {
         ClipboardGetText().then((text) => {
-          if (text && sessionId) TerminalWrite(sessionId, text);
+          if (text && sessionId) send(text);
         });
         return false;
       }
@@ -80,55 +109,43 @@
     });
 
     try {
+      await waitForEvents(PingEvents);
       sessionId = forward
         ? await OpenForwardTerminal(tunnel.id, { remoteHost: forward.remoteHost, remotePort: forward.remotePort } as any)
         : command
           ? await OpenCommandTerminal(tunnel.id, command)
           : await OpenTerminal(tunnel.id);
       loading = false;
+      if (tabId) void BindTabSession(tabId, "terminal", sessionId);
+      for (const entry of early) {
+        if (entry.sessionId === sessionId) term.write(entry.data);
+      }
+      early = [];
       // Fit again now that we have a session, to send correct initial size
       setTimeout(() => {
         fitAddon.fit();
       }, 50);
     } catch (e: any) {
-      error = e.toString();
+      error = errorText(e);
       loading = false;
     }
 
     // Auto-refit xterm when the container (or window) resizes.
     if (termEl && typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(() => {
-        if (!minimized) scheduleFit();
+        if (visible) scheduleFit();
       });
       resizeObserver.observe(termEl);
     }
   });
 
   onDestroy(() => {
-    EventsOff("terminal:output");
-    EventsOff("terminal:closed");
+    events.off();
     if (sessionId) CloseTerminal(sessionId);
     resizeObserver?.disconnect();
     if (fitTimer) clearTimeout(fitTimer);
     term?.dispose();
   });
-
-  function handleClose() {
-    if (sessionId) CloseTerminal(sessionId);
-    dispatch("close");
-  }
-
-  function minimize() {
-    minimized = true;
-  }
-
-  function restore() {
-    minimized = false;
-    setTimeout(() => {
-      fitAddon?.fit();
-      term?.focus();
-    }, 50);
-  }
 
   async function handleContextMenu(ev: MouseEvent) {
     ev.preventDefault();
@@ -139,59 +156,33 @@
       term.clearSelection();
     } else if (sessionId) {
       const text = await ClipboardGetText();
-      if (text) TerminalWrite(sessionId, text);
+      if (text) send(text);
     }
   }
 </script>
 
-<div class="terminal-overlay" class:hidden={minimized}>
-  <div class="terminal-window">
-    <div class="terminal-titlebar">
-      <span class="terminal-title">{label} — {targetLabel}</span>
-      <div class="titlebar-actions">
-        <button class="title-btn minimize-btn" on:click={minimize} title="Minimize">−</button>
-        <button class="close-btn" on:click={handleClose} title="Close">×</button>
-      </div>
-    </div>
-    <div class="terminal-body">
-      {#if loading}
-        <div class="status-msg">connecting...</div>
-      {/if}
-      {#if error}
-        <div class="status-msg error">{error}</div>
-      {/if}
-      <div bind:this={termEl} class="xterm-container" class:hidden={loading || !!error} on:contextmenu={handleContextMenu} />
-    </div>
-  </div>
+<div class="terminal" data-testid="terminal">
+  {#if loading}<p class="tool-message">Opening a session on {tunnel.name}</p>{/if}
+  {#if error}<p class="tool-message error">{error}</p>{/if}
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="term-host" bind:this={termEl} on:contextmenu={handleContextMenu}></div>
 </div>
 
-{#if minimized}
-  <button class="restore-pill" on:click={restore} title="Restore terminal">
-    <span class="pill-icon">▢</span>
-    <span class="pill-text">{label} — {tunnel.name}</span>
-    <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
-  </button>
-{/if}
-
 <style>
-  .terminal-overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-  .terminal-overlay.hidden { display: none; }
-  .terminal-window { width: 90vw; height: 80vh; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; display: flex; flex-direction: column; }
-  .terminal-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; }
-  .terminal-title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00ff88; }
-  .titlebar-actions { display: flex; gap: 4px; }
-  .title-btn, .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
-  .minimize-btn:hover { color: #00d4ff; border-color: #00d4ff; }
-  .close-btn:hover { color: #ff4444; border-color: #ff4444; }
-  .restore-pill { position: fixed; bottom: 12px; right: 12px; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; color: #00ff88; font-family: "JetBrains Mono", monospace; font-size: 11px; cursor: pointer; box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
-  .restore-pill:hover { background: #111; box-shadow: 0 0 16px rgba(0, 255, 136, 0.5); }
-  .pill-icon { font-size: 13px; }
-  .pill-text { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pill-close { color: #888; padding: 0 4px; font-size: 14px; line-height: 1; }
-  .pill-close:hover { color: #ff4444; }
-  .terminal-body { flex: 1; overflow: hidden; padding: 8px; }
-  .xterm-container { width: 100%; height: 100%; }
-  .xterm-container.hidden { display: none; }
-  .status-msg { font-family: "JetBrains Mono", monospace; font-size: 12px; color: #00ff88; padding: 20px; }
-  .status-msg.error { color: #ff4444; }
+  .terminal {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+    background: var(--bg);
+  }
+  /* The fit addon measures this box and ignores its padding, so padding here
+     would push the last line out of the window. */
+  .term-host {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
 </style>

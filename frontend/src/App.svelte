@@ -1,39 +1,58 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Titlebar from "./components/Titlebar.svelte";
-  import GroupSidebar from "./components/GroupSidebar.svelte";
   import TunnelList from "./components/TunnelList.svelte";
+  import TunnelForm from "./components/TunnelForm.svelte";
   import ImportDialog from "./components/ImportDialog.svelte";
   import PassphraseDialog from "./components/PassphraseDialog.svelte";
-  import SettingsPanel from "./components/SettingsPanel.svelte";
+  import CommandPalette from "./components/CommandPalette.svelte";
   import ToastContainer from "./components/ToastContainer.svelte";
+  import ConfirmHost from "./components/ConfirmHost.svelte";
   import PortlessBindBanner from "./components/PortlessBindBanner.svelte";
   import PortForwardErrorBanner from "./components/PortForwardErrorBanner.svelte";
-  import { loadTunnels, initEventListeners, tunnels, exportTunnels } from "./stores/tunnels";
-  import { loadShowResourceStats } from "./stores/prefs";
+  import Icon from "./components/Icon.svelte";
+  import {
+    loadTunnels,
+    initEventListeners,
+    tunnels,
+    exportTunnels,
+    disconnectAll,
+    disconnectTunnel,
+    connectTunnel,
+    connectGroup,
+    disconnectGroup,
+  } from "./stores/tunnels";
+  import { initSettings } from "./stores/settings";
   import { loadSavedCapabilities } from "./stores/capabilities";
-  import { EventsOn } from "../wailsjs/runtime/runtime";
+  import { CopyToClipboard, ReportWindowReady } from "../bindings/ssh-tunnel-manager/app";
+  import { EventsOn } from "./lib/runtime";
+  import { openTool } from "./lib/openTool";
+  import { showToast } from "./stores/toast";
 
   let showImport = false;
-  let showSettings = false;
+  let showNew = false;
+  let newGroup = "";
+  let creatingGroup = false;
+  let showMenu = false;
+  let showPalette = false;
   let passphraseKeyPath: string | null = null;
   let updateAvailable = false;
-  let selectedGroup: string | null = null;
+  let query = "";
+  let filter = "all";
 
   onMount(() => {
+    void ReportWindowReady("main");
     initEventListeners();
-    loadTunnels();
-    loadShowResourceStats();
-    loadSavedCapabilities();
+    void loadTunnels();
+    void initSettings();
+    void loadSavedCapabilities();
 
     EventsOn("passphrase:request", (keyPath: string) => {
       passphraseKeyPath = keyPath;
     });
-
     EventsOn("updater:update-available", () => {
       updateAvailable = true;
     });
-
     EventsOn("updater:update-cleared", () => {
       updateAvailable = false;
     });
@@ -44,74 +63,136 @@
     if (ids.length === 0) return;
     try {
       await exportTunnels(ids);
-    } catch (e: any) {
+    } catch (e) {
       console.error("export failed:", e);
+    }
+  }
+
+  function openNew(group: string) {
+    showMenu = false;
+    newGroup = group;
+    showNew = true;
+  }
+
+  async function runAction(run: any) {
+    showPalette = false;
+    switch (run.kind) {
+      case "tool":
+        return openTool(run.spec);
+      case "new-tunnel":
+        openNew("");
+        return;
+      case "new-group":
+        creatingGroup = true;
+        return;
+      case "import":
+        showImport = true;
+        return;
+      case "export":
+        return handleExport();
+      case "disconnect-all":
+        return disconnectAll();
+      case "connect":
+        return connectTunnel(run.id);
+      case "disconnect":
+        return disconnectTunnel(run.id);
+      case "connect-group":
+        return connectGroup(run.group);
+      case "disconnect-group":
+        return disconnectGroup(run.group);
+      case "copy":
+        await CopyToClipboard(run.text);
+        showToast(`Copied ${run.text}`, "success");
+        return;
+    }
+  }
+
+  function onKey(event: KeyboardEvent) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      showPalette = !showPalette;
     }
   }
 </script>
 
+<svelte:window on:keydown={onKey} />
+
 <div class="app-root">
   <Titlebar />
 
-  <div class="app-toolbar">
-    <div class="toolbar-left">
-      <span class="tunnel-count">{$tunnels.length} tunnel{$tunnels.length !== 1 ? "s" : ""}</span>
-    </div>
-    <div class="toolbar-right">
-      <button class="toolbar-btn" on:click={() => (showImport = !showImport)}>
-        {showImport ? "[ CANCEL ]" : "[ IMPORT ]"}
-      </button>
+  <div class="top">
+    <input
+      class="field-control search"
+      type="search"
+      placeholder="Find a tunnel"
+      aria-label="Find a tunnel"
+      data-testid="search"
+      bind:value={query}
+    />
+    <button type="button" class="btn palette-hint" data-testid="open-palette" on:click={() => (showPalette = true)}>
+      Actions <kbd>{navigator.userAgent.includes("Mac") ? "⌘K" : "Ctrl+K"}</kbd>
+    </button>
+    <span class="more">
       <button
-        class="toolbar-btn"
-        on:click={handleExport}
-        disabled={$tunnels.length === 0}
+        type="button"
+        class="icon-btn"
+        title="New"
+        aria-label="New"
+        aria-haspopup="menu"
+        aria-expanded={showMenu}
+        data-testid="new-menu"
+        on:click|stopPropagation={() => (showMenu = !showMenu)}
       >
-        [ EXPORT ]
+        <Icon name="plus" />
       </button>
-      <button
-        class="toolbar-btn settings-btn"
-        class:active={showSettings}
-        on:click={() => (showSettings = !showSettings)}
-        title="Settings"
-      >
-        [ CFG ]
-        {#if updateAvailable}
-          <span class="update-dot"></span>
-        {/if}
-      </button>
-    </div>
-  </div>
-
-  <div class="app-content">
-    <GroupSidebar bind:selectedGroup />
-    <main class="app-main">
-      {#if showImport}
-        <ImportDialog on:close={() => (showImport = false)} />
-      {:else}
-        <TunnelList filterGroup={selectedGroup} on:groupRenamed={(e) => selectedGroup = e.detail} />
+      {#if showMenu}
+        <div class="menu" role="menu">
+          <button type="button" class="menu-item" role="menuitem" data-testid="new-tunnel" on:click={() => openNew("")}>Tunnel</button>
+          <button type="button" class="menu-item" role="menuitem" data-testid="new-group" on:click={() => { showMenu = false; creatingGroup = true; }}>Group</button>
+          <div class="menu-sep"></div>
+          <button type="button" class="menu-item" role="menuitem" data-testid="import-tunnels" on:click={() => { showMenu = false; showImport = true; }}>Import from SSH config</button>
+        </div>
       {/if}
-    </main>
+    </span>
+    <button
+      type="button"
+      class="icon-btn gear"
+      title={updateAvailable ? "Settings, an update is available" : "Settings"}
+      aria-label="Settings"
+      data-testid="open-settings"
+      on:click={() => void openTool({ tool: "settings", tunnelId: "" })}
+    >
+      <Icon name="settings" />
+      {#if updateAvailable}<span class="update-dot"></span>{/if}
+    </button>
   </div>
 
-  {#if showSettings}
-    <div class="modal-backdrop" on:click|self={() => (showSettings = false)} role="presentation">
-      <div class="modal-panel">
-        <SettingsPanel on:close={() => (showSettings = false)} />
-      </div>
-    </div>
+  <main class="app-main">
+    {#if showImport}
+      <ImportDialog on:close={() => (showImport = false)} />
+    {:else}
+      <TunnelList bind:filter bind:creatingGroup {query} paused={showPalette || showNew} on:new={(e) => openNew(e.detail)} />
+    {/if}
+  </main>
+
+  {#if showNew}
+    <TunnelForm tunnel={null} initialGroup={newGroup} on:close={() => (showNew = false)} />
+  {/if}
+  {#if showPalette}
+    <CommandPalette on:close={() => (showPalette = false)} on:run={(e) => runAction(e.detail)} />
   {/if}
 
   <ToastContainer />
+  <ConfirmHost />
   <PortlessBindBanner />
   <PortForwardErrorBanner />
 
   {#if passphraseKeyPath}
-    <PassphraseDialog
-      keyPath={passphraseKeyPath}
-      on:close={() => (passphraseKeyPath = null)}
-    />
+    <PassphraseDialog keyPath={passphraseKeyPath} on:close={() => (passphraseKeyPath = null)} />
   {/if}
 </div>
+
+<svelte:body on:click={() => (showMenu = false)} />
 
 <style>
   .app-root {
@@ -121,97 +202,49 @@
     background: var(--bg);
     overflow: hidden;
   }
-
-  .app-toolbar {
+  .top {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px;
+    gap: 8px;
+    padding: 7px 10px;
     border-bottom: 1px solid var(--border);
-    background: var(--surface);
     flex-shrink: 0;
   }
-
-  .tunnel-count {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .search {
+    flex: 1;
+    padding: 5px 9px;
   }
-
-  .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .toolbar-btn {
-    background: transparent;
-    border: 1px solid var(--border);
+  .palette-hint kbd {
+    font-size: 11px;
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 3px 8px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: color 0.15s, border-color 0.15s;
+  }
+  .more {
     position: relative;
-    letter-spacing: 0.05em;
   }
-
-  .toolbar-btn:hover:not(:disabled) {
+  .more .menu {
+    top: calc(100% + 4px);
+    right: 0;
+  }
+  .gear {
+    position: relative;
+  }
+  [data-testid="new-menu"] {
     color: var(--accent);
-    border-color: var(--accent);
   }
-
-  .toolbar-btn:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  .toolbar-btn.active {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
   .update-dot {
     position: absolute;
-    top: -3px;
-    right: -3px;
+    top: 2px;
+    right: 2px;
     width: 6px;
     height: 6px;
-    background: var(--accent2);
     border-radius: 50%;
-    box-shadow: 0 0 4px var(--accent2);
+    background: var(--accent2);
   }
-
-  .app-content {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-  }
-
   .app-main {
     flex: 1;
-    overflow-y: auto;
-    padding: 12px;
-  }
-
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
+    min-height: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.7);
-  }
-
-  .modal-panel {
-    position: relative;
-    z-index: 51;
-    width: 100%;
-    max-width: 440px;
-    margin: 0 16px;
+    flex-direction: column;
+    overflow: hidden;
   }
 </style>

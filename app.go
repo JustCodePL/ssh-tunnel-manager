@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"ssh-tunnel-manager/internal/autostart"
 	"ssh-tunnel-manager/internal/config"
@@ -27,6 +27,7 @@ import (
 	"ssh-tunnel-manager/internal/sysstats"
 	"ssh-tunnel-manager/internal/tray"
 	"ssh-tunnel-manager/internal/updater"
+	"ssh-tunnel-manager/internal/windows"
 )
 
 // App is the Wails application struct, bridging Go backend and frontend.
@@ -34,6 +35,8 @@ type App struct {
 	rdpBridge   *rdp.Bridge
 	rdpMu       sync.Mutex // guards read-modify-write of pinned RDP certificates
 	ctx         context.Context
+	wails       *application.App
+	mainWindow  *application.WebviewWindow
 	store       *config.Store
 	prefs       *prefs.Store
 	manager     *ssh.Manager
@@ -42,6 +45,22 @@ type App struct {
 	tray        *tray.Tray
 	startHidden bool
 	forceQuit   bool
+	quitMu      sync.Mutex
+
+	// Tool windows: the registry decides where a tool goes, these hold the
+	// native windows.
+	windowReg     *windows.Registry
+	toolWindowsMu sync.Mutex
+	toolWindows   map[string]*application.WebviewWindow
+	boundsTimers  map[string]*time.Timer
+	boundsMu      sync.Mutex
+
+	credentialsMu sync.Mutex
+
+	appHidden bool
+
+	smokeMu      sync.Mutex
+	smokeWindows map[string]bool
 
 	// Passphrase prompt coordination
 	passphraseMu   sync.Mutex
@@ -115,6 +134,7 @@ type PortlessServiceStatus struct {
 	Current          bool   `json:"current"`
 	State            string `json:"state"`
 	Message          string `json:"message"`
+	Problem          bool   `json:"problem"`
 }
 
 // NewApp creates a new App instance.
@@ -133,6 +153,9 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		logBuf:        make(map[string][]config.LogEntry),
 		lastCPU:       make(map[string]sysstats.CPUSample),
 		sftpTransfers: make(map[string]context.CancelFunc),
+		windowReg:     windows.NewRegistry(),
+		toolWindows:   make(map[string]*application.WebviewWindow),
+		boundsTimers:  make(map[string]*time.Timer),
 		dnsRegistry:   registry,
 		dnsServer:     dns.NewServer(registry),
 		connectSharedDNS: func() (sharedPortlessRegistry, error) {
@@ -146,6 +169,9 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		app.tray.HandleStatusEvent(event)
 	}, app.getPassphrase)
 	app.manager.WithDNSRegistry(registry)
+	app.manager.WithLoginProvider(app.sshLogin)
+	app.termMgr.WithLoginProvider(app.sshLogin)
+	app.sftpMgr.WithLoginProvider(app.sshLogin)
 	app.manager.WithLogEmitter(func(tunnelID, level, msg string) {
 		app.appendTunnelLog(tunnelID, level, msg)
 	})
@@ -153,7 +179,7 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		// A log line alone isn't enough — desktop users don't read journalctl.
 		// Surface it both as an in-app banner and a desktop notification.
 		if app.ctx != nil {
-			runtime.EventsEmit(app.ctx, "portless:bind-failed", e)
+			app.emit("portless:bind-failed", e)
 		}
 		title := "Portless forward failed"
 		body := e.Message
@@ -165,7 +191,7 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 	})
 	app.manager.WithForwardErrorEmitter(func(e ssh.PortForwardError) {
 		if app.ctx != nil {
-			runtime.EventsEmit(app.ctx, "port-forward:failed", e)
+			app.emit("port-forward:failed", e)
 		}
 		app.tray.Notify("SSH port forwarding blocked", e.Message)
 	})
@@ -177,6 +203,8 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		CopyToClip: func(text string) error { return app.copyToClipboard(text) },
 		GetTunnels: func() []config.TunnelConfig { return store.GetTunnels() },
 		OnUpdate:   func() { app.installUpdateFromTray() },
+		AttachOptions: func(id string) []tray.AttachOption { return app.trayAttachOptions(id) },
+		Attach:        func(id string, option tray.AttachOption) error { return app.trayAttach(id, option) },
 	})
 	return app
 }
@@ -191,18 +219,29 @@ func (a *App) appendTunnelLog(tunnelID, level, msg string) {
 	a.logBuf[tunnelID] = append(buf, entry)
 	a.logMu.Unlock()
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "tunnel:log", map[string]any{
+		a.emit("tunnel:log", map[string]any{
 			"tunnelId": tunnelID,
 			"entry":    entry,
 		})
 	}
 }
 
-// startup is called by Wails when the application starts.
+// ServiceStartup is called by Wails when the application starts.
+func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
+	a.startup(ctx)
+	return nil
+}
+
+// ServiceShutdown is called by Wails when the application is closing.
+func (a *App) ServiceShutdown() error {
+	a.shutdown()
+	return nil
+}
+
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.tray.Start()
-	a.rdpBridge = rdp.NewBridge(runtime.Environment(ctx).BuildType == "dev")
+	a.startTray()
+	a.rdpBridge = rdp.NewBridge(a.wails != nil && a.wails.Env.Info().Debug)
 
 	// Refresh the executable path recorded by the platform's autostart
 	// mechanism. This keeps start-on-login working when an update renames or
@@ -215,12 +254,15 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}
 
-	if a.startHidden {
-		// Wails v2 activates the macOS application even when StartHidden is
-		// set. Hide the application itself so login startup cannot steal focus.
-		runtime.Hide(a.ctx)
-	} else {
-		runtime.WindowShow(a.ctx)
+	if a.startHidden && a.wails != nil {
+		// Hide the application itself so login startup cannot steal focus.
+		a.setAppHidden()
+		application.InvokeSync(a.wails.Hide)
+	}
+
+	if isSmokeTest() {
+		go a.runSmokeTest()
+		return
 	}
 
 	go a.autoConnectTunnels()
@@ -256,8 +298,7 @@ func (a *App) autoConnectTunnels() {
 	}
 }
 
-// shutdown is called by Wails when the application is closing.
-func (a *App) shutdown(ctx context.Context) {
+func (a *App) shutdown() {
 	slog.Info("shutting down, disconnecting all tunnels")
 	a.saveWindowSize()
 	a.tray.Stop()
@@ -315,6 +356,9 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 	if err := validateRDPPort(t.RDPPort); err != nil {
 		return err
 	}
+	if err := validatePortlessSuffix(t.PortlessSuffix); err != nil {
+		return err
+	}
 	if err := validateForwardProtocols(t.PortForwards); err != nil {
 		return err
 	}
@@ -323,6 +367,7 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 		return err
 	}
 	a.tray.RefreshMenu()
+	a.emitTunnelsChanged()
 	return nil
 }
 
@@ -332,6 +377,9 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 // the user having to toggle the tunnel manually.
 func (a *App) UpdateTunnel(t config.TunnelConfig) error {
 	if err := validateRDPPort(t.RDPPort); err != nil {
+		return err
+	}
+	if err := validatePortlessSuffix(t.PortlessSuffix); err != nil {
 		return err
 	}
 	if err := validateForwardProtocols(t.PortForwards); err != nil {
@@ -359,7 +407,9 @@ func (a *App) UpdateTunnel(t config.TunnelConfig) error {
 	a.tray.RefreshMenu()
 	if t.ID != t.Name {
 		a.moveRDPState(t.ID, t.Name, t.PortForwards)
+		a.windowReg.RenameTunnel(t.ID, t.Name, windows.Grouping(a.prefs.Get().WindowGrouping))
 	}
+	a.emitTunnelsChanged()
 
 	if wasActive {
 		newID := t.Name // store.UpdateTunnel sets ID = Name on rename
@@ -395,6 +445,7 @@ func (a *App) DeleteTunnel(id string) error {
 	}
 	a.removeRDPState(id, deleted.PortForwards)
 	a.tray.RefreshMenu()
+	a.emitTunnelsChanged()
 	return nil
 }
 
@@ -409,6 +460,7 @@ func (a *App) SetTunnelPinned(id string, pinned bool) error {
 		return err
 	}
 	a.tray.RefreshMenu()
+	a.emitTunnelsChanged()
 	return nil
 }
 
@@ -515,7 +567,7 @@ func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 		}
 		slog.Info("portless: system not configured, prompting for admin setup")
 		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "portless:setup-started")
+			a.emit("portless:setup-started")
 		}
 		err := dns.EnsureSystemConfigured(a.ctx, requirements)
 		if a.ctx != nil {
@@ -523,7 +575,7 @@ func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 			if err != nil {
 				payload["error"] = err.Error()
 			}
-			runtime.EventsEmit(a.ctx, "portless:setup-finished", payload)
+			a.emit("portless:setup-finished", payload)
 		}
 		if err != nil {
 			var persistErr *dns.PersistenceError
@@ -548,7 +600,7 @@ func (a *App) ensurePortlessReady(cfg config.TunnelConfig) error {
 	if a.portlessFallback != nil {
 		a.portlessFallback = nil
 		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "portless:dns-restored")
+			a.emit("portless:dns-restored")
 		}
 	}
 	return nil
@@ -572,7 +624,7 @@ func (a *App) handlePortlessDNSStartFailure(cfg config.TunnelConfig, err error) 
 			if a.portlessFallback != nil {
 				a.portlessFallback = nil
 				if a.ctx != nil {
-					runtime.EventsEmit(a.ctx, "portless:dns-restored")
+					a.emit("portless:dns-restored")
 				}
 			}
 			return true
@@ -593,7 +645,7 @@ func (a *App) handlePortlessDNSStartFailure(cfg config.TunnelConfig, err error) 
 	if a.portlessFallback == nil {
 		a.portlessFallback = &PortlessFallbackStatus{TunnelID: cfg.ID, Message: msg}
 		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "portless:dns-unavailable", a.portlessFallback)
+			a.emit("portless:dns-unavailable", a.portlessFallback)
 		}
 		if a.tray != nil {
 			a.tray.Notify("Portless unavailable", msg)
@@ -631,7 +683,7 @@ func (a *App) handlePortlessSetupPersistenceFailure(cfg config.TunnelConfig, err
 			Command:        persistErr.Command,
 		}
 		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "portless:dns-unavailable", a.portlessFallback)
+			a.emit("portless:dns-unavailable", a.portlessFallback)
 		}
 		if a.tray != nil {
 			a.tray.Notify("Portless unavailable", persistErr.Message)
@@ -663,6 +715,7 @@ func (a *App) GetPortlessServiceStatus() PortlessServiceStatus {
 		Current:          status.Current,
 		State:            status.State,
 		Message:          status.Message,
+		Problem:          status.Problem,
 	}
 }
 
@@ -710,7 +763,7 @@ func (a *App) OpenTerminal(tunnelID string) (string, error) {
 	sessionID, err := a.termMgr.OpenSession(cfg,
 		func(sessionID, data string) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "terminal:output", map[string]any{
+				a.emitToSession(sessionID, "terminal:output", map[string]any{
 					"sessionId": sessionID,
 					"data":      data,
 				})
@@ -718,7 +771,7 @@ func (a *App) OpenTerminal(tunnelID string) (string, error) {
 		},
 		func(sessionID string) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "terminal:closed", map[string]any{
+				a.emitToSession(sessionID, "terminal:closed", map[string]any{
 					"sessionId": sessionID,
 				})
 			}
@@ -797,10 +850,7 @@ func (a *App) SFTPDownload(sessionID, remotePath string) (string, error) {
 		return "", fmt.Errorf("SFTP session %s not found", sessionID)
 	}
 	defaultName := filepath.Base(remotePath)
-	localPath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Save file as",
-		DefaultFilename: defaultName,
-	})
+	localPath, err := a.saveDialog("Save file as", defaultName)
 	if err != nil {
 		return "", fmt.Errorf("save dialog: %w", err)
 	}
@@ -827,10 +877,7 @@ func (a *App) SFTPDownloadDir(sessionID, remotePath string) (string, error) {
 		return "", fmt.Errorf("SFTP session %s not found", sessionID)
 	}
 	defaultName := filepath.Base(remotePath) + ".zip"
-	localPath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Save directory as ZIP",
-		DefaultFilename: defaultName,
-	})
+	localPath, err := a.saveDialog("Save directory as ZIP", defaultName)
 	if err != nil {
 		return "", fmt.Errorf("save dialog: %w", err)
 	}
@@ -863,12 +910,7 @@ func (a *App) SFTPPickUploadFiles(sessionID, remoteDir string) (*SFTPUploadPick,
 	if !ok {
 		return nil, fmt.Errorf("SFTP session %s not found", sessionID)
 	}
-	paths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select files to upload",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "All Files", Pattern: "*"},
-		},
-	})
+	paths, err := a.openFilesDialog("Select files to upload")
 	if err != nil {
 		return nil, fmt.Errorf("open dialog: %w", err)
 	}
@@ -947,7 +989,7 @@ func (a *App) emitSFTPProgress(transferID, sessionID, kind, name string, index, 
 	if a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, "sftp:progress", map[string]any{
+	a.emit("sftp:progress", map[string]any{
 		"transferId":  transferID,
 		"sessionId":   sessionID,
 		"kind":        kind,
@@ -1028,26 +1070,34 @@ func (a *App) SFTPWriteText(sessionID, remotePath, content string, expectModTime
 }
 
 func (a *App) showWindow() {
-	if a.ctx != nil {
-		// A hidden macOS application must be unhidden before its window can
-		// become key. This is harmless on Windows and Linux.
-		runtime.Show(a.ctx)
-		runtime.WindowShow(a.ctx)
+	if a.wails == nil || a.mainWindow == nil {
+		return
+	}
+	// A macOS application hidden at login must be unhidden before its window
+	// can become key. Unhiding one that is not hidden keeps the window from
+	// coming back, so this happens only once, and on the main thread.
+	if a.takeAppHidden() {
+		application.InvokeSync(a.wails.Show)
+	}
+	a.mainWindow.Show()
+	a.mainWindow.Focus()
+	if a.prefs.Get().HideToolsWithMain {
+		a.showToolWindows()
 	}
 }
 
 func (a *App) quit() {
-	if a.ctx != nil {
-		a.forceQuit = true
-		runtime.Quit(a.ctx)
+	if a.wails != nil {
+		a.markQuitting()
+		a.wails.Quit()
 	}
 }
 
 func (a *App) saveWindowSize() {
-	if a.ctx == nil {
+	if a.mainWindow == nil {
 		return
 	}
-	w, h := runtime.WindowGetSize(a.ctx)
+	w, h := a.mainWindow.Size()
 	if w < 400 || h < 300 {
 		return
 	}
@@ -1060,10 +1110,13 @@ func (a *App) saveWindowSize() {
 }
 
 func (a *App) copyToClipboard(text string) error {
-	if a.ctx == nil {
+	if a.wails == nil {
 		return nil
 	}
-	return runtime.ClipboardSetText(a.ctx, text)
+	if !a.setSystemClipboard(text) {
+		return errors.New("the system clipboard rejected the text")
+	}
+	return nil
 }
 
 // CopyToClipboard exposes the OS clipboard to the frontend so tunnel-card
@@ -1077,10 +1130,11 @@ func (a *App) emitStatus(event ssh.StatusEvent) {
 	if a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, "tunnel:status-changed", event)
+	a.emit("tunnel:status-changed", event)
 	if event.Status == config.StatusError {
-		runtime.EventsEmit(a.ctx, "tunnel:error", event)
+		a.emit("tunnel:error", event)
 	}
+	a.handleToolsAfterDisconnect(event.TunnelID, event.Status)
 }
 
 // getPassphrase is called by the SSH manager when an encrypted key needs
@@ -1102,7 +1156,7 @@ func (a *App) getPassphrase(keyPath string) (string, error) {
 	a.passphraseMu.Unlock()
 
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "passphrase:request", keyPath)
+		a.emit("passphrase:request", keyPath)
 	}
 
 	// Wait for the frontend to call SubmitPassphrase
@@ -1270,7 +1324,7 @@ func (a *App) commitUpdateResult(generation uint64, info *updater.UpdateInfo) bo
 func (a *App) emitUpdateState(info *updater.UpdateInfo) {
 	if info == nil {
 		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "updater:update-cleared")
+			a.emit("updater:update-cleared")
 		}
 		if a.tray != nil {
 			a.tray.SetUpdateAvailable("")
@@ -1279,7 +1333,7 @@ func (a *App) emitUpdateState(info *updater.UpdateInfo) {
 	}
 
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "updater:update-available", info)
+		a.emit("updater:update-available", info)
 	}
 	if a.tray != nil {
 		a.tray.SetUpdateAvailable(info.LatestVersion)
@@ -1311,20 +1365,12 @@ func (a *App) installUpdateFromTray() {
 
 // SelectFile opens a native file dialog for picking an SSH config file.
 func (a *App) SelectFile() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select SSH Config File",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "All Files", Pattern: "*"},
-		},
-	})
+	return a.openFileDialog("Select SSH Config File")
 }
 
 // SelectSaveFile opens a native save dialog.
 func (a *App) SelectSaveFile(defaultName string) (string, error) {
-	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Export Tunnels",
-		DefaultFilename: defaultName,
-	})
+	return a.saveDialog("Export Tunnels", defaultName)
 }
 
 // ImportPreview parses an SSH config file and returns the host entries found
@@ -1368,7 +1414,7 @@ func (a *App) ImportTunnels(path string, names []string) (int, error) {
 	}
 
 	if imported > 0 {
-		runtime.EventsEmit(a.ctx, "tunnels:changed")
+		a.emit("tunnels:changed")
 		a.tray.RefreshMenu()
 	}
 	return imported, nil
@@ -1412,6 +1458,7 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 		AutoConnect:     e.AutoConnect,
 		Pinned:          e.Pinned,
 		RDPPort:         e.RDPPort,
+		PortlessSuffix:  e.PortlessSuffix,
 		SourceFile:      e.SourceFile,
 		SourceFileLabel: sshconfig.CollapseTildePath(e.SourceFile),
 	}
@@ -1445,6 +1492,7 @@ func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 		AutoConnect:  t.AutoConnect,
 		Pinned:       t.Pinned,
 		RDPPort:      t.RDPPort,
+		PortlessSuffix: t.PortlessSuffix,
 		SourceFile:   t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
@@ -1532,9 +1580,12 @@ func (a *App) RenameGroup(oldName, newName string) error {
 			return fmt.Errorf("renaming group for %s: %w", t.Name, err)
 		}
 	}
+	if err := a.renameSavedGroup(oldName, newName); err != nil {
+		return fmt.Errorf("renaming group %s: %w", oldName, err)
+	}
 	a.tray.RefreshMenu()
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "tunnels:changed")
+		a.emit("tunnels:changed")
 	}
 	return nil
 }
@@ -1823,7 +1874,7 @@ func (a *App) OpenCommandTerminal(tunnelID, command string) (string, error) {
 	sessionID, err := a.termMgr.OpenCommandSession(cfg, command,
 		func(sessionID, data string) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "terminal:output", map[string]any{
+				a.emitToSession(sessionID, "terminal:output", map[string]any{
 					"sessionId": sessionID,
 					"data":      data,
 				})
@@ -1831,7 +1882,7 @@ func (a *App) OpenCommandTerminal(tunnelID, command string) (string, error) {
 		},
 		func(sessionID string) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "terminal:closed", map[string]any{
+				a.emitToSession(sessionID, "terminal:closed", map[string]any{
 					"sessionId": sessionID,
 				})
 			}
@@ -1841,18 +1892,6 @@ func (a *App) OpenCommandTerminal(tunnelID, command string) (string, error) {
 		return "", fmt.Errorf("opening %q for %s: %w", command, cfg.Name, err)
 	}
 	return sessionID, nil
-}
-
-// GetShowResourceStats reports whether the inline CPU/RAM widget is enabled.
-func (a *App) GetShowResourceStats() bool {
-	return a.prefs.Get().ShowResourceStats
-}
-
-// SetShowResourceStats enables or disables the inline CPU/RAM widget.
-func (a *App) SetShowResourceStats(enabled bool) error {
-	p := a.prefs.Get()
-	p.ShowResourceStats = enabled
-	return a.prefs.Set(p)
 }
 
 // GetCloseToTray returns whether the window close button hides to tray (true)

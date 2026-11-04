@@ -7,12 +7,12 @@ import (
 	"log/slog"
 	"net"
 	"strconv"
+	"strings"
 	"time"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/keychain"
+	"ssh-tunnel-manager/internal/prefs"
 	"ssh-tunnel-manager/internal/rdp"
 	"ssh-tunnel-manager/internal/ssh"
 )
@@ -47,13 +47,18 @@ type RDPLogin struct {
 	Username string `json:"username"`
 	Domain   string `json:"domain"`
 	Password string `json:"password"`
+	// CredentialID uses a saved login for this session, whatever the target has
+	// assigned. It applies when Password is empty.
+	CredentialID string `json:"credentialId"`
 }
 
 // RDPSavedLogin describes the stored login without exposing the password.
 type RDPSavedLogin struct {
-	Username    string `json:"username"`
-	Domain      string `json:"domain"`
-	HasPassword bool   `json:"hasPassword"`
+	Username       string `json:"username"`
+	Domain         string `json:"domain"`
+	HasPassword    bool   `json:"hasPassword"`
+	CredentialID   string `json:"credentialId"`
+	CredentialName string `json:"credentialName"`
 }
 
 // RDPSession is what the web client needs to open a session. It includes the
@@ -120,43 +125,68 @@ func rdpForwardKey(tunnelID string, target ForwardTarget) string {
 	return tunnelID + ">" + target.address()
 }
 
-// GetRDPLogin returns the stored login for a target, without its password.
+// GetRDPLogin returns the login assigned to a target, without its password.
 func (a *App) GetRDPLogin(tunnelID string, target ForwardTarget) (RDPSavedLogin, error) {
 	key, _, err := a.resolveRDPTarget(tunnelID, target)
 	if err != nil {
 		return RDPSavedLogin{}, err
 	}
-	credentials, found, err := keychain.GetRDPCredentials(key)
+	id, login, found, err := a.boundRDPLogin(key)
 	if err != nil {
 		return RDPSavedLogin{}, err
 	}
 	if !found {
 		return RDPSavedLogin{}, nil
 	}
-	return RDPSavedLogin{Username: credentials.Username, Domain: credentials.Domain, HasPassword: credentials.Password != ""}, nil
+	return RDPSavedLogin{
+		Username:       login.Username,
+		Domain:         login.Domain,
+		HasPassword:    login.Password != "",
+		CredentialID:   id,
+		CredentialName: a.credentialName(id),
+	}, nil
 }
 
-// SaveRDPLogin stores a login in the OS keychain. The frontend calls this once
-// the login has worked, so a mistyped password is never stored.
+// SaveRDPLogin stores a login that has just worked, so a mistyped password is
+// never stored. It updates the login assigned to the target, or saves a new one
+// named after the target and assigns it.
 func (a *App) SaveRDPLogin(tunnelID string, target ForwardTarget, login RDPLogin) error {
 	key, _, err := a.resolveRDPTarget(tunnelID, target)
 	if err != nil {
 		return err
 	}
-	return keychain.SetRDPCredentials(key, keychain.RDPCredentials{
-		Username: login.Username,
-		Domain:   login.Domain,
-		Password: login.Password,
+	id := a.prefs.Get().CredentialBindings[bindingKey(config.ForwardProtocolRDP, key)]
+	name := a.credentialName(id)
+	if name == "" {
+		id = ""
+		name = strings.Replace(key, ">", " to ", 1)
+	}
+	saved, err := a.SaveCredential(CredentialInput{
+		ID: id, Name: name, Username: login.Username, Domain: login.Domain, Password: login.Password,
+		Protocols: []string{config.ForwardProtocolRDP},
 	})
+	if err != nil {
+		return err
+	}
+	a.credentialsMu.Lock()
+	defer a.credentialsMu.Unlock()
+	if err := a.setBinding(bindingKey(config.ForwardProtocolRDP, key), saved.ID); err != nil {
+		return err
+	}
+	a.emit(eventSettingsChange)
+	return nil
 }
 
-// ForgetRDPLogin removes the stored login for a target.
+// ForgetRDPLogin removes the assignment of a login to a target. The login itself
+// stays in the credentials store.
 func (a *App) ForgetRDPLogin(tunnelID string, target ForwardTarget) error {
 	key, _, err := a.resolveRDPTarget(tunnelID, target)
 	if err != nil {
 		return err
 	}
-	return keychain.DeleteRDPCredentials(key)
+	a.credentialsMu.Lock()
+	defer a.credentialsMu.Unlock()
+	return a.setBinding(bindingKey(config.ForwardProtocolRDP, key), "")
 }
 
 // OpenRDP registers a bridge session to an RDP server: the host's own, or the
@@ -168,12 +198,9 @@ func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*R
 		return nil, err
 	}
 	if login.Password == "" {
-		stored, found, err := keychain.GetRDPCredentials(key)
+		stored, err := a.storedRDPLogin(key, login.CredentialID)
 		if err != nil {
 			return nil, err
-		}
-		if !found {
-			return nil, errors.New("no stored RDP login for this target")
 		}
 		login = RDPLogin{Username: stored.Username, Domain: stored.Domain, Password: stored.Password}
 	}
@@ -200,6 +227,32 @@ func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*R
 		Domain:       login.Domain,
 		Password:     login.Password,
 	}, nil
+}
+
+// storedRDPLogin returns the saved login a session should use: the chosen one,
+// or the one assigned to the target.
+func (a *App) storedRDPLogin(key, credentialID string) (keychain.Login, error) {
+	if credentialID == "" {
+		_, stored, found, err := a.boundRDPLogin(key)
+		if err != nil {
+			return keychain.Login{}, err
+		}
+		if !found {
+			return keychain.Login{}, errors.New("no login assigned to this target")
+		}
+		return stored, nil
+	}
+	if a.credentialName(credentialID) == "" {
+		return keychain.Login{}, fmt.Errorf("no login %s", credentialID)
+	}
+	stored, found, err := keychain.GetLogin(credentialID)
+	if err != nil {
+		return keychain.Login{}, err
+	}
+	if !found {
+		return keychain.Login{}, fmt.Errorf("the login %s has no password in the keychain", a.credentialName(credentialID))
+	}
+	return stored, nil
 }
 
 // CloseRDP ends a bridge session.
@@ -233,7 +286,7 @@ func (a *App) checkRDPCertificate(stateKey, fingerprint string) error {
 	}
 	slog.Warn("RDP certificate changed", "target", stateKey, "expected", pinned, "actual", fingerprint)
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, eventRDPCertificateChanged, RDPCertificateChange{
+		a.emit(eventRDPCertificateChanged, RDPCertificateChange{
 			StateKey: stateKey,
 			Expected: pinned,
 			Actual:   fingerprint,
@@ -277,18 +330,6 @@ func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
 		target := ForwardTarget{RemoteHost: pf.RemoteHost, RemotePort: pf.RemotePort}
 		moves[rdpForwardKey(oldID, target)] = rdpForwardKey(newID, target)
 	}
-	for from, to := range moves {
-		if credentials, found, err := keychain.GetRDPCredentials(from); err != nil {
-			slog.Warn("reading RDP login during rename failed", "target", from, "error", err)
-		} else if found {
-			if err := keychain.SetRDPCredentials(to, credentials); err != nil {
-				slog.Warn("moving RDP login failed", "target", to, "error", err)
-			} else if err := keychain.DeleteRDPCredentials(from); err != nil {
-				slog.Warn("removing old RDP login failed", "target", from, "error", err)
-			}
-		}
-	}
-
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
 	p := a.prefs.Get()
@@ -301,6 +342,19 @@ func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
 		p.HostTools = cloneHostTools(p.HostTools)
 		delete(p.HostTools, oldID)
 		p.HostTools[newID] = tools
+	}
+	if pinned, ok := p.SSHHostKeys[oldID]; ok {
+		p.SSHHostKeys = withSSHHostKeys(withSSHHostKeys(p.SSHHostKeys, oldID, nil), newID, pinned)
+	}
+	p.CredentialBindings = moveCredentialBindings(p.CredentialBindings, moves)
+	if settings, ok := p.Tunnels[oldID]; ok {
+		tunnels := make(map[string]prefs.TunnelSettings, len(p.Tunnels))
+		for id, value := range p.Tunnels {
+			tunnels[id] = value
+		}
+		delete(tunnels, oldID)
+		tunnels[newID] = settings
+		p.Tunnels = tunnels
 	}
 	if err := a.prefs.Set(p); err != nil {
 		slog.Warn("moving RDP state failed", "target", newID, "error", err)
@@ -328,6 +382,24 @@ func (a *App) removeRDPState(tunnelID string, forwards []config.PortForward) {
 			p.RDPCertificates = withRDPCertificate(p.RDPCertificates, key, "")
 			changed = true
 		}
+	}
+	if _, ok := p.SSHHostKeys[tunnelID]; ok {
+		p.SSHHostKeys = withSSHHostKeys(p.SSHHostKeys, tunnelID, nil)
+		changed = true
+	}
+	if updated, removed := removeCredentialBindings(p.CredentialBindings, keys); removed {
+		p.CredentialBindings = updated
+		changed = true
+	}
+	if _, ok := p.Tunnels[tunnelID]; ok {
+		tunnels := make(map[string]prefs.TunnelSettings, len(p.Tunnels))
+		for id, value := range p.Tunnels {
+			if id != tunnelID {
+				tunnels[id] = value
+			}
+		}
+		p.Tunnels = tunnels
+		changed = true
 	}
 	if !changed {
 		return
