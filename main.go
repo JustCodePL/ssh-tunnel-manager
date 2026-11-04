@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -120,22 +121,24 @@ func runApplication(app *App, p prefs.Prefs, startHidden bool) error {
 		},
 		Logger:   slog.Default(),
 		LogLevel: slog.LevelWarn,
-		Server: serverOptions(),
+		Server:   serverOptions(),
 	})
 	app.attachWails(wailsApp)
 
 	setApplicationMenu(wailsApp)
 
 	main := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             mainWindowName,
-		Title:            "SSH Tunnel Manager",
-		Width:            initWidth,
-		Height:           initHeight,
-		MinWidth:         400,
-		MinHeight:        300,
-		Frameless:        true,
+		Name:      mainWindowName,
+		Title:     "SSH Tunnel Manager",
+		Width:     initWidth,
+		Height:    initHeight,
+		MinWidth:  400,
+		MinHeight: 300,
+		// macOS keeps its own title bar. Windows and Linux use the one in the page.
+		Frameless:        runtime.GOOS != "darwin",
 		Hidden:           startHidden,
-		BackgroundColour: application.NewRGBA(10, 10, 10, 255),
+		BackgroundColour: windowBackground(runtime.GOOS, p.Theme),
+		Mac:              macWindowStyle(),
 		URL:              "/",
 	})
 	app.attachMainWindow(main)

@@ -1,6 +1,25 @@
 import { expect, test } from "@playwright/test";
 import { connect, disconnect, expand, openMain, toggle, tunnel } from "./helpers";
 
+test.describe("title bar", () => {
+  test.describe("on macOS", () => {
+    test.use({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" });
+    test("leaves the buttons to the system", async ({ page }) => {
+      await openMain(page);
+      await expect(page.locator(".titlebar")).toHaveCount(0);
+      await expect(page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--titlebar-height").trim())).resolves.toBe("0px");
+    });
+  });
+  test.describe("on Windows", () => {
+    test.use({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" });
+    test("keeps its own bar and buttons", async ({ page }) => {
+      await openMain(page);
+      await expect(page.locator(".titlebar .win-btn")).toHaveCount(3);
+      await expect(page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--titlebar-height").trim())).resolves.toBe("36px");
+    });
+  });
+});
+
 test.describe("main window", () => {
   test("groups tunnels and keeps forwards behind expanding", async ({ page }) => {
     await openMain(page);

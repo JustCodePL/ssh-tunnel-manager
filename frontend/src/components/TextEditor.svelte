@@ -332,7 +332,7 @@
   .ed-root .ed-window { flex: 1; height: 100%; border-left: 1px solid var(--border); }
 
   /* Windowed: a centered overlay matching the file browser / terminal. Starts
-     at top:36px so the main window titlebar stays grabbable. */
+     below the title bar so the main window titlebar stays grabbable. */
   .ed-root.hidden { display: none; }
 
   .ed-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
@@ -371,7 +371,7 @@
   .pill-close { color: var(--muted); padding: 0 4px; font-size: 14px; line-height: 1; }
   .pill-close:hover { color: var(--error); }
 
-  .modal-backdrop { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1100; display: flex; align-items: center; justify-content: center; }
+  .modal-backdrop { position: fixed; top: var(--titlebar-height); left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1100; display: flex; align-items: center; justify-content: center; }
   .modal-panel { background: var(--bg); border: 1px solid var(--accent2); border-radius: 2px; width: 100%; max-width: 460px; margin: 0 16px; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
   .modal-panel.danger { border-color: var(--error); box-shadow: 0 0 40px color-mix(in srgb, var(--error) 14%, transparent); }
   .modal-header { padding: 10px 14px; border-bottom: 1px solid var(--border); }
