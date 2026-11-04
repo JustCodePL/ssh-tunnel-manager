@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Titlebar from "./components/Titlebar.svelte";
+  import { isMac } from "./lib/platform";
   import TunnelList from "./components/TunnelList.svelte";
   import TunnelForm from "./components/TunnelForm.svelte";
   import ImportDialog from "./components/ImportDialog.svelte";
@@ -118,7 +119,7 @@
 <svelte:window on:keydown={onKey} />
 
 <div class="app-root">
-  <Titlebar />
+  {#if !isMac}<Titlebar />{/if}
 
   <div class="top">
     <input

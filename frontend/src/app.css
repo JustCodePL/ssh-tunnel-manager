@@ -7,6 +7,13 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --titlebar-height: 0px;
+}
+:root:has(.titlebar) {
+  --titlebar-height: 36px;
+}
+
 :root,
 [data-theme="terminal"] {
   --bg: #0a0a0a;

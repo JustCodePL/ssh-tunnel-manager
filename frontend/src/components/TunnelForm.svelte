@@ -702,7 +702,7 @@
   .form-body[data-section="connection"] > .forwards-field { display: none; }
   .form-body[data-section="forwards"] > :not(.forwards-field):not(.form-actions) { display: none; }
 
-  .form-overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 997; display: flex; align-items: center; justify-content: center; }
+  .form-overlay { position: fixed; top: var(--titlebar-height); left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 997; display: flex; align-items: center; justify-content: center; }
   .form-overlay.hidden { display: none; }
   .form-window { width: 90vw; max-width: 720px; height: 80vh; background: var(--bg); border: 1px solid var(--accent); border-radius: 2px; display: flex; flex-direction: column; min-height: 0; }
   .form-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }

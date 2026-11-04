@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"runtime"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -161,10 +162,10 @@ func (a *App) createToolWindow(name string, spec windows.Spec, grouping windows.
 		Height:           height,
 		MinWidth:         420,
 		MinHeight:        280,
-		BackgroundColour: application.NewRGBA(10, 10, 10, 255),
+		BackgroundColour: windowBackground(runtime.GOOS, a.prefs.Get().Theme),
 		URL:              toolWindowURL(name),
 		EnableFileDrop:   spec.Tool == windows.ToolFiles,
-		Mac:              application.MacWindow{Appearance: application.NSAppearanceNameDarkAqua},
+		Mac:              macWindowStyle(),
 		Windows:          application.WindowsWindow{Theme: application.Dark},
 	}
 	if saved, ok := a.prefs.Get().WindowBounds[key]; ok {

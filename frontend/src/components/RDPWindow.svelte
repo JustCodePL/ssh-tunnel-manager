@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMac } from "../lib/platform";
   import Select from "./Select.svelte";
   import { errorText } from "../lib/runtime";
   import { onDestroy, onMount } from "svelte";
@@ -126,7 +127,6 @@
     }
   }
 
-  const isMac = navigator.userAgent.includes("Mac");
   let mapMacKey = createMacKeyMapper();
 
   function dispose() {

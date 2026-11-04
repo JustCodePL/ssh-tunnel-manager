@@ -70,6 +70,7 @@ func (a *App) SetAppSettings(s AppSettings) error {
 	if err := a.prefs.Set(p); err != nil {
 		return err
 	}
+	a.applyWindowBackground(s.Theme)
 	a.emit(eventSettingsChange)
 	return nil
 }

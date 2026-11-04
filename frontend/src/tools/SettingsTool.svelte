@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMac } from "../lib/platform";
   import { errorText } from "../lib/runtime";
   import { onDestroy, onMount, tick } from "svelte";
   import {
@@ -54,7 +55,6 @@
   ];
 
   let page = "general";
-  const isMac = navigator.userAgent.includes("Mac");
 
   let autostart = false;
   let startMinimized = true;
