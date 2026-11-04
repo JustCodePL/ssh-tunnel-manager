@@ -79,6 +79,42 @@
           <nav class="changelog-history" aria-label="Release history"></nav>
           <div class="changelog-content">
 
+        <article class="changelog-entry" id="v1.2.0-beta.4">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="#v1.2.0-beta.4">v1.2.0-beta.4</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 November 2026</time></p>
+            <h3>The system title bar on macOS</h3>
+            <p>On macOS the main window now has the real window buttons, on the left, in a bar that takes the colour of your theme.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Real window buttons</h4>
+              <p>The main window used to draw its own buttons on the right. It now keeps the system title bar, so closing, minimizing, zoom, the menu on the green button, full screen and dragging are the ones you know from other Mac apps. The bar takes the colour of the theme in every window and changes as soon as you switch themes. Windows and Linux stay as they were.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../assets/changelog/v1.2.0-beta.4/title-bar-terminal.png"><img src="../assets/changelog/v1.2.0-beta.4/title-bar-terminal.png" alt="Main window in the Terminal theme with the system title bar" width="1798" height="1254" loading="lazy" /></a>
+              <a href="../assets/changelog/v1.2.0-beta.4/title-bar-graphite.png"><img src="../assets/changelog/v1.2.0-beta.4/title-bar-graphite.png" alt="Settings window in the Graphite theme with the title bar in the same colour" width="1638" height="1254" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Use the buttons on the left of the title bar, and drag the window by the bar.</li>
+                <li>Hold the pointer over the green button for the options to fill or tile the window.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>Dragging a window to a screen edge to tile it is a macOS 15 feature that needs its option turned on. It has not been tested with this app.</li>
+                <li>The main window title is now in the system font, so the <code>[ SSH TUNNEL MANAGER ]</code> label no longer appears on macOS.</li>
+                <li>The limits of the previous beta still apply.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.4" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+        </article>
+
         <article class="changelog-entry" id="v1.2.0-beta.3">
           <header class="changelog-entry-head">
             <p class="changelog-meta"><a href="#v1.2.0-beta.3">v1.2.0-beta.3</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 November 2026</time></p>

@@ -1,0 +1,12 @@
+# Two tunnels that stay disconnected: 192.0.2.0/24 is reserved for documentation.
+# stm:group=Production
+Host prod-web
+    HostName 192.0.2.10
+    User deploy
+    LocalForward 15432 127.0.0.1:5432
+
+# stm:group=Staging
+Host stage-a
+    HostName 192.0.2.20
+    User deploy
+    LocalForward 18080 127.0.0.1:8080
