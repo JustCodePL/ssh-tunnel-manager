@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { pageForHash } = require("./changelog.js");
+const { pageForHash, start } = require("./changelog.js");
 const { outdated } = require("../scripts/build-changelog.cjs");
 const versions = require("./changelog-versions.js");
 
@@ -18,6 +18,24 @@ test("an old hash link finds the release page, and anything else stays", () => {
   assert.equal(pageForHash(links, undefined), null);
   assert.equal(pageForHash(links, "#missing"), null);
   assert.equal(pageForHash(links, "#%E0%A4%A"), null);
+});
+
+test("a hash added to the open news page also goes to the release page", () => {
+  const replaced = [];
+  const listeners = {};
+  const window = {
+    location: { hash: "", replace: (page) => replaced.push(page) },
+    addEventListener: (name, listener) => (listeners[name] = listener),
+    document: {
+      querySelectorAll: () => [{ href: "https://x/changelog/v1.1.0/" }],
+      querySelector: () => null,
+    },
+  };
+  start(window);
+  assert.deepEqual(replaced, []);
+  window.location.hash = "#v1.1.0";
+  listeners.hashchange();
+  assert.deepEqual(replaced, ["https://x/changelog/v1.1.0/"]);
 });
 
 const languages = [
