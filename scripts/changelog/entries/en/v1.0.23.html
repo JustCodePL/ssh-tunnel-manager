@@ -1,0 +1,29 @@
+<article class="changelog-entry" id="v1.0.23">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.23/">v1.0.23</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 May 2026</time></p>
+            <h3>Portless .ssh-local domains</h3>
+            <p>A forward can get its own name under <code>.ssh-local</code> instead of a port on <code>127.0.0.1</code>.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Portless mode</h4>
+              <p>With the <code>portless</code> toggle on, a forward gets a dedicated <code>127.0.1.x</code> loopback IP and is published as <code>&lt;domain&gt;.ssh-local</code> through a DNS server built into the app. If the address is in use, the next IP is tried. An optional exposed port sets what the clipboard and tray give you: an <code>http://</code> or <code>https://</code> URL when bound to 80 or 443, otherwise <code>host:port</code>.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/portless-form.png"><img src="@ROOT@/assets/screenshots/portless-form.png" alt="Port forward with portless ticked and the name billing under .ssh-local" width="1200" height="242" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>One-time admin setup</h4>
+              <p>Each platform needs it once: an NRPT rule on Windows, <code>/etc/resolver</code> on macOS, a systemd-resolved drop-in on Linux. The app asks for it on the first portless connect.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Form and tunnel cards</h4>
+              <p>Each forward has its own block in the edit form, with the description on top. Clicking a forward tag on a tunnel card copies the address and shows a toast. Editing a connected tunnel reconnects it live.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.23" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

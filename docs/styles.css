@@ -1661,8 +1661,8 @@ footer > div {
   object-fit: contain;
 }
 
-/* News page: one release at a time, with the history beside it. */
-.has-js .changelog-layout {
+/* News page: one release per page, with the history beside it. */
+.changelog-layout {
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);
   align-items: start;
@@ -1671,28 +1671,12 @@ footer > div {
   border-top: 1px solid var(--line);
 }
 
-.has-js .changelog-entry {
+.changelog-layout .changelog-entry {
   padding-block: 0 40px;
   border-top: 0;
 }
 
-.has-js .changelog-entry:not(:first-child) {
-  display: none;
-}
-
-.changelog-layout.is-ready .changelog-entry {
-  display: none;
-}
-
-.changelog-layout.is-ready .changelog-entry.is-current {
-  display: block;
-}
-
 .changelog-history {
-  display: none;
-}
-
-.has-js .changelog-history {
   position: sticky;
   top: 96px;
   display: flex;
@@ -1740,10 +1724,6 @@ footer > div {
 }
 
 .changelog-pager {
-  display: none;
-}
-
-.has-js .changelog-pager {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -1790,12 +1770,12 @@ footer > div {
 }
 
 @media (max-width: 1000px) {
-  .has-js .changelog-layout {
+  .changelog-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
   }
 
-  .has-js .changelog-history {
+  .changelog-history {
     position: static;
     max-height: 240px;
     border: 1px solid var(--line);

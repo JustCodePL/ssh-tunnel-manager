@@ -1,0 +1,29 @@
+<article class="changelog-entry" id="v1.0.0">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.0/">v1.0.0</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-02">2 marca 2026</time></p>
+            <h3>Pierwsze publiczne wydanie</h3>
+            <p>Pierwsze publiczne wydanie SSH Tunnel Manager, aplikacji do zarządzania tunelami SSH na Windows, macOS i Linuksie.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Tunele i konfiguracja</h4>
+              <p>SSH działa w czystym Go (<code>golang.org/x/crypto/ssh</code>), więc systemowy program <code>ssh</code> nie jest potrzebny. Aplikacja czyta i zapisuje bloki <code>Host</code> w <code>~/.ssh/config</code>, a własne metadane trzyma w komentarzach, które nie giną przy kolejnych zapisach. Dostępne jest lokalne przekierowanie portów.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Zasobnik systemowy</h4>
+              <p>Zasobnik jest głównym interfejsem aplikacji, z plakietką stanu i kolorowymi kropkami.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/tray-menu.png"><img src="@ROOT@/assets/screenshots/tray-menu.png" alt="Menu w zasobniku z dwoma aktywnymi tunelami i kolorowymi kropkami stanu" width="510" height="385" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Instalacja i aktualizacje</h4>
+              <p>Aplikacja aktualizuje się sama z GitHub Releases. Na Windows jest instalator NSIS.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.0" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>

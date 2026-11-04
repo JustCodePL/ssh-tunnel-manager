@@ -1,0 +1,41 @@
+<article class="changelog-entry" id="v1.2.0-beta.2">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.2/">v1.2.0-beta.2</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-03">3 November 2026</time></p>
+            <h3>Failed tunnels stop retrying and report errors in the app</h3>
+            <p>A tunnel that can't connect no longer retries forever or sends a system notification on every attempt.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Three attempts, then stop</h4>
+              <p>The tunnel shows <code>reconnecting</code> between attempts and tries up to 3 times in a row.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-retrying.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-retrying.png" alt="Tunnel card with the orange reconnecting status while the app retries" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>A red exclamation mark and the error in the app</h4>
+              <p>After the third failed attempt the card shows a red <code>!</code> and the error. A toast appears for a few seconds. The tray menu marks the tunnel with <code>!</code> too. Tunnel errors no longer appear as system notifications.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-failed.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-failed.png" alt="Tunnel card with a red exclamation mark, the connection error and a toast at the bottom of the window" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Fix what the error describes, then click <code>connect</code>. You get another 3 attempts.</li>
+                <li>Click <code>logs</code> to see each attempt and its error.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>After 3 failed attempts nothing retries on its own. A tunnel that connects at login before the network is up has to be connected by hand.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.2" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

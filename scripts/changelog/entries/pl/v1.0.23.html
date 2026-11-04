@@ -1,0 +1,29 @@
+<article class="changelog-entry" id="v1.0.23">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.23/">v1.0.23</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 maja 2026</time></p>
+            <h3>Domeny .ssh-local w trybie Portless</h3>
+            <p>Przekierowanie może mieć własną nazwę w domenie <code>.ssh-local</code> zamiast portu na <code>127.0.0.1</code>.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Tryb portless</h4>
+              <p>Po włączeniu <code>portless</code> przekierowanie dostaje osobny adres loopback <code>127.0.1.x</code> i jest dostępne jako <code>&lt;domain&gt;.ssh-local</code> przez serwer DNS wbudowany w aplikację. Jeśli adres jest zajęty, aplikacja próbuje kolejnego. Opcjonalny port po nazwie decyduje o tym, co trafia do schowka i menu w zasobniku: adres <code>http://</code> lub <code>https://</code> dla portów 80 i 443, a w pozostałych przypadkach <code>host:port</code>.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/portless-form.png"><img src="@ROOT@/assets/screenshots/portless-form.png" alt="Przekierowanie z zaznaczonym portless i nazwą billing w domenie .ssh-local" width="1200" height="242" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Jednorazowa konfiguracja z uprawnieniami administratora</h4>
+              <p>Każdy system wymaga jej raz: reguła NRPT na Windows, <code>/etc/resolver</code> na macOS, plik drop-in systemd-resolved na Linuksie. Aplikacja poprosi o nią przy pierwszym połączeniu portless.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Formularz i karty tuneli</h4>
+              <p>Każde przekierowanie ma w formularzu edycji osobny blok z opisem na górze. Kliknięcie znacznika przekierowania na karcie tunelu kopiuje adres i pokazuje toast. Edycja połączonego tunelu od razu łączy go ponownie.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.23" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>

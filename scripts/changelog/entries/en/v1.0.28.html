@@ -1,0 +1,20 @@
+<article class="changelog-entry" id="v1.0.28">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.28/">v1.0.28</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-03">3 June 2026</time></p>
+            <h3>Safer Portless defaults and reliable Linux updates</h3>
+            <p>The Host header rewrite on portless forwards is now opt-in, and after an update on Linux the new version runs.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Host header rewrite is opt-in</h4>
+              <p>For portless forwards the rewrite is off by default and applies only when you enable it per forward, in the forward settings (⚙). The previous automatic rewrite on FQDNs broke plain TCP and other non-HTTP services. Configs that set an explicit value keep working.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Updates on Linux</h4>
+              <p>After installing an update the app relaunches into the new binary, as on macOS and Windows. Before this, the old version kept running after <code>Install &amp; Restart</code>.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.28" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

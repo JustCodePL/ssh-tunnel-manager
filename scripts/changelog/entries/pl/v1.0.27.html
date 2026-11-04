@@ -1,0 +1,23 @@
+<article class="changelog-entry" id="v1.0.27">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.27/">v1.0.27</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-29">29 maja 2026</time></p>
+            <h3>Uprzywilejowane porty Portless na Linuksie</h3>
+            <p>Na Linuksie działają teraz przekierowania portless na portach uprzywilejowanych, takich jak <code>:80</code>. Nie dotyczy to macOS i Windows.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Czytelny błąd i naprawa jednym kliknięciem</h4>
+              <p>Takie przekierowania nie działały bez żadnego komunikatu, bo procesowi brakowało <code>CAP_NET_BIND_SERVICE</code>. Ślad zostawał tylko w logu, łatwy do przeoczenia. Teraz aplikacja wykrywa ten problem i pokazuje baner oraz powiadomienie systemowe z dokładnym poleceniem <code>setcap</code> dla Twojego pliku binarnego. Aktualizator po podmianie pliku nadaje to uprawnienie ponownie. Twórcy pakietów dostają plik polityki PolicyKit, a README ma sekcję o trybie portless na Linuksie.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Kliknij <code>[ AUTHORIZE ]</code>. Aplikacja użyje PolicyKit i <code>pkexec setcap</code>.</li>
+                <li>Kliknij <code>[ RESTART NOW ]</code>, żeby zastosować zmianę.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.27" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>

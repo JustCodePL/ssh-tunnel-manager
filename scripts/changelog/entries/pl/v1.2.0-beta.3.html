@@ -1,0 +1,93 @@
+<article class="changelog-entry" id="v1.2.0-beta.3">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.3/">v1.2.0-beta.3</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 listopada 2026</time></p>
+            <h3>Osobne okna narzędzi i nowa lista tuneli</h3>
+            <p>Narzędzia otwierają się teraz we własnych oknach, a główne okno stało się krótką listą. Aplikacja przeszła też na Wails 3.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Lista, która nie przytłacza</h4>
+              <p>Tunel to jeden wiersz: status, nazwa, Attach i przełącznik. Adres, narzędzia i forwardy widać po rozwinięciu, tunel z błędem pokazuje czerwony <code>!</code> i powód w wierszu, a kolor tunelu zabarwia jego wiersz.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/attach-menu.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/attach-menu.png" alt="Rozwinięty tunel z narzędziami, forwardami i menu Attach" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Attach</h4>
+              <p>Attach otwiera sesję. Od razu uruchamia terminal, a menu pokazuje tylko wtedy, gdy tunel ma też pulpit zdalny. Forward typu RDP lub SSH ma ten sam przycisk, także z Portless, więc każdy serwer za bastionem otwiera się we własnym oknie.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Osobne okna</h4>
+              <p>Terminal, pliki, Docker, htop, dysk, logi i pulpit zdalny otwierają się w natywnych oknach, które mogą wyjść poza główne okno. Kilka terminali na jednym celu to karty. Grupowanie, zachowanie okien po rozłączeniu i zamykanie głównego okna to ustawienia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/windows-settings.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/windows-settings.png" alt="Ustawienia okien" width="900" height="620" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Zapisane loginy i wspólny schowek</h4>
+              <p>Login nazywasz raz i przypisujesz do dowolnej liczby tuneli i forwardów, do SSH i pulpitów zdalnych. Tunel może teraz logować się zapisanym hasłem, wysyłanym tylko do serwera z kluczem hosta widzianym przy pierwszym połączeniu. Formularz logowania do pulpitu zdalnego pokazuje wszystkie zapisane loginy i może zapisać nowy. Sekrety zostają w systemowym keychainie. Pulpit zdalny współdzieli schowek, z kierunkiem ustawianym na tunelu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/credentials.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/credentials.png" alt="Zapisane loginy" width="900" height="620" loading="lazy" /></a>
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/tunnel-attach.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/tunnel-attach.png" alt="Login dla każdego forwardu i kierunek schowka" width="900" height="860" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Ustawienia dla każdego tunelu</h4>
+              <p>Każdy tunel ma okno ustawień: połączenie, forwardy, dane logowania, wiersz, interwały monitoringu i zachowanie po rozłączeniu, z jednym przyciskiem Save dla wszystkich. Tunel może mieć własny sufiks Portless: <code>dev</code> daje <code>nazwa.dev.ssh-local</code>. Settings, Maintenance pokazuje log aplikacji. Docker i Disk pokazują karty, a szczegóły są o jedno kliknięcie. Docker domyślnie odświeża się ręcznie, a jego zmienne środowiskowe pozostają zwinięte, dopóki ich nie otworzysz.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/docker.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/docker.png" alt="Okno Docker z kartami kontenerów i szczegółami" width="960" height="560" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Motywy Terminal i Grafit</h4>
+              <p>Zielony motyw Terminal pozostaje domyślny. Spokojniejszy Grafit wybierzesz w Ustawieniach, w sekcji Appearance. Font jest teraz częścią aplikacji i nie ładuje się z Google Fonts.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/graphite.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/graphite.png" alt="Lista w motywie Grafit" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Klawiatura</h4>
+              <p><code>⌘K</code> lub <code>Ctrl+K</code> znajduje tunele i uruchamia akcje. Na liście strzałki albo <code>j</code> i <code>k</code> przesuwają zaznaczenie, Enter rozwija, spacja łączy, a litery otwierają narzędzia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/palette.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/palette.png" alt="Paleta poleceń" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Kliknij tunel, żeby go rozwinąć, a przełącznikiem go połącz.</li>
+                <li>Tunel lub grupę dodasz przyciskiem <code>+</code> albo przez New tunnel na końcu grupy.</li>
+                <li>Ustawienia otworzysz trybikiem u góry, a ustawienia tunelu trybikiem w jego wierszu.</li>
+                <li>Naciśnij <code>⌘K</code> lub <code>Ctrl+K</code>, żeby znaleźć cokolwiek.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Zapisane loginy RDP nie są przenoszone: pulpit zdalny zapyta raz, a stare wpisy zostaną nieużywane w keychainie.</li>
+                <li>Schowek sprawdziliśmy na macOS z GNOME Remote Desktop na Ubuntu: tekst, obrazki i pliki przechodzą w obie strony. xrdp 0.9.12 nie wymienia obrazków, bo klient preferuje format (DIBV5), którego ten serwer nie obsługuje. Windows jako serwer nie jest jeszcze sprawdzony.</li>
+                <li>Zapisane hasło SSH sprawdziliśmy z OpenSSH. Tunele używające tylko klucza lub agenta nadal nie sprawdzają klucza hosta.</li>
+                <li>Windows i Linux przeszły tylko automatyczny test startu. Pulpit zdalny w WebView2 i WebKitGTK oraz Windows jako serwer nie są jeszcze sprawdzone.</li>
+                <li>Linux wymaga GTK 4 i WebKitGTK 6.0, czyli nowszej dystrybucji.</li>
+                <li>Loginy VNC można zapisać, ale klienta VNC jeszcze nie ma.</li>
+                <li>Sufiks Portless sprawdziliśmy w ustawieniach i pliku konfiguracji. Rozwiązywania takiej nazwy na prawdziwym systemie nie sprawdzaliśmy.</li>
+                <li>Po 3 nieudanych próbach nic nie ponawia się samo, tak jak w poprzedniej becie.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.3" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>

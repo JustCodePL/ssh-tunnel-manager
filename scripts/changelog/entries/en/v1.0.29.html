@@ -1,0 +1,41 @@
+<article class="changelog-entry" id="v1.0.29">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.29/">v1.0.29</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-14">14 June 2026</time></p>
+            <h3>Live remote host monitoring</h3>
+            <p>A connected tunnel shows live data from the remote host. Stats go over the existing SSH connection, with no extra connections or agents on the remote.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>CPU and RAM</h4>
+              <p>A compact usage bar appears under the host on every connected tunnel.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/tunnels-connected-cpu-ram.png"><img src="@ROOT@/assets/screenshots/tunnels-connected-cpu-ram.png" alt="Connected tunnel with live CPU and RAM usage bars under the host" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Disk</h4>
+              <p>The <code>disk</code> button opens a window listing all mounts with usage bars.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/disk-panel.png"><img src="@ROOT@/assets/screenshots/disk-panel.png" alt="Disk window listing mounted filesystems with usage bars" width="760" height="320" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Docker and htop</h4>
+              <p>On hosts where docker is detected, the <code>docker</code> button opens a live container view. On hosts where htop is detected, the <code>htop</code> button opens a graphical monitor with per-core CPU bars, RAM and swap, load average, uptime and the top processes. <code>term</code> still gives you a full shell. Detected tools are remembered per host, so the buttons stay visible across app restarts, disabled until you reconnect. Clicking one re-checks the tool and tells you if it's no longer installed.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Turn the CPU and RAM widget on or off in Settings, in the <code>monitoring</code> section.</li>
+                <li>Click <code>disk</code>, <code>docker</code> or <code>htop</code> on a connected tunnel.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.29" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

@@ -1,0 +1,32 @@
+<article class="changelog-entry" id="v1.0.30">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.30/">v1.0.30</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-19">19 June 2026</time></p>
+            <h3>Richer Docker and htop monitoring</h3>
+            <p>The Docker view gets groups, container details and sorting, and the htop view can sort processes.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Docker</h4>
+              <p>Containers are split into active and stopped groups, with stopped collapsed by default. Click a container to see live CPU and RAM usage, published port mappings, mounts, networks and environment variables. A sort bar orders the list by name, CPU or RAM. Auto-refresh is gone: the list refreshes when you open the window, click ⟳ or change the sort. The plain listing runs only <code>docker ps</code>, so it loads much faster on small VPSes.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/docker-overview.png"><img src="@ROOT@/assets/screenshots/docker-overview.png" alt="Docker view with active and stopped container groups and a sort bar for name, CPU and RAM" width="960" height="560" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>htop</h4>
+              <p>A sort bar orders processes by CPU, memory, name or PID.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/htop.png"><img src="@ROOT@/assets/screenshots/htop.png" alt="Process monitor with a sort bar for CPU, memory, name and PID above the process list" width="860" height="520" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Reliability</h4>
+              <p>Docker and htop are detected again on every connect, so a tool installed since your last connection shows up without restarting the app. Remote commands are no longer cut off after a hardcoded 8 seconds. Docker commands get 45 seconds, and timeout errors report how long they actually waited.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.30" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

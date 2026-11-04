@@ -1,0 +1,29 @@
+<article class="changelog-entry" id="v1.0.0">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.0/">v1.0.0</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-02">2 March 2026</time></p>
+            <h3>First public release</h3>
+            <p>The first public release of SSH Tunnel Manager, a desktop app for managing SSH tunnels on Windows, macOS and Linux.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Tunnels and config</h4>
+              <p>SSH runs in pure Go (<code>golang.org/x/crypto/ssh</code>), so no system <code>ssh</code> binary is required. The app reads and writes <code>Host</code> blocks in <code>~/.ssh/config</code> and keeps its own metadata in comments that survive each save. Local port forwarding is included.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>System tray</h4>
+              <p>The tray is the primary interface, with a status badge and colored indicator dots.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/tray-menu.png"><img src="@ROOT@/assets/screenshots/tray-menu.png" alt="Tray menu with two active tunnels and colored status dots" width="510" height="385" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Installing and updating</h4>
+              <p>The app updates itself from GitHub Releases. Windows has an NSIS installer.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.0" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

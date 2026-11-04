@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="Narzędzia otwierają się teraz we własnych oknach, a główne okno stało się krótką listą. Aplikacja przeszła też na Wails 3."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:title" content="v1.2.0-beta.3: Osobne okna narzędzi i nowa lista tuneli · Aktualności · SSH Tunnel Manager" />
+    <meta
+      property="og:description"
+      content="Narzędzia otwierają się teraz we własnych oknach, a główne okno stało się krótką listą. Aplikacja przeszła też na Wails 3."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.3/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.3/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.3/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.3/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.3/" />
+    <link rel="icon" type="image/png" href="../../../assets/appicon.png" />
+    <link rel="stylesheet" href="../../../styles.css?v=20261104.2" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script src="../../../changelog.js?v=20261104.2" defer></script>
+    <script src="../../../lightbox.js?v=20261103.1" defer></script>
+    <title>v1.2.0-beta.3: Osobne okna narzędzi i nowa lista tuneli · Aktualności · SSH Tunnel Manager</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Przejdź do treści</a>
+
+    <header class="site-header">
+      <a class="brand" href="../../" aria-label="SSH Tunnel Manager — strona główna">
+        <img src="../../../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Główna nawigacja">
+        <a href="../../features/">Funkcje</a>
+        <a href="../../#pobierz">Pobierz</a>
+        <a href="../../#wydania">Wydania</a>
+        <a href="../../#faq">FAQ</a>
+        <a href="../../compare/">Porównanie</a>
+        <a href="../../changelog/" aria-current="page">Aktualności</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Wybór języka">
+          <a href="../../../changelog/v1.2.0-beta.3/" lang="en" hreflang="en">EN</a>
+          <span aria-current="page">PL</span>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// SSH TUNNEL MANAGER</p>
+          <h2>Aktualności</h2>
+        </div>
+
+        <div class="changelog-layout">
+          <nav class="changelog-history" aria-label="Historia aktualizacji">
+            <a href="../../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Systemowy pasek tytułu na macOS</span></a>
+            <a href="../../changelog/v1.2.0-beta.3/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Osobne okna narzędzi i nowa lista tuneli</span></a>
+            <a href="../../changelog/v1.2.0-beta.2/"><span class="changelog-history-version">v1.2.0-beta.2</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Tunel po nieudanych próbach przestaje się łączyć, a błąd widać w aplikacji</span></a>
+            <a href="../../changelog/v1.2.0-beta.1/"><span class="changelog-history-version">v1.2.0-beta.1</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Wbudowany pulpit zdalny i przyciski przy przekierowaniach</span></a>
+            <a href="../../changelog/v1.1.0/"><span class="changelog-history-version">v1.1.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Portless na macOS działa po restarcie, a aplikacja w DMG jest notaryzowana</span></a>
+            <a href="../../changelog/v1.0.36/"><span class="changelog-history-version">v1.0.36</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Pewniejszy Portless, aktualizacje i praca w tle</span></a>
+            <a href="../../changelog/v1.0.31/"><span class="changelog-history-version">v1.0.31</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Kanały aktualizacji Stable i Beta</span></a>
+            <a href="../../changelog/v1.0.30/"><span class="changelog-history-version">v1.0.30</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Więcej informacji w widokach Dockera i htop</span></a>
+            <a href="../../changelog/v1.0.29/"><span class="changelog-history-version">v1.0.29</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Podgląd zdalnego hosta na żywo</span></a>
+            <a href="../../changelog/v1.0.28/"><span class="changelog-history-version">v1.0.28</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Bezpieczniejsze ustawienia Portless i poprawione aktualizacje na Linuksie</span></a>
+            <a href="../../changelog/v1.0.27/"><span class="changelog-history-version">v1.0.27</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Uprzywilejowane porty Portless na Linuksie</span></a>
+            <a href="../../changelog/v1.0.26/"><span class="changelog-history-version">v1.0.26</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Wbudowana edycja plików przez SFTP</span></a>
+            <a href="../../changelog/v1.0.25/"><span class="changelog-history-version">v1.0.25</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Nadpisywanie nagłówka Host na przekierowaniach Portless</span></a>
+            <a href="../../changelog/v1.0.24/"><span class="changelog-history-version">v1.0.24</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawione automatyczne aktualizacje na Linuksie</span></a>
+            <a href="../../changelog/v1.0.23/"><span class="changelog-history-version">v1.0.23</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Domeny .ssh-local w trybie Portless</span></a>
+            <a href="../../changelog/v1.0.22/"><span class="changelog-history-version">v1.0.22</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Przeglądarka SFTP i jednolite okna nakładkowe</span></a>
+            <a href="../../changelog/v1.0.21/"><span class="changelog-history-version">v1.0.21</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Schowek i minimalizacja w terminalu</span></a>
+            <a href="../../changelog/v1.0.20/"><span class="changelog-history-version">v1.0.20</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Nowe logo i start bez okna</span></a>
+            <a href="../../changelog/v1.0.19/"><span class="changelog-history-version">v1.0.19</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Podpisane i notaryzowane wydania na macOS</span></a>
+            <a href="../../changelog/v1.0.18/"><span class="changelog-history-version">v1.0.18</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Zapamiętany rozmiar okna i akcje zbiorcze w zasobniku</span></a>
+            <a href="../../changelog/v1.0.17/"><span class="changelog-history-version">v1.0.17</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Grupy tuneli, przypięte hosty i uporządkowany interfejs</span></a>
+            <a href="../../changelog/v1.0.16/"><span class="changelog-history-version">v1.0.16</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Dyrektywa Include w konfiguracji SSH i lepszy start</span></a>
+            <a href="../../changelog/v1.0.15/"><span class="changelog-history-version">v1.0.15</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Czytelniejsze błędy połączenia przez ProxyCommand</span></a>
+            <a href="../../changelog/v1.0.14/"><span class="changelog-history-version">v1.0.14</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Interaktywny terminal SSH</span></a>
+            <a href="../../changelog/v1.0.13/"><span class="changelog-history-version">v1.0.13</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Nowy interfejs w stylu cyberpunk</span></a>
+            <a href="../../changelog/v1.0.12/"><span class="changelog-history-version">v1.0.12</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawiona obsługa zasobnika na Windows</span></a>
+            <a href="../../changelog/v1.0.11/"><span class="changelog-history-version">v1.0.11</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Naprawione ikony menu w zasobniku na Windows</span></a>
+            <a href="../../changelog/v1.0.10/"><span class="changelog-history-version">v1.0.10</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Naprawiona ikona w zasobniku na Windows</span></a>
+            <a href="../../changelog/v1.0.9/"><span class="changelog-history-version">v1.0.9</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Aktualizacje na Windows z podniesieniem uprawnień</span></a>
+            <a href="../../changelog/v1.0.8/"><span class="changelog-history-version">v1.0.8</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Szybszy błąd DNS i prostsza ikona w zasobniku na Windows</span></a>
+            <a href="../../changelog/v1.0.7/"><span class="changelog-history-version">v1.0.7</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Aktualizacje na macOS przez DMG</span></a>
+            <a href="../../changelog/v1.0.6/"><span class="changelog-history-version">v1.0.6</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Logi tuneli i bezpieczniejsza obsługa nieudanego uwierzytelniania</span></a>
+            <a href="../../changelog/v1.0.5/"><span class="changelog-history-version">v1.0.5</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawiony start zasobnika na macOS</span></a>
+            <a href="../../changelog/v1.0.4/"><span class="changelog-history-version">v1.0.4</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawka awarii AppKit na macOS</span></a>
+            <a href="../../changelog/v1.0.3/"><span class="changelog-history-version">v1.0.3</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Obsługa Maców z procesorem Intel</span></a>
+            <a href="../../changelog/v1.0.2/"><span class="changelog-history-version">v1.0.2</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Instalator DMG na macOS</span></a>
+            <a href="../../changelog/v1.0.1/"><span class="changelog-history-version">v1.0.1</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawione sprawdzanie aktualizacji i budowanie wydań</span></a>
+            <a href="../../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Pierwsze publiczne wydanie</span></a>
+          </nav>
+          <div class="changelog-content">
+        <article class="changelog-entry" id="v1.2.0-beta.3">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="../../changelog/v1.2.0-beta.3/">v1.2.0-beta.3</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 listopada 2026</time></p>
+            <h3>Osobne okna narzędzi i nowa lista tuneli</h3>
+            <p>Narzędzia otwierają się teraz we własnych oknach, a główne okno stało się krótką listą. Aplikacja przeszła też na Wails 3.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Lista, która nie przytłacza</h4>
+              <p>Tunel to jeden wiersz: status, nazwa, Attach i przełącznik. Adres, narzędzia i forwardy widać po rozwinięciu, tunel z błędem pokazuje czerwony <code>!</code> i powód w wierszu, a kolor tunelu zabarwia jego wiersz.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.3/attach-menu.png"><img src="../../../assets/changelog/v1.2.0-beta.3/attach-menu.png" alt="Rozwinięty tunel z narzędziami, forwardami i menu Attach" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Attach</h4>
+              <p>Attach otwiera sesję. Od razu uruchamia terminal, a menu pokazuje tylko wtedy, gdy tunel ma też pulpit zdalny. Forward typu RDP lub SSH ma ten sam przycisk, także z Portless, więc każdy serwer za bastionem otwiera się we własnym oknie.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Osobne okna</h4>
+              <p>Terminal, pliki, Docker, htop, dysk, logi i pulpit zdalny otwierają się w natywnych oknach, które mogą wyjść poza główne okno. Kilka terminali na jednym celu to karty. Grupowanie, zachowanie okien po rozłączeniu i zamykanie głównego okna to ustawienia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.3/windows-settings.png"><img src="../../../assets/changelog/v1.2.0-beta.3/windows-settings.png" alt="Ustawienia okien" width="900" height="620" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Zapisane loginy i wspólny schowek</h4>
+              <p>Login nazywasz raz i przypisujesz do dowolnej liczby tuneli i forwardów, do SSH i pulpitów zdalnych. Tunel może teraz logować się zapisanym hasłem, wysyłanym tylko do serwera z kluczem hosta widzianym przy pierwszym połączeniu. Formularz logowania do pulpitu zdalnego pokazuje wszystkie zapisane loginy i może zapisać nowy. Sekrety zostają w systemowym keychainie. Pulpit zdalny współdzieli schowek, z kierunkiem ustawianym na tunelu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.3/credentials.png"><img src="../../../assets/changelog/v1.2.0-beta.3/credentials.png" alt="Zapisane loginy" width="900" height="620" loading="lazy" /></a>
+              <a href="../../../assets/changelog/v1.2.0-beta.3/tunnel-attach.png"><img src="../../../assets/changelog/v1.2.0-beta.3/tunnel-attach.png" alt="Login dla każdego forwardu i kierunek schowka" width="900" height="860" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Ustawienia dla każdego tunelu</h4>
+              <p>Każdy tunel ma okno ustawień: połączenie, forwardy, dane logowania, wiersz, interwały monitoringu i zachowanie po rozłączeniu, z jednym przyciskiem Save dla wszystkich. Tunel może mieć własny sufiks Portless: <code>dev</code> daje <code>nazwa.dev.ssh-local</code>. Settings, Maintenance pokazuje log aplikacji. Docker i Disk pokazują karty, a szczegóły są o jedno kliknięcie. Docker domyślnie odświeża się ręcznie, a jego zmienne środowiskowe pozostają zwinięte, dopóki ich nie otworzysz.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.3/docker.png"><img src="../../../assets/changelog/v1.2.0-beta.3/docker.png" alt="Okno Docker z kartami kontenerów i szczegółami" width="960" height="560" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Motywy Terminal i Grafit</h4>
+              <p>Zielony motyw Terminal pozostaje domyślny. Spokojniejszy Grafit wybierzesz w Ustawieniach, w sekcji Appearance. Font jest teraz częścią aplikacji i nie ładuje się z Google Fonts.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.3/graphite.png"><img src="../../../assets/changelog/v1.2.0-beta.3/graphite.png" alt="Lista w motywie Grafit" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Klawiatura</h4>
+              <p><code>⌘K</code> lub <code>Ctrl+K</code> znajduje tunele i uruchamia akcje. Na liście strzałki albo <code>j</code> i <code>k</code> przesuwają zaznaczenie, Enter rozwija, spacja łączy, a litery otwierają narzędzia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.3/palette.png"><img src="../../../assets/changelog/v1.2.0-beta.3/palette.png" alt="Paleta poleceń" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Kliknij tunel, żeby go rozwinąć, a przełącznikiem go połącz.</li>
+                <li>Tunel lub grupę dodasz przyciskiem <code>+</code> albo przez New tunnel na końcu grupy.</li>
+                <li>Ustawienia otworzysz trybikiem u góry, a ustawienia tunelu trybikiem w jego wierszu.</li>
+                <li>Naciśnij <code>⌘K</code> lub <code>Ctrl+K</code>, żeby znaleźć cokolwiek.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Zapisane loginy RDP nie są przenoszone: pulpit zdalny zapyta raz, a stare wpisy zostaną nieużywane w keychainie.</li>
+                <li>Schowek sprawdziliśmy na macOS z GNOME Remote Desktop na Ubuntu: tekst, obrazki i pliki przechodzą w obie strony. xrdp 0.9.12 nie wymienia obrazków, bo klient preferuje format (DIBV5), którego ten serwer nie obsługuje. Windows jako serwer nie jest jeszcze sprawdzony.</li>
+                <li>Zapisane hasło SSH sprawdziliśmy z OpenSSH. Tunele używające tylko klucza lub agenta nadal nie sprawdzają klucza hosta.</li>
+                <li>Windows i Linux przeszły tylko automatyczny test startu. Pulpit zdalny w WebView2 i WebKitGTK oraz Windows jako serwer nie są jeszcze sprawdzone.</li>
+                <li>Linux wymaga GTK 4 i WebKitGTK 6.0, czyli nowszej dystrybucji.</li>
+                <li>Loginy VNC można zapisać, ale klienta VNC jeszcze nie ma.</li>
+                <li>Sufiks Portless sprawdziliśmy w ustawieniach i pliku konfiguracji. Rozwiązywania takiej nazwy na prawdziwym systemie nie sprawdzaliśmy.</li>
+                <li>Po 3 nieudanych próbach nic nie ponawia się samo, tak jak w poprzedniej becie.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.3" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>
+            <nav class="changelog-pager" aria-label="Starsze i nowsze wydania">
+              <a href="../../changelog/v1.2.0-beta.4/" class="changelog-pager-newer"><span class="changelog-pager-label">Następna</span><span class="changelog-pager-version">v1.2.0-beta.4</span></a>
+              <a href="../../changelog/v1.2.0-beta.2/" class="changelog-pager-older"><span class="changelog-pager-label">Poprzednia</span><span class="changelog-pager-version">v1.2.0-beta.2</span></a>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../../">
+        <img src="../../../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · Licencja MIT · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="../../features/">Funkcje</a>
+        <a href="../../compare/">Co wybrać</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Kontakt</a>
+      </div>
+    </footer>
+  </body>
+</html>

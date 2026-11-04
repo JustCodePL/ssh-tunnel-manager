@@ -1,0 +1,23 @@
+<article class="changelog-entry" id="v1.0.27">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.27/">v1.0.27</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-29">29 May 2026</time></p>
+            <h3>Privileged Portless ports on Linux</h3>
+            <p>On Linux, portless forwards on privileged ports such as <code>:80</code> now work. macOS and Windows are unaffected.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>A clear error and a one-click fix</h4>
+              <p>These forwards used to fail silently because the process lacked <code>CAP_NET_BIND_SERVICE</code>. The only trace was a buried log line. The app now detects this and shows an in-app banner and a desktop notification with the exact <code>setcap</code> command for your binary. The auto-updater re-applies the capability after replacing the binary. Packagers get a PolicyKit policy file, and the README has a section on portless mode on Linux.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Click <code>[ AUTHORIZE ]</code>, which uses PolicyKit and <code>pkexec setcap</code>.</li>
+                <li>Click <code>[ RESTART NOW ]</code> to apply it.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.27" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

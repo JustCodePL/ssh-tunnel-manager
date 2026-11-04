@@ -1,0 +1,41 @@
+<article class="changelog-entry" id="v1.2.0-beta.2">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.2/">v1.2.0-beta.2</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-03">3 listopada 2026</time></p>
+            <h3>Tunel po nieudanych próbach przestaje się łączyć, a błąd widać w aplikacji</h3>
+            <p>Tunel, który nie może się połączyć, nie próbuje już bez końca i nie wysyła powiadomienia systemowego przy każdej próbie.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Trzy próby i koniec</h4>
+              <p>Między próbami tunel ma status <code>reconnecting</code>. Próbuje do 3 razy z rzędu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-retrying.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-retrying.png" alt="Karta tunelu z pomarańczowym statusem reconnecting w trakcie ponawiania" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Czerwony wykrzyknik i błąd w aplikacji</h4>
+              <p>Po trzeciej nieudanej próbie karta pokazuje czerwony <code>!</code> i treść błędu, a na kilka sekund pojawia się toast. Menu w zasobniku też oznacza tunel znakiem <code>!</code>. Błędy tunelu nie trafiają już do powiadomień systemowych.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-failed.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.2/tunnel-failed.png" alt="Karta tunelu z czerwonym wykrzyknikiem, błędem połączenia i toastem na dole okna" width="1800" height="1200" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Usuń przyczynę opisaną w błędzie i kliknij <code>connect</code>. Dostajesz kolejne 3 próby.</li>
+                <li>Kliknij <code>logs</code>, żeby zobaczyć każdą próbę i jej błąd.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Po 3 nieudanych próbach nic nie ponawia się samo. Tunel łączony przy logowaniu, zanim wstanie sieć, trzeba połączyć ręcznie.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.2" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>

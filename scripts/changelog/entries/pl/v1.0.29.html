@@ -1,0 +1,41 @@
+<article class="changelog-entry" id="v1.0.29">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.29/">v1.0.29</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-14">14 czerwca 2026</time></p>
+            <h3>Podgląd zdalnego hosta na żywo</h3>
+            <p>Połączony tunel pokazuje bieżące dane ze zdalnego hosta. Dane idą istniejącym połączeniem SSH, bez dodatkowych połączeń i agentów na serwerze.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>CPU i RAM</h4>
+              <p>Na każdym połączonym tunelu, pod hostem, pojawia się mały pasek użycia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/tunnels-connected-cpu-ram.png"><img src="@ROOT@/assets/screenshots/tunnels-connected-cpu-ram.png" alt="Połączony tunel z paskami bieżącego użycia CPU i RAM pod hostem" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Dysk</h4>
+              <p>Przycisk <code>disk</code> otwiera okno z listą wszystkich montowań i paskami użycia.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/disk-panel.png"><img src="@ROOT@/assets/screenshots/disk-panel.png" alt="Okno dysku z listą zamontowanych systemów plików i paskami użycia" width="760" height="320" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Docker i htop</h4>
+              <p>Na hostach z wykrytym Dockerem przycisk <code>docker</code> otwiera podgląd kontenerów na żywo. Na hostach z wykrytym htop przycisk <code>htop</code> otwiera monitor graficzny: paski CPU dla każdego rdzenia, RAM i swap, średnie obciążenie, czas działania i najbardziej obciążające procesy. Pełną powłokę nadal daje <code>term</code>. Wykryte narzędzia są zapamiętywane dla każdego hosta, więc przyciski zostają po restarcie aplikacji, ale są wyłączone do ponownego połączenia. Kliknięcie sprawdza narzędzie jeszcze raz i informuje, jeśli nie jest już zainstalowane.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Widżet CPU i RAM włączysz lub wyłączysz w Ustawieniach, w sekcji <code>monitoring</code>.</li>
+                <li>Na połączonym tunelu kliknij <code>disk</code>, <code>docker</code> albo <code>htop</code>.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.29" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>
