@@ -106,3 +106,25 @@ func TestInvalidUpdateChannelNormalizesToStable(t *testing.T) {
 		t.Fatalf("UpdateChannel after Set = %q, want stable", got)
 	}
 }
+
+func TestPrefsFromAnOlderVersionGetTheNewDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "prefs.json")
+	old := `{"closeToTray":false,"windowWidth":1000,"windowHeight":700,"showResourceStats":true,"updateChannel":"beta","hostTools":{"a":{"docker":true,"htop":false}}}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := store.Get()
+	if p.CloseToTray || p.WindowWidth != 1000 || p.UpdateChannel != "beta" || !p.HostTools["a"].Docker {
+		t.Errorf("old values were lost: %+v", p)
+	}
+	if p.Theme != ThemeTerminal || p.WindowGrouping != "tool-target" || p.AfterDisconnect != AfterDisconnectResume {
+		t.Errorf("new settings did not get their defaults: %+v", p)
+	}
+	if p.HideToolsWithMain {
+		t.Error("tools must not hide with the main window by default")
+	}
+}

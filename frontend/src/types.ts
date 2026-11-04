@@ -31,6 +31,7 @@ export interface TunnelConfig {
   autoConnect: boolean;
   pinned?: boolean;
   rdpPort?: number;
+  portlessSuffix?: string;
   sourceFile?: string;
   sourceFileLabel?: string;
 }

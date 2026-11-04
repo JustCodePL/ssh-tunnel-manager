@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
-  import { AuthorizePrivilegedBind, CopyToClipboard, GetPortlessFallback, RestartApp } from "../../wailsjs/go/main/App";
+  import { createEventScope } from "../lib/runtime";
+  import { AuthorizePrivilegedBind, CopyToClipboard, GetPortlessFallback, RestartApp } from "../../bindings/ssh-tunnel-manager/app";
   import { showToast } from "../stores/toast";
+  const events = createEventScope();
 
   interface BindError {
     tunnelId: string;
@@ -28,16 +29,16 @@
   let granted = false;
 
   onMount(() => {
-    EventsOn("portless:bind-failed", (e: BindError) => {
+    events.on("portless:bind-failed", (e: BindError) => {
       err = e;
       fallback = null;
       granted = false;
     });
-    EventsOn("portless:dns-unavailable", (e: DNSFallback) => {
+    events.on("portless:dns-unavailable", (e: DNSFallback) => {
       fallback = e;
       err = null;
     });
-    EventsOn("portless:dns-restored", () => {
+    events.on("portless:dns-restored", () => {
       fallback = null;
     });
     GetPortlessFallback()
@@ -48,9 +49,7 @@
         /* the live event still covers conflicts discovered after mount */
       });
     return () => {
-      EventsOff("portless:bind-failed");
-      EventsOff("portless:dns-unavailable");
-      EventsOff("portless:dns-restored");
+      events.off();
     };
   });
 
@@ -99,7 +98,7 @@
 {#if fallback}
   <div class="bind-banner warning" role="status">
     <div class="bind-body">
-      <span class="bind-tag warning">[ PORTLESS FALLBACK ]</span>
+      <span class="bind-tag warning">PORTLESS FALLBACK</span>
       <span class="bind-msg">{fallback.message}</span>
     </div>
     {#if fallback.recommendation}
@@ -110,25 +109,25 @@
     {/if}
     <div class="bind-actions">
       {#if fallback.command}
-        <button class="bind-btn" on:click={copyFallbackCommand}>[ COPY CMD ]</button>
+        <button class="bind-btn" on:click={copyFallbackCommand}>COPY CMD</button>
       {/if}
-      <button class="bind-btn" on:click={() => (fallback = null)}>[ DISMISS ]</button>
+      <button class="bind-btn" on:click={() => (fallback = null)}>DISMISS</button>
     </div>
   </div>
 {:else if err}
   <div class="bind-banner" role="alert">
     {#if granted}
       <div class="bind-body">
-        <span class="bind-tag ok">[ PORTLESS ]</span>
+        <span class="bind-tag ok">PORTLESS</span>
         <span class="bind-msg">Permission granted. Linux applies it on next launch — restart to enable the privileged-port forward.</span>
       </div>
       <div class="bind-actions">
-        <button class="bind-btn primary" on:click={restart}>[ RESTART NOW ]</button>
-        <button class="bind-btn" on:click={() => (err = null)}>[ LATER ]</button>
+        <button class="bind-btn primary" on:click={restart}>RESTART NOW</button>
+        <button class="bind-btn" on:click={() => (err = null)}>LATER</button>
       </div>
     {:else}
       <div class="bind-body">
-        <span class="bind-tag">[ PORTLESS ]</span>
+        <span class="bind-tag">PORTLESS</span>
         <span class="bind-msg">{err.message}</span>
       </div>
       {#if err.needsCapability && err.setcapCommand}
@@ -137,13 +136,13 @@
       <div class="bind-actions">
         {#if err.needsCapability}
           <button class="bind-btn primary" on:click={authorize} disabled={authorizing}>
-            {authorizing ? "// authorizing..." : "[ AUTHORIZE ]"}
+            {authorizing ? "Authorizing..." : "AUTHORIZE"}
           </button>
           {#if err.setcapCommand}
-            <button class="bind-btn" on:click={copyCommand}>[ COPY CMD ]</button>
+            <button class="bind-btn" on:click={copyCommand}>COPY CMD</button>
           {/if}
         {/if}
-        <button class="bind-btn" on:click={() => (err = null)}>[ DISMISS ]</button>
+        <button class="bind-btn" on:click={() => (err = null)}>DISMISS</button>
       </div>
     {/if}
   </div>
@@ -159,13 +158,13 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: #0a0a0a;
-    border: 1px solid #ff4444;
+    background: var(--bg);
+    border: 1px solid var(--error);
     border-radius: 2px;
     padding: 10px 14px;
-    box-shadow: 0 2px 16px rgba(255, 68, 68, 0.25);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    box-shadow: 0 2px 16px color-mix(in srgb, var(--error) 14%, transparent);
+    font-family: var(--ui);
+    font-size: 12px;
     color: var(--text);
     animation: slide-up 0.18s ease-out;
   }
@@ -177,7 +176,7 @@
   }
 
   .bind-tag {
-    color: #ff4444;
+    color: var(--error);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -222,7 +221,7 @@
     border: 1px solid var(--border);
     color: var(--text);
     font-family: inherit;
-    font-size: 11px;
+    font-size: 12px;
     padding: 4px 10px;
     border-radius: 2px;
     cursor: pointer;

@@ -42,8 +42,10 @@ type HostEntry struct {
 	Group        string
 	AutoConnect  bool
 	Pinned       bool
-	RDPPort      int    // non-default RDP port; 0 means the standard port
-	SourceFile   string // absolute path to the file this entry was parsed from
+	RDPPort      int // non-default RDP port; 0 means the standard port
+	// PortlessSuffix is the shared end of this host's Portless domains, before the TLD.
+	PortlessSuffix string
+	SourceFile     string // absolute path to the file this entry was parsed from
 }
 
 // ParseFile reads an SSH config file and returns host entries for all
@@ -150,6 +152,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var metaAutoConnect bool
 	var metaPinned bool
 	var metaRDPPort int
+	var metaPortlessSuffix string
 	var pendingFwdPortless bool
 	var pendingFwdDomain string
 	var pendingFwdExposePort int
@@ -185,6 +188,8 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaAutoConnect = val == "true"
 			case "pinned":
 				metaPinned = val == "true"
+			case "portless-suffix":
+				metaPortlessSuffix = val
 			case "rdp-port":
 				metaRDPPort = 0
 				if n, err := strconv.Atoi(val); err == nil && n >= 1 && n <= 65535 {
@@ -231,6 +236,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 			metaAutoConnect = false
 			metaPinned = false
 			metaRDPPort = 0
+			metaPortlessSuffix = ""
 			continue
 		}
 
@@ -249,24 +255,27 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaAutoConnect = false
 				metaPinned = false
 				metaRDPPort = 0
+				metaPortlessSuffix = ""
 				resetPendingForward()
 				continue
 			}
 
 			current = &HostEntry{
-				Alias:       alias,
-				Port:        22,
-				Color:       metaColor,
-				Group:       metaGroup,
-				AutoConnect: metaAutoConnect,
-				Pinned:      metaPinned,
-				RDPPort:     metaRDPPort,
+				Alias:          alias,
+				Port:           22,
+				Color:          metaColor,
+				Group:          metaGroup,
+				AutoConnect:    metaAutoConnect,
+				Pinned:         metaPinned,
+				RDPPort:        metaRDPPort,
+				PortlessSuffix: metaPortlessSuffix,
 			}
 			metaGroup = ""
 			metaColor = ""
 			metaAutoConnect = false
 			metaPinned = false
 			metaRDPPort = 0
+			metaPortlessSuffix = ""
 			resetPendingForward()
 			continue
 		}
@@ -280,6 +289,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				metaAutoConnect = false
 				metaPinned = false
 				metaRDPPort = 0
+				metaPortlessSuffix = ""
 			}
 			continue
 		}
@@ -363,6 +373,9 @@ func RenderHostBlock(e HostEntry) string {
 	}
 	if e.RDPPort > 0 {
 		fmt.Fprintf(&b, "# stm:rdp-port=%d\n", e.RDPPort)
+	}
+	if e.PortlessSuffix != "" {
+		fmt.Fprintf(&b, "# stm:portless-suffix=%s\n", e.PortlessSuffix)
 	}
 
 	fmt.Fprintf(&b, "Host %s\n", e.Alias)

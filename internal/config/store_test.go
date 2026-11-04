@@ -591,3 +591,38 @@ func TestEffectiveProtocol(t *testing.T) {
 		}
 	}
 }
+
+func TestPortlessSuffixPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	store, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tunnel := TunnelConfig{
+		ID: "dev-box", Name: "dev-box", Host: "10.0.0.5", Port: 22, PortlessSuffix: "dev",
+		PortForwards: []PortForward{{RemoteHost: "127.0.0.1", RemotePort: 8080, Portless: true, Domain: "app.dev"}},
+	}
+	if err := store.AddTunnel(tunnel); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := reloaded.GetTunnel("dev-box")
+	if !ok || got.PortlessSuffix != "dev" || got.PortForwards[0].Domain != "app.dev" {
+		t.Fatalf("after reload: %+v ok=%v", got, ok)
+	}
+
+	got.PortlessSuffix = ""
+	if err := reloaded.UpdateTunnel(got); err != nil {
+		t.Fatal(err)
+	}
+	cleared, err := NewStoreWithPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := cleared.GetTunnel("dev-box"); got.PortlessSuffix != "" {
+		t.Fatalf("after clearing: %+v", got)
+	}
+}

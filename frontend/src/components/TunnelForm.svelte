@@ -1,26 +1,36 @@
 <script lang="ts">
   import type { TunnelConfig, PortForward } from "../types";
   import { PORTLESS_TLD } from "../types";
-  import { addTunnel, updateTunnel, tunnels, includedConfigFiles } from "../stores/tunnels";
-  import { effectiveForwardProtocol, preparePortForwardsForSave } from "../lib/portForwards";
+  import { addTunnel, updateTunnel, tunnels, groups, includedConfigFiles } from "../stores/tunnels";
+  import Select from "./Select.svelte";
+  import Combobox from "./Combobox.svelte";
+  import { domainWithSuffix, domainWithoutSuffix, effectiveForwardProtocol, normalizePortlessSuffix, preparePortForwardsForSave } from "../lib/portForwards";
   import { createEventDispatcher, onMount } from "svelte";
-  import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+  import { createEventScope } from "../lib/runtime";
+  const events = createEventScope();
 
   export let tunnel: TunnelConfig | null = null;
+  // Inside the settings window the form has no overlay and shows one section.
+  export let embedded = false;
+  export let section: "all" | "connection" | "forwards" = "all";
+  // The group a new tunnel starts in.
+  export let initialGroup = "";
+  // Inside the settings window these are edited on the Credentials page.
+  export let user = tunnel?.user ?? "";
+  export let keyPath = tunnel?.keyPath ?? "";
+  export let rdpPort = tunnel?.rdpPort ? String(tunnel.rdpPort) : "";
+  export let pinned = tunnel?.pinned ?? false;
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let name = tunnel?.name ?? "";
   let host = tunnel?.host ?? "";
   let port = tunnel?.port ?? 22;
-  let user = tunnel?.user ?? "";
-  let keyPath = tunnel?.keyPath ?? "";
-  let group = tunnel?.group ?? "";
+  let group = tunnel?.group ?? initialGroup;
   let autoConnect = tunnel?.autoConnect ?? false;
   let tunnelColor = tunnel?.color ?? "";
   let proxyCommand = tunnel?.proxyCommand ?? "";
   let proxyJump = tunnel?.proxyJump ?? "";
-  let rdpPort = tunnel?.rdpPort ? String(tunnel.rdpPort) : "";
   let selectedConfigFile = tunnel?.sourceFile ?? "";
   let configSelectionKey = tunnel?.id ?? "__new";
 
@@ -34,28 +44,32 @@
     { name: "purple", hex: "#a855f7" },
     { name: "pink", hex: "#ec4899" },
   ];
-  let portForwards: PortForward[] = tunnel?.portForwards?.length
-    ? [...tunnel.portForwards]
-    : [];
+  let portlessSuffix = tunnel?.portlessSuffix ?? "";
+  // While editing, a forward's domain is only its own part. The suffix joins it
+  // when saving, so changing the suffix moves every forward with it.
+  let portForwards: PortForward[] = (tunnel?.portForwards ?? []).map((pf) => ({
+    ...pf,
+    domain: domainWithoutSuffix(pf.domain, tunnel?.portlessSuffix ?? ""),
+  }));
+  $: activeSuffix = normalizePortlessSuffix(portlessSuffix);
   let showAdvanced = !!(tunnel?.proxyCommand || tunnel?.proxyJump || tunnel?.rdpPort);
   let hasIncludeOptions = false;
   let minimized = false;
   let pfSettingsIndex: number | null = null;
 
   let saving = false;
-  let savingLabel = "// saving...";
+  let savingLabel = "Saving...";
   let error = "";
 
   onMount(() => {
-    EventsOn("portless:setup-started", () => {
-      savingLabel = "// waiting for Portless system setup...";
+    events.on("portless:setup-started", () => {
+      savingLabel = "Waiting for Portless system setup...";
     });
-    EventsOn("portless:setup-finished", () => {
-      savingLabel = "// saving...";
+    events.on("portless:setup-finished", () => {
+      savingLabel = "Saving...";
     });
     return () => {
-      EventsOff("portless:setup-started");
-      EventsOff("portless:setup-finished");
+      events.off();
     };
   });
 
@@ -78,7 +92,7 @@
     selectedConfigFile = $includedConfigFiles[0]?.path ?? "";
   }
 
-  $: existingGroups = [...new Set($tunnels.map(t => t.group).filter(Boolean))].sort();
+  $: existingGroups = [...new Set([...$tunnels.map(t => t.group), ...$groups].filter(Boolean))].sort();
 
   function addPortForward() {
     portForwards = [...portForwards, { localPort: 0, remoteHost: "127.0.0.1", remotePort: 0, description: "" }];
@@ -120,7 +134,7 @@
     }
     portForwards.forEach((pf, i) => {
       if (i === skipIndex) return;
-      if (pf.portless && pf.domain) taken.add(pf.domain.toLowerCase());
+      if (pf.portless && pf.domain) taken.add(domainWithSuffix(pf.domain, activeSuffix));
     });
     return taken;
   }
@@ -128,14 +142,15 @@
   function suggestDomain(index: number): string {
     const tunnelSlug = slugify(name) || "tunnel";
     const taken = otherDomains(index);
-    if (!taken.has(tunnelSlug)) return tunnelSlug;
+    const isTaken = (candidate: string) => taken.has(domainWithSuffix(candidate, activeSuffix));
+    if (!isTaken(tunnelSlug)) return tunnelSlug;
     const desc = portForwards[index]?.description;
     if (desc) {
       const candidate = `${slugify(desc)}.${tunnelSlug}`;
-      if (!taken.has(candidate)) return candidate;
+      if (!isTaken(candidate)) return candidate;
     }
     let n = 1;
-    while (taken.has(`stm-${n}.${tunnelSlug}`)) n++;
+    while (isTaken(`stm-${n}.${tunnelSlug}`)) n++;
     return `stm-${n}.${tunnelSlug}`;
   }
 
@@ -186,35 +201,40 @@
   function restore() { minimized = false; }
   function handleClose() { dispatch("close"); }
 
-  async function handleSubmit() {
+  // Validates the form and returns what to save, or null with `error` set.
+  function prepare(): TunnelConfig | null {
     error = "";
     const trimmedName = name.trim();
     if (!trimmedName) {
       error = "name is required";
-      return;
+      return null;
     }
     if (/\s/.test(trimmedName)) {
       error = "name cannot contain spaces (used as SSH host alias)";
-      return;
+      return null;
     }
     const validForwards = preparePortForwardsForSave(portForwards);
 
     const domainRe = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
+    if (activeSuffix && !domainRe.test(activeSuffix)) {
+      error = `invalid portless suffix "${activeSuffix}" — use letters, digits, dashes, dots only`;
+      return null;
+    }
     const seenDomains = new Set<string>();
     for (const pf of validForwards) {
       if (!pf.portless) continue;
-      const d = (pf.domain ?? "").trim().toLowerCase();
+      const d = domainWithSuffix(pf.domain, activeSuffix);
       if (!d) {
         error = "portless forward requires a domain name";
-        return;
+        return null;
       }
       if (!domainRe.test(d)) {
         error = `invalid domain "${d}" — use letters, digits, dashes, dots only`;
-        return;
+        return null;
       }
       if (seenDomains.has(d)) {
         error = `domain "${d}" is used twice in this tunnel`;
-        return;
+        return null;
       }
       seenDomains.add(d);
       for (const t of $tunnels) {
@@ -222,7 +242,7 @@
         for (const opf of t.portForwards ?? []) {
           if (opf.portless && (opf.domain ?? "").toLowerCase() === d) {
             error = `domain "${d}" is already used by tunnel "${t.name}"`;
-            return;
+            return null;
           }
         }
       }
@@ -233,46 +253,82 @@
     const rdpPortValue = rdpPortText === "" ? 0 : Number(rdpPortText);
     if (!Number.isInteger(rdpPortValue) || rdpPortValue < 0 || rdpPortValue > 65535 || rdpPortText === "0") {
       error = "rdp port must be between 1 and 65535";
-      return;
+      return null;
     }
 
+    const cfg: TunnelConfig = {
+      id: tunnel?.id ?? trimmedName,
+      name: trimmedName,
+      host: host.trim(),
+      port,
+      user: user.trim(),
+      keyPath: keyPath.trim(),
+      portForwards: validForwards,
+      proxyCommand: proxyCommand.trim() || undefined,
+      proxyJump: proxyJump.trim() || undefined,
+      color: tunnelColor || undefined,
+      group: group.trim(),
+      autoConnect,
+      pinned: tunnel ? pinned : undefined,
+      rdpPort: rdpPortValue || undefined,
+      portlessSuffix: activeSuffix || undefined,
+    };
+    if (hasIncludeOptions && selectedConfigFile) {
+      cfg.sourceFile = selectedConfigFile;
+    }
+    return cfg;
+  }
+
+  // What saving would change, ignoring the pin, which has its own call. Updating
+  // a tunnel reconnects it, so a save without changes must not reach the backend.
+  function fingerprint(cfg: TunnelConfig): string {
+    return JSON.stringify({ ...cfg, pinned: undefined });
+  }
+
+  let baseline = "";
+  onMount(() => {
+    const cfg = tunnel ? prepare() : null;
+    error = "";
+    baseline = cfg ? fingerprint(cfg) : "";
+  });
+
+  /** Reports a problem with the form, without saving. */
+  export function validate(): string {
+    prepare();
+    return error;
+  }
+
+  /** Saves the tunnel if it changed, and returns the problem if there is one. */
+  export async function save(): Promise<string> {
+    const cfg = prepare();
+    if (!cfg) return error;
+    const current = fingerprint(cfg);
+    if (isEdit && current === baseline) return "";
     saving = true;
     try {
-      const cfg: TunnelConfig = {
-        id: tunnel?.id ?? trimmedName,
-        name: trimmedName,
-        host: host.trim(),
-        port,
-        user: user.trim(),
-        keyPath: keyPath.trim(),
-        portForwards: validForwards,
-        proxyCommand: proxyCommand.trim() || undefined,
-        proxyJump: proxyJump.trim() || undefined,
-        color: tunnelColor || undefined,
-        group: group.trim(),
-        autoConnect,
-        pinned: tunnel?.pinned,
-        rdpPort: rdpPortValue || undefined,
-      };
-      if (hasIncludeOptions && selectedConfigFile) {
-        cfg.sourceFile = selectedConfigFile;
-      }
       if (isEdit) {
         await updateTunnel(cfg);
       } else {
         await addTunnel(cfg);
       }
-      dispatch("close");
+      baseline = current;
+      return "";
     } catch (e: any) {
       error = e?.message ?? String(e);
+      return error;
     } finally {
       saving = false;
     }
   }
+
+  async function handleSubmit() {
+    if (!(await save())) dispatch("close");
+  }
 </script>
 
-<div class="form-overlay" class:hidden={minimized}>
+<div class="form-overlay" class:embedded class:hidden={minimized} data-testid="tunnel-form">
   <div class="form-window">
+    {#if !embedded}
     <div class="form-titlebar">
       <span class="form-title">{isEdit ? `edit tunnel — ${tunnel?.name ?? ""}` : "new tunnel"}</span>
       <div class="titlebar-actions">
@@ -280,12 +336,13 @@
         <button class="close-btn" on:click={handleClose} title="Cancel">×</button>
       </div>
     </div>
+    {/if}
 
     {#if error}
       <div class="error-bar">! {error}</div>
     {/if}
 
-    <form on:submit|preventDefault={handleSubmit} class="form-body">
+    <form on:submit|preventDefault={handleSubmit} class="form-body" data-section={section}>
       <div class="form-grid two-col">
         <div class="field">
           <label class="field-label">name</label>
@@ -298,19 +355,7 @@
         </div>
         <div class="field">
           <label class="field-label">group</label>
-          <input
-            type="text"
-            bind:value={group}
-            class="field-input"
-            placeholder="production"
-            list="group-options"
-            autocomplete="off"
-          />
-          <datalist id="group-options">
-            {#each existingGroups as g}
-              <option value={g} />
-            {/each}
-          </datalist>
+          <Combobox bind:value={group} options={existingGroups} placeholder="Choose or type a group" testid="group-input" />
         </div>
       </div>
 
@@ -359,6 +404,7 @@
         </div>
       </div>
 
+      {#if !embedded}
       <div class="form-grid two-col">
         <div class="field">
           <label class="field-label">user</label>
@@ -379,21 +425,18 @@
           />
         </div>
       </div>
+      {/if}
 
       {#if hasIncludeOptions}
         <div class="field">
           <label class="field-label">config file</label>
-          <select class="field-input" bind:value={selectedConfigFile}>
-            {#each $includedConfigFiles as file}
-              <option value={file.path}>{file.label}</option>
-            {/each}
-          </select>
+          <Select bind:value={selectedConfigFile} ariaLabel="Config file" options={$includedConfigFiles.map((file) => ({ value: file.path, label: file.label }))} />
           <p class="hint">choose target config file for this host</p>
         </div>
       {/if}
 
-      <div class="field">
-        <label class="field-label forwards-label">port forwards</label>
+      <div class="field forwards-field">
+        {#if !embedded}<label class="field-label forwards-label">port forwards</label>{/if}
         {#each portForwards as pf, i}
           <div class="forward-block">
             <div class="forward-block-head">
@@ -477,11 +520,12 @@
                   type="text"
                   bind:value={pf.domain}
                   class="field-input domain-input"
+                  data-testid="forward-domain"
                   placeholder="domain"
                   autocomplete="off"
                   spellcheck="false"
                 />
-                <span class="tld-suffix">.{PORTLESS_TLD}</span>
+                <span class="tld-suffix" data-testid="domain-suffix">.{activeSuffix ? `${activeSuffix}.` : ""}{PORTLESS_TLD}</span>
                 <span class="port-sep">:</span>
                 <input
                   type="number"
@@ -502,6 +546,7 @@
       </div>
 
       <div class="field">
+        {#if !embedded}
         <button
           type="button"
           class="link-btn"
@@ -509,8 +554,9 @@
         >
           {showAdvanced ? "▾" : "▸"} advanced
         </button>
-        {#if showAdvanced}
-          <div class="advanced-fields">
+        {/if}
+        {#if showAdvanced || embedded}
+          <div class="advanced-fields" class:plain={embedded}>
             <div class="field">
               <label class="field-label">proxy command</label>
               <input
@@ -526,10 +572,26 @@
                 type="text"
                 bind:value={proxyJump}
                 class="field-input"
-                placeholder="bastion.example.com"
+                placeholder="jump.example.com"
               />
             </div>
             <p class="hint">tokens: %h (host) %p (port) %r (user). use one of proxycommand or proxyjump.</p>
+            <div class="field">
+              <label class="field-label">portless suffix</label>
+              <input
+                type="text"
+                bind:value={portlessSuffix}
+                class="field-input"
+                data-testid="portless-suffix"
+                placeholder="dev"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <p class="hint">
+              {#if activeSuffix}forwards use name.{activeSuffix}.{PORTLESS_TLD}{:else}shared end of this tunnel's portless domains, e.g. dev gives name.dev.{PORTLESS_TLD}. leave empty for name.{PORTLESS_TLD}.{/if}
+            </p>
+            {#if !embedded}
             <div class="field">
               <label class="field-label">rdp port</label>
               <input
@@ -541,6 +603,7 @@
               />
             </div>
             <p class="hint">only this port is checked for remote desktop. leave empty for the default, 3389.</p>
+            {/if}
           </div>
         {/if}
       </div>
@@ -553,17 +616,19 @@
       </label>
     </form>
 
+    {#if !embedded}
     <div class="form-actions">
-      <button class="cancel-btn" type="button" on:click={handleClose}>[ cancel ]</button>
+      <button class="cancel-btn" type="button" on:click={handleClose}>Cancel</button>
       <button
         class="submit-btn"
         type="button"
         on:click={handleSubmit}
         disabled={saving}
       >
-        {saving ? savingLabel : isEdit ? "[ update ]" : "[ add tunnel ]"}
+        {saving ? savingLabel : isEdit ? "Update" : "Add tunnel"}
       </button>
     </div>
+    {/if}
   </div>
 </div>
 
@@ -613,8 +678,8 @@
         </div>
       </div>
       <div class="pf-modal-actions">
-        <button type="button" class="cancel-btn" on:click={() => { if (pfSettingsIndex !== null) { portForwards[pfSettingsIndex].hostHeader = ""; portForwards = [...portForwards]; } }}>[ clear ]</button>
-        <button type="button" class="submit-btn" on:click={closePfSettings}>[ done ]</button>
+        <button type="button" class="cancel-btn" on:click={() => { if (pfSettingsIndex !== null) { portForwards[pfSettingsIndex].hostHeader = ""; portForwards = [...portForwards]; } }}>Clear</button>
+        <button type="button" class="submit-btn" on:click={closePfSettings}>Done</button>
       </div>
     </div>
   </div>
@@ -629,23 +694,31 @@
 {/if}
 
 <style>
+  .form-overlay.embedded { position: static; background: none; padding: 0; display: block; z-index: auto; }
+  .form-overlay.embedded .form-window { width: auto; max-width: none; max-height: none; border: 0; box-shadow: none; background: none; }
+  .form-overlay.embedded .form-window { height: auto; }
+  .form-overlay.embedded .form-body { flex: none; overflow: visible; padding: 0; }
+  .advanced-fields.plain { padding-left: 0; border-left: 0; margin-top: 0; }
+  .form-body[data-section="connection"] > .forwards-field { display: none; }
+  .form-body[data-section="forwards"] > :not(.forwards-field):not(.form-actions) { display: none; }
+
   .form-overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 997; display: flex; align-items: center; justify-content: center; }
   .form-overlay.hidden { display: none; }
-  .form-window { width: 90vw; max-width: 720px; height: 80vh; background: #0a0a0a; border: 1px solid var(--accent); border-radius: 2px; display: flex; flex-direction: column; min-height: 0; }
-  .form-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; flex-shrink: 0; }
-  .form-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.05em; }
+  .form-window { width: 90vw; max-width: 720px; height: 80vh; background: var(--bg); border: 1px solid var(--accent); border-radius: 2px; display: flex; flex-direction: column; min-height: 0; }
+  .form-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  .form-title { font-family: var(--ui); font-size: 12px; color: var(--accent); letter-spacing: 0.05em; }
   .titlebar-actions { display: flex; gap: 4px; align-items: center; }
-  .title-btn, .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
+  .title-btn, .close-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 16px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
   .minimize-btn:hover { color: var(--accent); border-color: var(--accent); }
-  .close-btn:hover { color: #ff4444; border-color: #ff4444; }
+  .close-btn:hover { color: var(--error); border-color: var(--error); }
 
   .error-bar {
-    background: rgba(255, 68, 68, 0.1);
-    border-bottom: 1px solid rgba(255, 68, 68, 0.3);
-    color: #ff4444;
-    font-size: 10px;
+    background: color-mix(in srgb, var(--error) 14%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--error) 14%, transparent);
+    color: var(--error);
+    font-size: 11.5px;
     padding: 6px 14px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     flex-shrink: 0;
   }
 
@@ -666,8 +739,8 @@
 
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-label {
-    font-size: 9px;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-family: var(--ui);
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -677,32 +750,32 @@
     border: 1px solid var(--border);
     border-radius: 2px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-family: var(--ui);
+    font-size: 12px;
     padding: 5px 8px;
     outline: none;
     transition: border-color 0.15s;
     width: 100%;
   }
   .field-input:focus { border-color: var(--accent); }
-  .field-input.mono { font-size: 10px; }
+  .field-input.mono { font-size: 11.5px; }
 
   .color-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .color-swatch {
     width: 20px;
     height: 20px;
     border-radius: 2px;
-    border: 1px solid #333;
+    border: 1px solid var(--border);
     cursor: pointer;
     transition: transform 0.1s, border-color 0.15s;
     padding: 0;
   }
   .color-swatch:hover { transform: scale(1.15); }
-  .color-swatch.selected { border-color: #fff; border-width: 2px; }
+  .color-swatch.selected { border-color: var(--text); border-width: 2px; }
   .none-swatch {
     background: var(--surface2);
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -730,7 +803,7 @@
   .forward-block-head .desc-input { flex: 1; margin: 0; }
   .forward-row { display: flex; align-items: center; gap: 4px; }
   .port-input { width: 70px; flex-shrink: 0; }
-  .arrow, .colon { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+  .arrow, .colon { color: var(--muted); font-size: 12px; flex-shrink: 0; }
   .remove-btn {
     background: transparent;
     border: none;
@@ -742,7 +815,7 @@
     transition: color 0.15s;
     line-height: 1;
   }
-  .remove-btn:hover { color: #ff4444; }
+  .remove-btn:hover { color: var(--error); }
   .gear-btn {
     background: transparent;
     border: none;
@@ -756,7 +829,7 @@
   }
   .gear-btn:hover { color: var(--accent); }
   .gear-btn.active { color: var(--accent); text-shadow: 0 0 4px var(--accent); }
-  .desc-input { font-size: 10px; color: var(--muted); }
+  .desc-input { font-size: 11.5px; color: var(--muted); }
 
   .add-forward-btn {
     width: 100%;
@@ -764,15 +837,15 @@
     border: 1px solid var(--accent);
     border-radius: 2px;
     color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-family: var(--ui);
+    font-size: 12px;
     letter-spacing: 0.04em;
     padding: 8px 12px;
     cursor: pointer;
     transition: background 0.15s;
   }
   .add-forward-btn:hover {
-    background: rgba(0, 255, 136, 0.05);
+    background: var(--accent-soft);
   }
   .add-forward-btn:focus-visible {
     outline: 1px solid var(--accent);
@@ -786,12 +859,12 @@
     align-items: center;
     gap: 12px;
     margin-top: 6px;
-    font-size: 11px;
+    font-size: 12px;
   }
-  .protocol-label { color: #666; }
-  .protocol-option { display: flex; align-items: center; gap: 4px; color: #aaa; cursor: pointer; }
-  .protocol-option input { accent-color: #00ff88; margin: 0; }
-  .ssh-user-input { flex: 1; min-width: 80px; padding: 3px 6px; font-size: 11px; }
+  .protocol-label { color: var(--muted); }
+  .protocol-option { display: flex; align-items: center; gap: 4px; color: var(--muted); cursor: pointer; }
+  .protocol-option input { accent-color: var(--accent); margin: 0; }
+  .ssh-user-input { flex: 1; min-width: 80px; padding: 3px 6px; font-size: 12px; }
   .portless-row {
     display: flex;
     align-items: center;
@@ -802,8 +875,8 @@
     align-items: center;
     gap: 5px;
     cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     user-select: none;
     color: var(--muted);
   }
@@ -811,12 +884,12 @@
   .portless-toggle:hover .portless-text:not(.active) { color: var(--text); }
   .portless-text { transition: color 0.15s; }
   .portless-text.active { color: var(--accent); }
-  .hacker-check.small { width: 13px; height: 13px; font-size: 11px; }
-  .domain-input { font-size: 10px; flex: 1; min-width: 80px; }
-  .expose-input { font-size: 10px; width: 60px; flex-shrink: 0; }
+  .hacker-check.small { width: 13px; height: 13px; font-size: 12px; }
+  .domain-input { font-size: 11.5px; flex: 1; min-width: 80px; }
+  .expose-input { font-size: 11.5px; width: 60px; flex-shrink: 0; }
   .tld-suffix, .port-sep {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     color: var(--muted);
     white-space: nowrap;
   }
@@ -825,8 +898,8 @@
     background: transparent;
     border: none;
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     cursor: pointer;
     padding: 0;
     text-align: left;
@@ -843,16 +916,16 @@
     border-left: 1px solid var(--border);
   }
 
-  .hint { font-size: 9px; color: #333; margin: 0; font-family: 'JetBrains Mono', monospace; }
+  .hint { font-size: 11.5px; color: var(--muted); margin: 0; font-family: var(--ui); }
 
   .checkbox-label {
     display: flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     user-select: none;
     padding: 4px 0;
   }
@@ -881,7 +954,7 @@
     gap: 6px;
     padding: 8px 14px;
     border-top: 1px solid var(--border);
-    background: #0d0d0d;
+    background: var(--surface);
     flex-shrink: 0;
   }
 
@@ -889,8 +962,8 @@
     background: transparent;
     border: 1px solid var(--border);
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     padding: 5px 12px;
     cursor: pointer;
     border-radius: 2px;
@@ -902,15 +975,15 @@
     background: transparent;
     border: 1px solid var(--accent);
     color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     padding: 5px 14px;
     cursor: pointer;
     border-radius: 2px;
     transition: background 0.15s;
     letter-spacing: 0.05em;
   }
-  .submit-btn:hover:not(:disabled) { background: rgba(0, 255, 136, 0.1); }
+  .submit-btn:hover:not(:disabled) { background: var(--accent-soft); }
   .submit-btn:disabled { opacity: 0.5; cursor: default; }
 
   .pf-modal-overlay {
@@ -925,7 +998,7 @@
   .pf-modal {
     width: 90vw;
     max-width: 420px;
-    background: #0a0a0a;
+    background: var(--bg);
     border: 1px solid var(--accent);
     border-radius: 2px;
     display: flex;
@@ -936,12 +1009,12 @@
     justify-content: space-between;
     align-items: center;
     padding: 6px 12px;
-    border-bottom: 1px solid #1a1a1a;
-    background: #111;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
   .pf-modal-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-family: var(--ui);
+    font-size: 12px;
     color: var(--accent);
     letter-spacing: 0.05em;
   }
@@ -957,7 +1030,7 @@
     gap: 6px;
     padding: 8px 14px;
     border-top: 1px solid var(--border);
-    background: #0d0d0d;
+    background: var(--surface);
   }
   .pf-modal-label-row {
     display: flex;
@@ -967,8 +1040,8 @@
     margin-bottom: 4px;
   }
   .pf-modal-label {
-    font-size: 10px;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-family: var(--ui);
     color: var(--text);
     letter-spacing: 0.05em;
   }
@@ -977,8 +1050,8 @@
     align-items: center;
     gap: 5px;
     cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     user-select: none;
     color: var(--muted);
   }
@@ -989,14 +1062,14 @@
   .pf-modal-input { color: var(--text); }
   .pf-modal-input:disabled { opacity: 0.4; cursor: not-allowed; }
   .pf-modal-hint {
-    font-size: 10px;
+    font-size: 11.5px;
     color: var(--muted);
     margin: 6px 0 0;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     line-height: 1.4;
   }
   .pf-modal-code {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     color: var(--text);
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -1014,18 +1087,18 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    background: #0a0a0a;
+    background: var(--bg);
     border: 1px solid var(--accent);
     border-radius: 2px;
     color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-family: var(--ui);
+    font-size: 12px;
     cursor: pointer;
-    box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+    box-shadow: 0 0 12px var(--accent-soft);
   }
-  .restore-pill:hover { background: #111; box-shadow: 0 0 16px rgba(0, 255, 136, 0.5); }
+  .restore-pill:hover { background: var(--surface); box-shadow: 0 0 16px var(--accent-soft); }
   .pill-icon { font-size: 13px; }
   .pill-text { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pill-close { color: #888; padding: 0 4px; font-size: 14px; line-height: 1; }
-  .pill-close:hover { color: #ff4444; }
+  .pill-close { color: var(--muted); padding: 0 4px; font-size: 14px; line-height: 1; }
+  .pill-close:hover { color: var(--error); }
 </style>

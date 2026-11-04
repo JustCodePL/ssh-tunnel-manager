@@ -1,0 +1,25 @@
+// Stroke icons as path data, drawn by Icon.svelte.
+export const icons: Record<string, string> = {
+  terminal: '<path d="M4 7l5 5-5 5M12 18h8"/>',
+  files: '<path d="M3 7a2 2 0 012-2h4l2 3h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>',
+  file: '<path d="M6 3h8l4 4v14H6zM14 3v4h4"/>',
+  logs: '<path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/>',
+  disk: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/>',
+  docker: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/>',
+  htop: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  rdp: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  chevron: '<path d="M9 6l6 6-6 6"/>',
+  caret: '<path d="M6 9l6 6 6-6"/>',
+  settings:
+    '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  refresh: '<path d="M20 11a8 8 0 10-2 6M20 5v6h-6"/>',
+  pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  download: '<path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>',
+  upload: '<path d="M12 20V8M7 13l5-5 5 5M5 4h14"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  up: '<path d="M6 15l6-6 6 6"/>',
+  pin: '<path d="M12 17v5M8 3h8l-1 7 3 4H6l3-4z"/>',
+};

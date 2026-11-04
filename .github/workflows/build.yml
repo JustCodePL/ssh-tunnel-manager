@@ -11,11 +11,9 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  validate:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-
       - name: Validate release tag
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
@@ -27,16 +25,14 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
-      - name: Run tests
-        run: go test ./internal/... -v -count=1
+  test:
+    needs: validate
+    uses: ./.github/workflows/test.yml
 
   build:
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-24.04
@@ -46,12 +42,10 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: arm64
-            wails_platform: darwin/arm64
             artifact: ssh-tunnel-manager.app
           - os: macos-latest
             platform: darwin
             arch: amd64
-            wails_platform: darwin/amd64
             artifact: ssh-tunnel-manager.app
           - os: windows-latest
             platform: windows
@@ -65,50 +59,62 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version-file: go.mod
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Prepare application and package versions
+      - name: Prepare application version
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           APP_VERSION="${{ github.ref_name }}"
-          APP_VERSION="${APP_VERSION#v}"
-          PACKAGE_VERSION="${APP_VERSION%%-*}"
-          node -e "
-            const fs = require('fs');
-            const cfg = JSON.parse(fs.readFileSync('wails.json', 'utf8'));
-            cfg.info.productVersion = '${PACKAGE_VERSION}';
-            fs.writeFileSync('wails.json', JSON.stringify(cfg, null, 2) + '\n');
-          "
-          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
-          echo "Building application ${APP_VERSION} with package version ${PACKAGE_VERSION}"
-
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+          echo "APP_VERSION=${APP_VERSION#v}" >> "$GITHUB_ENV"
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev xvfb dbus
 
       - name: Install NSIS
         if: matrix.platform == 'windows'
         uses: negrutiu/nsis-install@v2
 
       - name: Build
-        if: matrix.platform != 'windows'
-        run: wails build -skipbindings -platform ${{ matrix.wails_platform || matrix.platform }} -ldflags "-X main.Version=${{ env.APP_VERSION }}"
+        shell: bash
+        run: scripts/build-app.sh ${{ matrix.arch }} ${{ env.APP_VERSION }}
 
-      - name: Build with installer
+      # Starts the real app with its webviews and fails the release when the
+      # frontend cannot reach the backend. The amd64 macOS build cannot run on an
+      # arm64 runner without Rosetta, so it is skipped there.
+      - name: Smoke test (macOS)
+        if: matrix.platform == 'darwin' && matrix.arch == 'arm64'
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke-home"
+          STM_SMOKE_TEST=1 HOME="$RUNNER_TEMP/smoke-home" "build/bin/SSH Tunnel Manager.app/Contents/MacOS/ssh-tunnel-manager"
+
+      - name: Smoke test (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          # WebKitGTK's sandbox needs user namespaces, which the runner's AppArmor
+          # profile blocks by default.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          mkdir -p "$RUNNER_TEMP/smoke-home"
+          STM_SMOKE_TEST=1 HOME="$RUNNER_TEMP/smoke-home" xvfb-run -a dbus-run-session -- build/bin/ssh-tunnel-manager
+
+      - name: Smoke test (Windows)
         if: matrix.platform == 'windows'
-        run: wails build -skipbindings -nsis -ldflags "-X main.Version=${{ env.APP_VERSION }}"
+        shell: pwsh
+        run: |
+          $env:STM_SMOKE_TEST = "1"
+          $env:USERPROFILE = "$env:RUNNER_TEMP\smoke-home"
+          New-Item -ItemType Directory -Force $env:USERPROFILE | Out-Null
+          $app = Start-Process -FilePath "build\bin\ssh-tunnel-manager.exe" -PassThru -Wait
+          if ($app.ExitCode -ne 0) { throw "smoke test failed with exit code $($app.ExitCode)" }
 
       - name: Import Developer ID certificate
         if: matrix.platform == 'darwin'
@@ -270,7 +276,8 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    # Tests are required twice over: build needs them, and so does this job.
+    needs: [test, build]
     runs-on: ubuntu-24.04
 
     steps:

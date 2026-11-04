@@ -43,3 +43,31 @@ export function preparePortForwardsForSave(portForwards) {
     }))
     .filter((pf) => pf.remotePort > 0 && (pf.portless || pf.localPort > 0));
 }
+
+/**
+ * @param {string | undefined} suffix what the user typed
+ * @returns {string} the suffix without surrounding dots and spaces
+ */
+export function normalizePortlessSuffix(suffix) {
+  return (suffix ?? "").trim().toLowerCase().replace(/^\.+|\.+$/g, "");
+}
+
+/**
+ * @param {string | undefined} domain a saved domain, which includes the suffix
+ * @param {string} suffix
+ * @returns {string} the part of the domain that is edited for one forward
+ */
+export function domainWithoutSuffix(domain, suffix) {
+  const value = domain ?? "";
+  return suffix && value.toLowerCase().endsWith(`.${suffix}`) ? value.slice(0, -suffix.length - 1) : value;
+}
+
+/**
+ * @param {string | undefined} name the part edited for one forward
+ * @param {string} suffix
+ * @returns {string} the domain to save
+ */
+export function domainWithSuffix(name, suffix) {
+  const value = (name ?? "").trim().toLowerCase();
+  return suffix && value ? `${value}.${suffix}` : value;
+}

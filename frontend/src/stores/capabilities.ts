@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import { GetSavedCapabilities, GetServerCapabilities, VerifyTool } from "../../wailsjs/go/main/App";
+import { GetSavedCapabilities, GetServerCapabilities, VerifyTool } from "../../bindings/ssh-tunnel-manager/app";
 
 export type ToolName = "docker" | "htop" | "rdp";
 export type ToolCaps = { docker: boolean; htop: boolean; rdp: boolean };

@@ -25,6 +25,7 @@ scripts/changelog-capture.sh scripts/changelog-scenarios/<scenario>.sshconfig /t
 
 - The script runs an isolated copy with a temporary `HOME`. Never drive the installed app or the real `~/.ssh/config`.
 - A scenario is an SSH config for that temporary `HOME`. Add one to `scripts/changelog-scenarios/` per state. `# stm:autoconnect=true` starts a tunnel without a click. Use `192.0.2.x` for a host that must fail, and no real hostnames, users or IPs.
+- `frontend/e2e/screenshots.spec.ts` saves every screen in both themes from the real backend in Chromium, without native title bars: set `STM_E2E_SCREENSHOTS=<dir>` and run `npm run test:e2e -- screenshots`. Use it when no Mac with Screen Recording permission is at hand, and say so in the entry's review.
 - A state that needs a click: pass a driver as the script's fourth argument, JavaScript that clicks through the page. See `scripts/changelog-scenarios/rdp-lexar.driver.js`. Don't use `osascript` with System Events: over SSH on the agent Mac it hangs waiting for an Accessibility prompt.
 - A state that needs a real server (RDP, Docker): use `lexar`. Get the login with `request_secret` and `delivery: "file"`, copy it to the agent Mac, set `CHANGELOG_LOGIN_FILE`, and delete the copy afterwards. Reach `lexar` through the `nas` bastion by setting `CHANGELOG_BASTION`, `CHANGELOG_BASTION_USER` and `CHANGELOG_RDP_TARGET`. SSH on its Tailscale address asks for a browser check and the app waits on it. Keep addresses out of the repo. Ask Artur to minimize work windows on `lexar` first, because the session shows the real desktop. Check every frame for real addresses, logins and desktop content before using it, and delete rejected frames. A session can stall on `connecting...`: keep the login file until you have a good frame.
 
@@ -41,6 +42,8 @@ Add one `<article class="changelog-entry" id="<version>">` at the top of the lis
 - **How to use it:** the steps, naming the actual buttons.
 - **Known limits:** what doesn't work or wasn't tested. Same honesty as the release notes.
 - A link to the GitHub release.
+
+The page shows one entry at a time. `docs/changelog.js` builds the sidebar and the Next and Previous links from the articles, so an entry needs nothing else, as long as it stays inside `changelog-content`, above the pager.
 
 Set `width` and `height` to the file's real size (`sips -g pixelWidth -g pixelHeight <file>`) and write `alt` text. Add the version at the start of the list in `docs/changelog-versions.js`.
 

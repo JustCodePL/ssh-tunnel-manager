@@ -71,3 +71,26 @@ func TestClassifySetupOutcomeFallsBackToGenericMessageWhenSilent(t *testing.T) {
 		t.Fatal("expected a non-nil error when the system is still unconfigured")
 	}
 }
+
+func TestDetectProblem(t *testing.T) {
+	cases := []struct {
+		name   string
+		status SystemServiceStatus
+		want   bool
+	}{
+		{"set up", SystemServiceStatus{Installed: true, Current: true, State: "enabled"}, false},
+		{"set up without a service", SystemServiceStatus{Installed: true, Current: true, State: "configured"}, false},
+		{"not set up yet", SystemServiceStatus{State: "not-installed"}, false},
+		{"waiting for approval", SystemServiceStatus{Installed: true, ApprovalRequired: true, State: "approval-required"}, true},
+		{"out of date", SystemServiceStatus{Installed: true, State: "enabled"}, true},
+		{"development build", SystemServiceStatus{State: "unavailable"}, true},
+		{"old system", SystemServiceStatus{State: "unsupported"}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := detectProblem(c.status); got != c.want {
+				t.Errorf("detectProblem = %v, want %v", got, c.want)
+			}
+		})
+	}
+}

@@ -105,6 +105,7 @@ func getSystemServiceStatus() SystemServiceStatus {
 	}
 	if !appInstalledForBoot() {
 		result.Current = false
+		result.Problem = true
 		result.Message = "Move SSH Tunnel Manager to /Applications before installing the Portless system service."
 	}
 	return result

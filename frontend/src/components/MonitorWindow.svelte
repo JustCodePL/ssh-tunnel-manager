@@ -1,65 +1,57 @@
 <script lang="ts">
-  import { onMount, onDestroy, createEventDispatcher } from "svelte";
-  import { GetProcessStats } from "../../wailsjs/go/main/App";
-  import type { sysstats } from "../../wailsjs/go/models";
-  import type { TunnelConfig } from "../types";
+  import { errorText } from "../lib/runtime";
+  import { onDestroy } from "svelte";
+  import { GetProcessStats } from "../../bindings/ssh-tunnel-manager/app";
+  import type * as sysstats from "../../bindings/ssh-tunnel-manager/internal/sysstats/models";
   import { formatBytes } from "../format";
   import { createVisibilityPoller } from "../lib/visibilityPoller.js";
+  import { sortProcesses, scaleBar } from "../lib/toolTables.js";
+  import type { TunnelConfig } from "../types";
+  import Icon from "./Icon.svelte";
 
   export let tunnel: TunnelConfig;
-  const dispatch = createEventDispatcher<{ close: void }>();
-
-  const POLL_MS = 3000;
+  export let active = true;
+  export let intervalSeconds = 3;
 
   let stats: sysstats.ProcessStats | null = null;
   let loading = true;
   let error = "";
-  let minimized = false;
   let poller: ReturnType<typeof createVisibilityPoller> | null = null;
 
   type SortKey = "cpu" | "mem" | "name" | "pid";
   let sortBy: SortKey = "cpu";
 
-  // Processes are already in memory, so sorting is a pure client-side reorder.
-  $: sortedProcesses = stats ? sortProcesses(stats.processes) : [];
-
-  function sortProcesses(list: sysstats.ProcessInfo[]): sysstats.ProcessInfo[] {
-    const arr = [...list];
-    if (sortBy === "mem") arr.sort((a, b) => b.mem - a.mem || a.command.localeCompare(b.command));
-    else if (sortBy === "name") arr.sort((a, b) => a.command.localeCompare(b.command));
-    else if (sortBy === "pid") arr.sort((a, b) => a.pid - b.pid);
-    else arr.sort((a, b) => b.cpu - a.cpu || a.command.localeCompare(b.command));
-    return arr;
-  }
+  $: processes = stats ? sortProcesses(stats.processes, sortBy) : [];
+  $: maxCpu = Math.max(1, ...processes.map((p) => p.cpu));
+  $: maxMem = Math.max(1, ...processes.map((p) => p.mem));
+  $: memPct = stats && stats.memTotal > 0 ? (stats.memUsed / stats.memTotal) * 100 : 0;
+  $: swapPct = stats && stats.swapTotal > 0 ? (stats.swapUsed / stats.swapTotal) * 100 : 0;
 
   async function refresh() {
     try {
       stats = await GetProcessStats(tunnel.id);
       error = "";
     } catch (e: any) {
-      error = e?.toString() ?? "failed to read process stats";
+      error = errorText(e);
     } finally {
       loading = false;
     }
   }
 
-  onMount(() => {
-    poller = createVisibilityPoller(refresh, POLL_MS);
-    poller.start();
-  });
-
-  onDestroy(() => {
+  function restartPoller(enabled: boolean, seconds: number) {
     poller?.stop();
-  });
-
-  function setMinimized(value: boolean) {
-    minimized = value;
-    poller?.setEnabled(!value);
+    poller = null;
+    if (!enabled) return;
+    if (seconds > 0) {
+      poller = createVisibilityPoller(refresh, seconds * 1000);
+      poller.start();
+    } else if (loading) {
+      void refresh();
+    }
   }
 
-  function handleClose() {
-    dispatch("close");
-  }
+  $: restartPoller(active, intervalSeconds);
+  onDestroy(() => poller?.stop());
 
   function loadClass(value: number): string {
     if (value >= 80) return "crit";
@@ -68,187 +60,159 @@
   }
 
   function coreLabel(name: string): string {
-    if (name === "cpu") return "all";
-    return name.replace("cpu", "");
+    return name === "cpu" ? "all" : name.replace("cpu", "");
   }
 
   function formatUptime(seconds: number): string {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}d ${h}h ${m}m`;
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
+    return d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
 
-  $: memPct = stats && stats.memTotal > 0 ? (stats.memUsed / stats.memTotal) * 100 : 0;
-  $: swapPct = stats && stats.swapTotal > 0 ? (stats.swapUsed / stats.swapTotal) * 100 : 0;
+  const sortable: { key: SortKey; label: string; numeric?: boolean }[] = [
+    { key: "name", label: "Process" },
+  ];
 </script>
 
-<div class="overlay" class:hidden={minimized}>
-  <div class="window">
-    <div class="titlebar">
-      <span class="title">htop — {tunnel.name} ({tunnel.user}@{tunnel.host})</span>
-      <div class="actions">
-        <button class="title-btn" on:click={refresh} title="Refresh">⟳</button>
-        <button class="title-btn" on:click={() => setMinimized(true)} title="Minimize">−</button>
-        <button class="close-btn" on:click={handleClose} title="Close">×</button>
+<div class="tool-root">
+  {#if loading}
+    <p class="tool-message">Reading process stats</p>
+  {:else if error && !stats}
+    <p class="tool-message error">{error}</p>
+  {:else if stats}
+    <div class="summary">
+      <div class="facts">
+        <span>Load<b>{stats.load1.toFixed(2)} {stats.load5.toFixed(2)} {stats.load15.toFixed(2)}</b></span>
+        <span>Uptime<b>{formatUptime(stats.uptimeSeconds)}</b></span>
+        <span>Tasks<b>{stats.processes.length}</b></span>
+        <button type="button" class="icon-btn" aria-label="Refresh" on:click={refresh}><Icon name="refresh" /></button>
       </div>
-    </div>
-    <div class="body">
-      {#if loading}
-        <div class="status-msg">reading process stats...</div>
-      {:else if error}
-        <div class="status-msg error">{error}</div>
-      {:else if stats}
-        <div class="summary">
-          <div class="summary-item"><span class="lbl">load</span><span class="val">{stats.load1.toFixed(2)} {stats.load5.toFixed(2)} {stats.load15.toFixed(2)}</span></div>
-          <div class="summary-item"><span class="lbl">uptime</span><span class="val">{formatUptime(stats.uptimeSeconds)}</span></div>
-          <div class="summary-item"><span class="lbl">tasks</span><span class="val">{stats.processes.length}</span></div>
-        </div>
-
-        <div class="section-title">cpu</div>
-        <div class="cores">
+      <div class="meters">
+        <div class="meter-col">
           {#each stats.cores as core}
-            <div class="core" class:agg={core.name === "cpu"}>
-              <span class="core-name">{coreLabel(core.name)}</span>
-              <div class="bar">
-                <div class="bar-fill {loadClass(core.percent)}" style={`width:${Math.min(core.percent, 100)}%`}></div>
-              </div>
-              <span class="core-pct">{core.percent.toFixed(0)}%</span>
+            <div class="meter-line">
+              <span>{coreLabel(core.name)}</span>
+              <i class="meter-track"><i class="meter-fill {loadClass(core.percent)}" style={`width:${Math.min(core.percent, 100)}%`}></i></i>
+              <em>{core.percent.toFixed(0)}%</em>
             </div>
           {/each}
         </div>
-
-        <div class="section-title">memory</div>
-        <div class="mem-row">
-          <div class="mem-metric">
-            <span class="core-name">ram</span>
-            <div class="bar tall">
-              <div class="bar-fill {loadClass(memPct)}" style={`width:${memPct}%`}></div>
-            </div>
-            <span class="mem-val">{formatBytes(stats.memUsed)} / {formatBytes(stats.memTotal)}</span>
+        <div class="meter-col">
+          <div class="meter-line">
+            <span>ram</span>
+            <i class="meter-track"><i class="meter-fill mem {loadClass(memPct)}" style={`width:${memPct}%`}></i></i>
+            <em>{formatBytes(stats.memUsed)}/{formatBytes(stats.memTotal)}</em>
           </div>
           {#if stats.swapTotal > 0}
-            <div class="mem-metric">
-              <span class="core-name">swap</span>
-              <div class="bar tall">
-                <div class="bar-fill {loadClass(swapPct)}" style={`width:${swapPct}%`}></div>
-              </div>
-              <span class="mem-val">{formatBytes(stats.swapUsed)} / {formatBytes(stats.swapTotal)}</span>
+            <div class="meter-line">
+              <span>swap</span>
+              <i class="meter-track"><i class="meter-fill mem {loadClass(swapPct)}" style={`width:${swapPct}%`}></i></i>
+              <em>{formatBytes(stats.swapUsed)}/{formatBytes(stats.swapTotal)}</em>
             </div>
           {/if}
         </div>
-
-        <div class="section-title proc-title">
-          <span>processes</span>
-          <span class="sortbar">
-            <span class="sort-label">sort</span>
-            <button class="sort-btn" class:active={sortBy === "cpu"} on:click={() => (sortBy = "cpu")}>cpu</button>
-            <button class="sort-btn" class:active={sortBy === "mem"} on:click={() => (sortBy = "mem")}>mem</button>
-            <button class="sort-btn" class:active={sortBy === "name"} on:click={() => (sortBy = "name")}>name</button>
-            <button class="sort-btn" class:active={sortBy === "pid"} on:click={() => (sortBy = "pid")}>pid</button>
-          </span>
-        </div>
-        <div class="procs">
-          {#each sortedProcesses as p (p.pid)}
-            <div class="proc-card">
-              <div class="proc-head">
-                <span class="proc-cmd" title={p.command}>{p.command}</span>
-                <span class="proc-pid">#{p.pid}</span>
-              </div>
-              <div class="proc-meta">
-                <span class="proc-user">{p.user}</span>
-              </div>
-              <div class="proc-stats">
-                <div class="proc-stat">
-                  <span class="ps-lbl">cpu</span>
-                  <div class="bar"><div class="bar-fill {loadClass(p.cpu)}" style={`width:${Math.min(p.cpu, 100)}%`}></div></div>
-                  <span class="ps-val">{p.cpu.toFixed(1)}%</span>
-                </div>
-                <div class="proc-stat">
-                  <span class="ps-lbl">mem</span>
-                  <div class="bar"><div class="bar-fill mem" style={`width:${Math.min(p.mem, 100)}%`}></div></div>
-                  <span class="ps-val">{p.mem.toFixed(1)}%</span>
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
+      </div>
     </div>
-  </div>
+    <div class="tool-body">
+      <table class="data-table" data-testid="process-table">
+        <thead>
+          <tr>
+            <th class="sortable" class:sorted={sortBy === "name"} on:click={() => (sortBy = "name")}>Process</th>
+            <th>User</th>
+            <th class="num sortable" class:sorted={sortBy === "pid"} on:click={() => (sortBy = "pid")}>PID</th>
+            <th class="num sortable" class:sorted={sortBy === "cpu"} on:click={() => (sortBy = "cpu")}>CPU</th>
+            <th class="num sortable" class:sorted={sortBy === "mem"} on:click={() => (sortBy = "mem")}>Mem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each processes as p (p.pid)}
+            <tr>
+              <td class="command" title={p.command}>{p.command}</td>
+              <td class="dim">{p.user}</td>
+              <td class="num">{p.pid}</td>
+              <td>
+                <div class="cell">
+                  <i class="meter-track"><i class="meter-fill {loadClass(p.cpu)}" style={`width:${scaleBar(p.cpu, maxCpu)}%`}></i></i>
+                  <span class="num">{p.cpu.toFixed(1)}%</span>
+                </div>
+              </td>
+              <td>
+                <div class="cell">
+                  <i class="meter-track"><i class="meter-fill mem" style={`width:${scaleBar(p.mem, maxMem)}%`}></i></i>
+                  <span class="num">{p.mem.toFixed(1)}%</span>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
 </div>
 
-{#if minimized}
-  <button class="restore-pill" on:click={() => setMinimized(false)} title="Restore htop">
-    <span class="pill-icon">▢</span>
-    <span class="pill-text">htop — {tunnel.name}</span>
-    <span class="pill-close" on:click|stopPropagation={handleClose} title="Close">×</span>
-  </button>
-{/if}
-
 <style>
-  .overlay { position: fixed; top: 36px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-  .overlay.hidden { display: none; }
-  .window { width: 88vw; max-width: 1100px; height: 80vh; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; display: flex; flex-direction: column; }
-  .titlebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #1a1a1a; background: #111; }
-  .title { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #00ff88; }
-  .actions { display: flex; gap: 4px; }
-  .title-btn, .close-btn { background: none; border: 1px solid #333; color: #888; font-size: 14px; width: 24px; height: 24px; cursor: pointer; border-radius: 2px; line-height: 1; padding: 0; }
-  .title-btn:hover { color: #00d4ff; border-color: #00d4ff; }
-  .close-btn:hover { color: #ff4444; border-color: #ff4444; }
-  .body { flex: 1; overflow: auto; padding: 10px 14px; font-family: "JetBrains Mono", monospace; }
-  .status-msg { font-size: 12px; color: #00ff88; padding: 20px; }
-  .status-msg.error { color: #ff4444; white-space: pre-wrap; }
-
-  .summary { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 10px; }
-  .summary-item { display: flex; align-items: baseline; gap: 6px; font-size: 11px; }
-  .lbl { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing: 0.06em; }
-  .val { color: #00ff88; }
-
-  .section-title { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent2); margin: 12px 0 6px; border-bottom: 1px solid #1a1a1a; padding-bottom: 3px; }
-  .section-title .muted { color: var(--muted); }
-  .proc-title { display: flex; align-items: center; justify-content: space-between; }
-  .sortbar { display: flex; align-items: center; gap: 5px; }
-  .sort-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 2px; }
-  .sort-btn { background: none; border: 1px solid #1a1a1a; color: var(--muted); font-family: "JetBrains Mono", monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 2px; cursor: pointer; }
-  .sort-btn:hover { color: #00d4ff; border-color: #333; }
-  .sort-btn.active { color: #00ff88; border-color: #00ff88; }
-
-  .cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px 12px; }
-  .core { display: flex; align-items: center; gap: 6px; font-size: 10px; }
-  .core.agg .core-name, .core.agg .core-pct { color: #00ff88; }
-  .core-name { color: var(--muted); width: 26px; flex-shrink: 0; text-align: right; }
-  .core-pct { color: var(--text); width: 32px; text-align: right; flex-shrink: 0; }
-
-  .bar { flex: 1; height: 7px; background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; min-width: 30px; }
-  .bar.tall { height: 9px; }
-  .bar-fill { height: 100%; background: #00ff88; transition: width 0.4s ease; }
-  .bar-fill.warn { background: #ffb000; }
-  .bar-fill.crit { background: #ff4444; }
-  .bar-fill.mem { background: var(--accent); }
-
-  .mem-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 6px 16px; }
-  .mem-metric { display: flex; align-items: center; gap: 8px; font-size: 10px; }
-  .mem-val { color: var(--text); white-space: nowrap; }
-
-  .procs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
-  .proc-card { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 2px; padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; }
-  .proc-card:hover { border-color: #333; }
-  .proc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-  .proc-cmd { color: #00ff88; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .proc-pid { color: var(--muted); font-size: 9px; flex-shrink: 0; }
-  .proc-meta { font-size: 9px; color: var(--muted); }
-  .proc-stats { display: flex; flex-direction: column; gap: 3px; }
-  .proc-stat { display: flex; align-items: center; gap: 6px; font-size: 9px; }
-  .ps-lbl { color: var(--muted); width: 22px; flex-shrink: 0; text-transform: uppercase; }
-  .ps-val { color: var(--text); width: 36px; text-align: right; flex-shrink: 0; }
-
-  .restore-pill { position: fixed; bottom: 12px; right: 12px; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0a0a0a; border: 1px solid #00ff88; border-radius: 2px; color: #00ff88; font-family: "JetBrains Mono", monospace; font-size: 11px; cursor: pointer; box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
-  .restore-pill:hover { background: #111; }
-  .pill-icon { font-size: 13px; }
-  .pill-text { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pill-close { color: #888; padding: 0 4px; font-size: 14px; line-height: 1; }
-  .pill-close:hover { color: #ff4444; }
+  .summary {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+  .facts {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .facts b {
+    margin-left: 5px;
+    font: 500 12px var(--mono);
+    color: var(--text);
+  }
+  .facts button {
+    margin-left: auto;
+  }
+  .meters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .meter-col {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+  }
+  .meter-line {
+    display: grid;
+    grid-template-columns: 32px 1fr 92px;
+    align-items: center;
+    gap: 7px;
+    font: 11.5px var(--mono);
+    color: var(--muted);
+  }
+  .meter-line em {
+    font-style: normal;
+    text-align: right;
+    color: var(--text);
+  }
+  .command {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cell {
+    display: grid;
+    grid-template-columns: 56px 42px;
+    align-items: center;
+    justify-content: end;
+    gap: 7px;
+  }
+  .cell .num {
+    text-align: right;
+    font: 11.5px var(--mono);
+  }
+  th.num {
+    text-align: right;
+  }
 </style>

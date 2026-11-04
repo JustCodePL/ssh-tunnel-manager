@@ -1,13 +1,12 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
-  import { GetServerStats } from "../../wailsjs/go/main/App";
+  import { onDestroy } from "svelte";
+  import { GetServerStats } from "../../bindings/ssh-tunnel-manager/app";
   import { formatBytes } from "../format";
   import { createVisibilityPoller } from "../lib/visibilityPoller.js";
 
   // The tunnel must be connected; the parent only mounts this when so.
   export let tunnelId: string;
-
-  const POLL_MS = 3000;
+  export let intervalSeconds = 3;
 
   let cpu = 0;
   let hasCpu = false;
@@ -36,10 +35,18 @@
     }
   }
 
-  onMount(() => {
-    poller = createVisibilityPoller(poll, POLL_MS);
-    poller.start();
-  });
+  function restartPoller(seconds: number) {
+    poller?.stop();
+    poller = null;
+    if (seconds > 0) {
+      poller = createVisibilityPoller(poll, seconds * 1000);
+      poller.start();
+    } else {
+      void poll();
+    }
+  }
+
+  $: restartPoller(intervalSeconds);
 
   onDestroy(() => {
     poller?.stop();
@@ -70,11 +77,11 @@
 <style>
   .resource-widget {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 14px;
-    margin: 4px 0 2px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    flex-wrap: nowrap;
+    gap: 4px 10px;
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
   }
 
   .metric {
@@ -86,17 +93,14 @@
 
   .metric-label {
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
     width: 22px;
     flex-shrink: 0;
   }
 
   .bar {
-    width: 64px;
-    height: 6px;
+    width: 34px;
+    height: 4px;
     background: var(--surface2);
-    border: 1px solid var(--border);
     border-radius: 2px;
     overflow: hidden;
     flex-shrink: 0;

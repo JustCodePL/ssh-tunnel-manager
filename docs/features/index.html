@@ -81,6 +81,10 @@
           <li><a href="#tray">Access from the system tray</a></li>
           <li><a href="#reconnect-startup">Automatic reconnect</a></li>
           <li><a href="#groups-pin">Groups and pinned tunnels</a></li>
+          <li><a href="#attach-windows">Attach and separate windows</a></li>
+          <li><a href="#command-palette">Keyboard and command palette</a></li>
+          <li><a href="#credentials">Saved logins</a></li>
+          <li><a href="#tunnel-settings">Settings per tunnel</a></li>
           <li><a href="#resources">CPU, RAM and disk usage</a></li>
           <li><a href="#docker">Docker containers on the server</a></li>
           <li><a href="#terminal-files">Terminal and server files</a></li>
@@ -124,17 +128,17 @@ Host staging
             <p>Map as many local ports to remote hosts as you need in one tunnel. Copy <code>127.0.0.1:port</code> with one click, from the tunnel card or from the tray menu.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/forwards-form.png" alt="Port forward editor mapping local port 15432 to localhost:5432" width="1200" height="225" loading="lazy" />
+            <img src="../assets/screenshots/forwards-form.png" alt="Port forward editor mapping local port 15432 to localhost:5432" width="900" height="660" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="proxyjump" aria-labelledby="proxyjump-title">
           <div class="feature-detail-copy">
             <span class="feature-number">03</span>
             <h3 id="proxyjump-title">Connections through a bastion</h3>
-            <p>Reach hosts behind a bastion with ProxyJump or ProxyCommand, set per tunnel in the advanced (proxy) section of the tunnel form.</p>
+            <p>Reach hosts behind a bastion with ProxyJump or ProxyCommand, set per tunnel on the Connection page of its settings.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/proxy-form.png" alt="Advanced proxy settings with ProxyCommand and ProxyJump fields" width="1200" height="259" loading="lazy" />
+            <img src="../assets/screenshots/proxy-form.png" alt="Tunnel connection settings with ProxyCommand and ProxyJump fields" width="900" height="660" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="tray" aria-labelledby="tray-title">
@@ -164,57 +168,99 @@ Host staging
             <p>Put tunnels into groups and connect or disconnect a whole group at once. Pin the tunnels you use most to keep them at the top of the list.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/groups.png" alt="Tunnel list with a pinned tunnel and development and production groups with connect all" width="1200" height="933" loading="lazy" />
+            <img src="../assets/screenshots/groups.png" alt="Tunnel list with groups and an expanded tunnel" width="1100" height="760" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="attach-windows" aria-labelledby="attach-windows-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">07</span>
+            <h3 id="attach-windows-title">Attach and separate windows</h3>
+            <p>Attach opens a session on a tunnel. It goes straight to the terminal, and shows a menu only when the tunnel also has a remote desktop. Forwards typed RDP or SSH get the same button, so each server behind a bastion opens in its own window. Tools open in native windows that can leave the main window and sit on any screen, and a terminal adds a tab per session. Settings → Windows decides how tabs group and what windows do after a disconnect.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/attach-menu.png" alt="Expanded tunnel with the Attach menu offering a terminal and a remote desktop, and its forwards" width="1100" height="760" loading="lazy" />
+            <img src="../assets/screenshots/windows-settings.png" alt="Window settings: grouping, what happens after a disconnect and closing the main window" width="900" height="620" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="command-palette" aria-labelledby="command-palette-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">08</span>
+            <h3 id="command-palette-title">Keyboard and command palette</h3>
+            <p>⌘K or Ctrl+K finds any tunnel or action: open a terminal, copy a forward's address, connect a group. In the list, arrows or j and k move, Enter expands, Space connects, and letters open tools.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/command-palette.png" alt="Command palette listing terminals for a typed search" width="1100" height="760" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="credentials" aria-labelledby="credentials-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">09</span>
+            <h3 id="credentials-title">Saved logins</h3>
+            <p>Name a login once and use it for SSH and remote desktops on many tunnels and forwards. User, domain and password stay in the system keychain; only the login's name and where it is used are in the app's settings file. The remote desktop login form offers every saved login, starts on the tunnel's SSH login, and can save a new one. A tunnel with a saved SSH login tries its key and agent first, and sends the password only to a server with the host key seen on the first connection. The shared clipboard carries text, pictures and files, and each tunnel chooses its direction or turns it off. Tested with GNOME Remote Desktop. xrdp 0.9.12 does not exchange pictures, and Windows has not been tested yet.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/credentials.png" alt="Credentials settings with a saved login" width="900" height="620" loading="lazy" />
+            <img src="../assets/screenshots/tunnel-settings-attach.png" alt="Tunnel settings with a login per forward and the shared clipboard direction" width="900" height="860" loading="lazy" />
+          </figure>
+        </section>
+        <section class="feature-detail" id="tunnel-settings" aria-labelledby="tunnel-settings-title">
+          <div class="feature-detail-copy">
+            <span class="feature-number">10</span>
+            <h3 id="tunnel-settings-title">Settings per tunnel</h3>
+            <p>Each tunnel has its own settings window: connection, forwards with Portless, credentials for SSH and remote desktop, what its row shows, monitoring intervals and disconnect behaviour. One Save keeps every page. Anything left alone follows the app's default. A row can be copied to the rest of its group once.</p>
+          </div>
+          <figure class="feature-detail-shots">
+            <img src="../assets/screenshots/tunnel-settings-refresh.png" alt="Tunnel settings with monitoring intervals overriding the app defaults" width="900" height="660" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="resources" aria-labelledby="resources-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">07</span>
+            <span class="feature-number">11</span>
             <h3 id="resources-title">CPU, RAM and disk usage</h3>
-            <p>Connected hosts show live CPU and RAM usage on the tunnel card; turn it on in Settings → Monitoring. The disk button lists mounted filesystems and how full they are.</p>
+            <p>Connected hosts show live CPU and RAM usage when you expand them, or in the row if you choose. The Disk window lists mounted filesystems and how full they are. You set how often each refreshes for the whole app or for one tunnel.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/tunnels-connected-cpu-ram.png" alt="Connected tunnel with live CPU and RAM usage" width="1800" height="1200" loading="lazy" />
-            <img src="../assets/screenshots/disk-panel.png" alt="Disk panel listing mounted filesystems and their usage" width="1200" height="800" loading="lazy" />
+            <img src="../assets/screenshots/tunnels-connected-cpu-ram.png" alt="Expanded connected tunnel with live CPU and RAM usage" width="1100" height="760" loading="lazy" />
+            <img src="../assets/screenshots/disk-panel.png" alt="Disk window listing mounted filesystems and their usage" width="760" height="320" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="docker" aria-labelledby="docker-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">08</span>
+            <span class="feature-number">12</span>
             <h3 id="docker-title">Docker containers on the server</h3>
-            <p>When Docker is installed on a connected host, a docker button opens its containers with status, image and published ports. Sort them by name, CPU or RAM.</p>
+            <p>When Docker is installed on a connected host, a Docker window lists its containers with status, image and usage, next to the details of the one you select. Environment variables stay closed until you open them. It refreshes by hand unless you set an interval.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/docker-overview.png" alt="Docker view with running containers, images and ports" width="1200" height="800" loading="lazy" />
+            <img src="../assets/screenshots/docker-overview.png" alt="Docker window with container cards and the selected container's details" width="960" height="560" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="terminal-files" aria-labelledby="terminal-files-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">09</span>
+            <span class="feature-number">13</span>
             <h3 id="terminal-files-title">Terminal and server files</h3>
-            <p>Open an interactive shell on the host from the tunnel card. The files button browses the host over SFTP: folders with sizes and dates, upload, new folders, download a folder as a ZIP, edit text files in place, rename and delete.</p>
+            <p>Attach opens an interactive shell on the host, with a tab per session. The Files window browses the host over SFTP: folders with sizes and dates, upload, new folders, download a folder as a ZIP, rename and delete. Text files open for editing in their own window.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/terminal.png" alt="Built-in terminal session on a connected host" width="1200" height="593" loading="lazy" />
-            <img src="../assets/screenshots/files-sftp.png" alt="SFTP file browser with folders, sizes, upload, mkdir, ZIP download, edit, rename and delete" width="1200" height="498" loading="lazy" />
+            <img src="../assets/screenshots/terminal.png" alt="Built-in terminal session on a connected host" width="860" height="500" loading="lazy" />
+            <img src="../assets/screenshots/files-sftp.png" alt="SFTP file browser with folders, sizes, upload, new folder, edit, download, rename and delete" width="960" height="520" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="logs-htop" aria-labelledby="logs-htop-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">10</span>
+            <span class="feature-number">14</span>
             <h3 id="logs-htop-title">Logs and processes</h3>
-            <p>Each tunnel keeps a log of connections, disconnects, reconnects and warnings that you can clear. When htop is installed on the host, an htop button opens the app's own process monitor: load, uptime, CPU per core, memory and a process list you can sort by CPU, memory, name or PID.</p>
+            <p>Each tunnel keeps a log of connections, disconnects, reconnects and warnings that you can clear. When htop is installed on the host, an htop button opens the app's own process monitor: load, uptime, CPU per core, memory and a table of processes you can sort by CPU, memory, name or PID.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/logs.png" alt="Tunnel log with INFO and WARN entries for connects, a failed keep-alive and a reconnect" width="1200" height="311" loading="lazy" />
-            <img src="../assets/screenshots/htop.png" alt="Process monitor with load, uptime, CPU per core, memory and a sortable process list" width="1200" height="742" loading="lazy" />
+            <img src="../assets/screenshots/logs.png" alt="Tunnel log with connection entries" width="800" height="360" loading="lazy" />
+            <img src="../assets/screenshots/htop.png" alt="Process monitor with load, uptime, CPU per core, memory and a sortable process table" width="860" height="520" loading="lazy" />
           </figure>
         </section>
         <section class="feature-detail" id="portless" aria-labelledby="portless-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">11</span>
+            <span class="feature-number">15</span>
             <h3 id="portless-title">Portless: access by name</h3>
-            <p>Tick portless on a forward and type a name; the app adds <code>.ssh-local</code>, so the service is reachable at <code>name.ssh-local</code> instead of <code>127.0.0.1:port</code>. On macOS 13+ you approve the app's signed system service once; on Linux, ports below 1024 need the <code>CAP_NET_BIND_SERVICE</code> capability; Windows needs no extra step.</p>
+            <p>Tick portless on a forward and type a name; the app adds <code>.ssh-local</code>, so the service is reachable at <code>name.ssh-local</code> instead of <code>127.0.0.1:port</code>. On macOS 13+ you approve the app's signed system service once; on Linux, ports below 1024 need the <code>CAP_NET_BIND_SERVICE</code> capability; Windows needs no extra step. A tunnel can also set a suffix: with <code>dev</code>, its forwards become <code>name.dev.ssh-local</code>.</p>
           </div>
           <figure class="feature-detail-shots">
             <img src="../assets/screenshots/portless-form.png" alt="Port forward with portless ticked and the name billing under .ssh-local" width="1200" height="242" loading="lazy" />
@@ -222,7 +268,7 @@ Host staging
         </section>
         <section class="feature-detail" id="auth" aria-labelledby="auth-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">12</span>
+            <span class="feature-number">16</span>
             <h3 id="auth-title">Authentication methods</h3>
             <p>Key files (RSA, ECDSA, Ed25519) with the passphrase kept in the OS keychain, a running <code>ssh-agent</code>, or the default keys in <code>~/.ssh</code>. <code>IdentityAgent</code> from <code>~/.ssh/config</code> is not read yet.</p>
           </div>
@@ -232,12 +278,12 @@ Host staging
         </section>
         <section class="feature-detail" id="updates" aria-labelledby="updates-title">
           <div class="feature-detail-copy">
-            <span class="feature-number">13</span>
+            <span class="feature-number">17</span>
             <h3 id="updates-title">Updates from GitHub Releases</h3>
             <p>The app checks GitHub Releases on startup and tells you when a newer version is out. Install it from Settings or the tray menu, on the Stable channel or on Beta to get prereleases too.</p>
           </div>
           <figure class="feature-detail-shots">
-            <img src="../assets/screenshots/updates.png" alt="Update settings with the current version, Stable and Beta channels and a check for updates button" width="872" height="250" loading="lazy" />
+            <img src="../assets/screenshots/updates.png" alt="Update settings with the current version, Stable and Beta channels and a check for updates button" width="900" height="620" loading="lazy" />
           </figure>
         </section>
         </div>

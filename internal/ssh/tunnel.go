@@ -47,12 +47,29 @@ const (
 // Returns the passphrase or an error if the user cancelled.
 type PassphraseFunc func(keyPath string) (string, error)
 
+// PasswordLogin is the saved password login assigned to a tunnel.
+type PasswordLogin struct {
+	// Username replaces the tunnel's user when it is not empty.
+	Username string
+	Password string
+	// CheckHostKey receives a server's address and SHA-256 host key fingerprint
+	// before any authentication. A password reaches the server itself, so it must
+	// only go to a known host. A connection through a jump host checks both.
+	// Required.
+	CheckHostKey func(address, fingerprint string) error
+}
+
+// LoginFunc returns the password login of a tunnel, or nil when it has none.
+type LoginFunc func(tunnelID string) (*PasswordLogin, error)
+
 // Tunnel manages a single SSH connection and its port forwards.
 type Tunnel struct {
 	Config        config.TunnelConfig
 	OnConnected   func() // called after SSH dial succeeds, before blocking
 	GetPassphrase PassphraseFunc
-	LogFunc       func(level, msg string) // optional: called for connection events
+	// GetLogin returns the tunnel's password login, if it has one.
+	GetLogin LoginFunc
+	LogFunc  func(level, msg string) // optional: called for connection events
 	// OnBindError is called when a portless forward cannot bind its listener.
 	// The App layer surfaces it to the user (banner + tray) — most importantly
 	// the Linux privileged-port case that needs CAP_NET_BIND_SERVICE.
@@ -149,6 +166,17 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 
+	// The connection's own context also ends when the server closes it, so the
+	// tunnel reconnects at once instead of waiting for the next keep-alive, and
+	// sessions do not keep failing on a dead client in between.
+	parent := ctx
+	ctx, cancelConnection := context.WithCancel(parent)
+	defer cancelConnection()
+	go func() {
+		_ = client.Wait()
+		cancelConnection()
+	}()
+
 	// Start port forward listeners
 	for _, pf := range t.Config.PortForwards {
 		wg.Add(1)
@@ -165,7 +193,7 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 		t.keepAlive(ctx, client)
 	}()
 
-	// Wait for context cancellation or connection failure
+	// Wait for cancellation by the caller or for the connection to end
 	<-ctx.Done()
 	// Close the underlying SSH transport so any in-flight SendRequest (in
 	// keepAlive) and Accept/Read calls unblock immediately. Without this,
@@ -189,11 +217,11 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 		slog.Warn("tunnel shutdown timed out; goroutines may finish later",
 			"tunnel", t.Config.Name, "timeout", shutdownTimeout)
 	}
-	return ctx.Err()
+	return parent.Err()
 }
 
 func (t *Tunnel) buildSSHConfig() (*ssh.ClientConfig, error) {
-	return buildClientConfig(t.Config, t.GetPassphrase)
+	return buildClientConfig(t.Config, t.GetPassphrase, t.GetLogin)
 }
 
 // runCommandTimeout is a fallback cap for RunCommand callers that pass a

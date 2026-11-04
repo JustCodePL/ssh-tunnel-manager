@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { preparePortForwardsForSave, effectiveForwardProtocol, inferForwardProtocol } from "../src/lib/portForwards.js";
+import { domainWithSuffix, domainWithoutSuffix, normalizePortlessSuffix, preparePortForwardsForSave, effectiveForwardProtocol, inferForwardProtocol } from "../src/lib/portForwards.js";
 
 test("keeps a portless forward whose local port is automatic", () => {
   const forwards = preparePortForwardsForSave([
@@ -75,4 +75,25 @@ test("the SSH user is kept only on SSH forwards", () => {
   assert.equal(save({ remotePort: 22, sshUser: " inner " }).sshUser, "inner");
   assert.equal(save({ remotePort: 22, sshUser: "  " }).sshUser, undefined);
   assert.equal(save({ remotePort: 3389, sshUser: "inner" }).sshUser, undefined);
+});
+
+test("a portless suffix joins a forward's name and comes off again", () => {
+  assert.equal(normalizePortlessSuffix(" .Dev. "), "dev");
+  assert.equal(normalizePortlessSuffix(undefined), "");
+  assert.equal(domainWithSuffix("Moj-Adres ", "dev"), "moj-adres.dev");
+  assert.equal(domainWithoutSuffix("moj-adres.dev", "dev"), "moj-adres");
+  assert.equal(domainWithoutSuffix("a.team.dev", "team.dev"), "a");
+});
+
+test("an empty portless suffix leaves domains as they are", () => {
+  assert.equal(domainWithSuffix("moj-adres", ""), "moj-adres");
+  assert.equal(domainWithoutSuffix("moj-adres.dev", ""), "moj-adres.dev");
+});
+
+test("a domain without the suffix keeps its whole name, and gets the suffix on save", () => {
+  assert.equal(domainWithoutSuffix("traefik.justcode.ac", "dev"), "traefik.justcode.ac");
+  assert.equal(domainWithSuffix("traefik.justcode.ac", "dev"), "traefik.justcode.ac.dev");
+  assert.equal(domainWithoutSuffix("dev", "dev"), "dev");
+  assert.equal(domainWithoutSuffix("notdev", "dev"), "notdev");
+  assert.equal(domainWithSuffix("", "dev"), "", "an empty name stays empty, so validation can ask for it");
 });

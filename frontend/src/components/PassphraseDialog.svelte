@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SubmitPassphrase } from "../../wailsjs/go/main/App";
+  import { SubmitPassphrase } from "../../bindings/ssh-tunnel-manager/app";
   import { createEventDispatcher, onMount } from "svelte";
 
   export let keyPath: string;
@@ -31,7 +31,7 @@
 <div class="passphrase-backdrop">
   <div class="passphrase-panel">
     <div class="panel-header">
-      <span class="panel-title">// passphrase required</span>
+      <span class="panel-title">Passphrase required</span>
     </div>
 
     <div class="panel-body">
@@ -54,14 +54,14 @@
             class="action-btn accent"
             disabled={!passphrase || submitting}
           >
-            {submitting ? "// unlocking..." : "[ unlock ]"}
+            {submitting ? "Unlocking..." : "Unlock"}
           </button>
           <button
             type="button"
             class="action-btn"
             on:click={handleCancel}
           >
-            [ cancel ]
+            Cancel
           </button>
         </div>
       </form>
@@ -96,9 +96,9 @@
   }
 
   .panel-title {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     letter-spacing: 0.05em;
   }
 
@@ -116,17 +116,17 @@
   }
 
   .key-label {
-    font-size: 9px;
+    font-size: 11.5px;
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
 
   .key-path {
-    font-size: 10px;
+    font-size: 11.5px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     word-break: break-all;
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -140,7 +140,7 @@
     border: 1px solid var(--border);
     border-radius: 2px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--ui);
     font-size: 12px;
     padding: 7px 10px;
     outline: none;
@@ -150,7 +150,7 @@
 
   .passphrase-input:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.1);
+    box-shadow: 0 0 0 1px var(--accent-soft);
   }
 
   .form-actions {
@@ -163,8 +163,8 @@
     background: transparent;
     border: 1px solid var(--border);
     color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family: var(--ui);
+    font-size: 11.5px;
     padding: 5px 12px;
     cursor: pointer;
     border-radius: 2px;
@@ -183,7 +183,7 @@
   }
 
   .action-btn.accent:hover:not(:disabled) {
-    background: rgba(0, 255, 136, 0.1);
+    background: var(--accent-soft);
   }
 
   .action-btn:disabled {

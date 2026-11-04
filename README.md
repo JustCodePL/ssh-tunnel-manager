@@ -6,7 +6,7 @@ SSH tunnels and server tools in one app for Windows, macOS and Linux: tunnels, t
 
 [Website](https://justcodepl.github.io/ssh-tunnel-manager/) · [Download](https://github.com/JustCodePL/ssh-tunnel-manager/releases/latest) · [Which one to use](https://justcodepl.github.io/ssh-tunnel-manager/compare/)
 
-Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary (Windows: NSIS installer).
+Built with Go + [Wails 3](https://wails.io) + Svelte. Ships as a single binary (Windows: NSIS installer).
 
 ## Features
 
@@ -15,6 +15,13 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **Port forwarding** — multiple local→remote mappings per tunnel, with one-click clipboard copy from the tray
 - **Key authentication** — RSA, ECDSA, Ed25519 key files or a running `ssh-agent`; encrypted keys prompt for a passphrase once and store it in the OS keychain
 - **ProxyCommand / ProxyJump** — full support for bastion hosts
+- **Tool windows** — terminal, files, Docker, processes, disk, logs and remote desktop open in their own windows, which can sit on any screen; how they group into tabs is a setting
+- **Attach** — one button opens a session; it shows a menu only when a tunnel offers more than one, such as a terminal and a remote desktop
+- **Credentials** — named RDP and VNC logins saved in the OS keychain and reusable across tunnels and forwards
+- **Saved logins** — one login for SSH and remote desktops, in the system keychain. A tunnel with a saved SSH login tries its key and agent first, and sends the password only to a server with the host key seen on the first connection
+- **Shared clipboard** — text, pictures and files between your computer and a remote desktop, with a direction setting per tunnel. Tested with GNOME Remote Desktop. xrdp 0.9.12 does not exchange pictures, and Windows has not been tested yet
+- **Per-tunnel settings** — what a row shows, refresh intervals, clipboard and what happens after a disconnect can each be overridden on one tunnel
+- **Command palette** — `⌘K` or `Ctrl+K` finds tunnels and runs actions; the list works from the keyboard
 - **Built-in remote desktop** — RDP is detected on connected hosts and opens in the app, through the SSH connection, with no external client (no remote audio). Only the default port, 3389, is checked unless you set another one under the host's advanced options
 - **Actions on forwards** — a forward can be typed `rdp` or `ssh`, inferred from ports 3389 and 22, which adds a remote desktop, terminal or file browser button that opens on the forward's target, for example a machine behind a bastion
 - **Groups** — organise tunnels into named groups with Connect All / Disconnect All
@@ -23,12 +30,12 @@ Built with Go + [Wails v2](https://wails.io) + Svelte. Ships as a single binary 
 - **Connection retries** — a tunnel that can't connect is retried up to 3 times, then stops and shows the error in the app
 - **Start on login** — optional autostart via Windows registry / macOS Launch Agent / Linux `.desktop` entry
 - **OS keychain** — passphrases stored in Windows Credential Manager, macOS Keychain, or Linux Secret Service
-- **Terminal** (`term`) — an interactive shell on the connected host
-- **File browser** (`files`) — browse remote files over SFTP: upload, create folders, download folders as ZIP, edit text files, rename and delete
-- **Disk usage** (`disk`) — mounted filesystems and their usage on the host
-- **CPU/RAM widget** — live host load on active tunnels (*Settings → Monitoring*)
+- **Terminal** — an interactive shell on the connected host, with a tab per session
+- **File browser** — browse remote files over SFTP: upload, create folders, download folders as ZIP, edit text files, rename and delete
+- **Disk usage** — mounted filesystems and their usage on the host
+- **CPU/RAM** — live host load for a connected tunnel, in its panel or in its row
 - **Process monitor and Docker** — the `htop` button (shown only when the host has `htop` installed) opens the app's own process monitor with load, CPU per core, memory and a sortable process list; the `docker` button (shown only when Docker is installed) lists containers with status, image and ports
-- **Logs** (`logs`) — per-tunnel connection log with warnings and reconnects
+- **Logs** — per-tunnel connection log with warnings and reconnects
 - **Auto-update** — checks GitHub Releases on startup; download and install from the Settings panel or the tray menu; choose the *Stable* or *Beta* channel
 
 | Connected tunnels | Tray menu | Settings |
@@ -71,6 +78,8 @@ Portless forwards reach a service over a `*.ssh-local` domain instead of a `127.
 **Windows** binds the requested Portless port directly and needs no additional low-port authorization.
 
 **Linux** requires the `CAP_NET_BIND_SERVICE` capability on the binary when a forward binds a privileged port. Unprivileged processes are otherwise denied with `bind: permission denied`.
+
+On macOS, Settings → Maintenance shows whether Portless has a problem, and can repair or remove its service. The same page has the app log and details for a bug report.
 
 On Linux you have two ways to grant it:
 
@@ -118,7 +127,7 @@ automatically instead.
 
 ### Adding a Tunnel
 
-Click **+ Add Tunnel** and fill in:
+Click **+**, choose **Tunnel** and fill in:
 
 | Field | Description |
 |-------|-------------|
@@ -183,27 +192,33 @@ Passphrases are **never** written to disk; they go to the OS keychain (Windows C
 
 ### Prerequisites
 
-- Go 1.23+
-- Node.js 20+
-- Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0`
-- **Linux only**: `sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev`
+- Go 1.26+
+- Node.js 22+
+- **Linux only**: `sudo apt install libgtk-4-dev libwebkitgtk-6.0-dev` (GTK 4 and WebKitGTK 6.0, so a recent distribution)
 - **Windows installer builds**: [NSIS](https://nsis.sourceforge.io/)
+- To regenerate the frontend bindings after changing bound methods: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0`, then `wails3 generate bindings -ts -d frontend/bindings`
 
 ### Running in dev mode
 
 ```bash
 git clone https://github.com/JustCodePL/ssh-tunnel-manager
 cd ssh-tunnel-manager
-wails dev
+(cd frontend && npm ci && npm run build)
+go run .
 ```
-
-Hot-reload is active for both the Go backend and the Svelte frontend.
 
 ### Running tests
 
 ```bash
-go test ./internal/... -v
+go test ./...                       # unit and integration tests
+cd frontend
+npm run check                       # types
+npm test                            # frontend unit tests
+npx playwright install chromium     # once
+npm run test:e2e                    # the real backend and frontend against a fake SSH server
 ```
+
+All of these run in CI and block a release. Each release build also starts the real app on its platform and fails if a window's frontend cannot reach the backend.
 
 ### Linting
 
@@ -214,11 +229,9 @@ golangci-lint run ./...
 ## Building
 
 ```bash
-# Linux / macOS
-wails build
-
-# Windows — produces both ssh-tunnel-manager.exe and the NSIS installer
-wails build -nsis
+# arch is amd64 or arm64. macOS gets an app bundle, Linux a binary, and
+# Windows the portable exe and the NSIS installer.
+scripts/build-app.sh amd64
 ```
 
 Output lands in `build/bin/`.
@@ -266,18 +279,26 @@ as GitHub prereleases without replacing the latest stable release.
 ├── app.go                  # Wails-exposed methods (Go ↔ frontend bridge)
 ├── version.go              # Version variable, embedded from wails.json
 ├── main.go                 # Wails bootstrap
+├── app_toolwindow.go       # Native tool windows
+├── app_settings.go         # App and per-tunnel settings
+├── app_credentials.go      # Saved logins
 ├── internal/
 │   ├── ssh/                # Pure-Go SSH connections and port forwarding
 │   ├── config/             # JSON persistence and data models
 │   ├── tray/               # System tray icon, badge, menu
+│   ├── windows/            # Which tool is open in which window and tab
+│   ├── clipboard/          # Pictures on the system clipboard
 │   ├── updater/            # GitHub Releases update checker + platform installers
 │   ├── autostart/          # Platform autostart (registry / launch agent / .desktop)
-│   ├── keychain/           # OS keychain passphrase storage
+│   ├── keychain/           # OS keychain storage for passphrases and logins
 │   └── sshconfig/          # SSH config file parser and writer
 ├── frontend/src/
-│   ├── App.svelte           # Root component, header, modals
-│   ├── components/          # TunnelList, TunnelCard, TunnelForm, SettingsPanel, …
-│   └── stores/              # Svelte stores (tunnels, theme)
+│   ├── App.svelte           # The main window
+│   ├── ToolApp.svelte       # A tool window and its tabs
+│   ├── components/          # TunnelList, TunnelRow, TunnelForm, tool views, …
+│   ├── tools/               # Settings windows and the frame around a tool
+│   ├── lib/                 # Logic without UI, unit tested
+│   └── stores/              # Svelte stores (tunnels, settings)
 └── build/
     ├── windows/installer/   # NSIS scripts
     └── darwin/              # macOS plist files

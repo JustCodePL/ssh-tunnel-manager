@@ -1,0 +1,82 @@
+name: Test
+
+# These checks block every release: build.yml runs them first, and its build and
+# release jobs need them to pass.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  go:
+    name: Go unit and integration tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: Provide frontend assets for embedding
+        run: mkdir -p frontend/dist && touch frontend/dist/index.html
+      - run: go vet ./...
+      - run: go test ./... -count=1
+
+  frontend:
+    name: Frontend types and unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Type check
+        run: npx svelte-check --tsconfig ./tsconfig.json --threshold error
+        working-directory: frontend
+      - name: Unit tests
+        run: npm test
+        working-directory: frontend
+      - name: Site tests
+        run: node --test docs/*.test.cjs
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # The server build compiles Wails' Linux webview package too.
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+      - run: npm ci
+        working-directory: frontend
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Run
+        run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results

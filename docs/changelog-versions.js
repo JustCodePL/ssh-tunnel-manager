@@ -7,6 +7,7 @@
 
   root.CHANGELOG_VERSIONS = versions;
 })(typeof globalThis !== "undefined" ? globalThis : this, [
+  "v1.2.0-beta.3",
   "v1.2.0-beta.2",
   "v1.2.0-beta.1",
   "v1.1.0",

@@ -86,22 +86,25 @@ func (pf PortForward) EffectiveProtocol() string {
 
 // TunnelConfig holds the persistent configuration for a single SSH tunnel.
 type TunnelConfig struct {
-	ID              string        `json:"id"`
-	Name            string        `json:"name"`
-	Host            string        `json:"host"`
-	Port            int           `json:"port"`
-	User            string        `json:"user"`
-	KeyPath         string        `json:"keyPath"`
-	PortForwards    []PortForward `json:"portForwards"`
-	ProxyCommand    string        `json:"proxyCommand,omitempty"`
-	ProxyJump       string        `json:"proxyJump,omitempty"`
-	Color           string        `json:"color,omitempty"`
-	Group           string        `json:"group"`
-	AutoConnect     bool          `json:"autoConnect"`
-	Pinned          bool          `json:"pinned"`
-	RDPPort         int           `json:"rdpPort,omitempty"` // 0 means the standard RDP port
-	SourceFile      string        `json:"sourceFile,omitempty"`
-	SourceFileLabel string        `json:"sourceFileLabel,omitempty"`
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	Host         string        `json:"host"`
+	Port         int           `json:"port"`
+	User         string        `json:"user"`
+	KeyPath      string        `json:"keyPath"`
+	PortForwards []PortForward `json:"portForwards"`
+	ProxyCommand string        `json:"proxyCommand,omitempty"`
+	ProxyJump    string        `json:"proxyJump,omitempty"`
+	Color        string        `json:"color,omitempty"`
+	Group        string        `json:"group"`
+	AutoConnect  bool          `json:"autoConnect"`
+	Pinned       bool          `json:"pinned"`
+	RDPPort      int           `json:"rdpPort,omitempty"` // 0 means the standard RDP port
+	// PortlessSuffix is the shared end of this tunnel's Portless domains, before
+	// the TLD. Each forward's Domain already includes it.
+	PortlessSuffix  string `json:"portlessSuffix,omitempty"`
+	SourceFile      string `json:"sourceFile,omitempty"`
+	SourceFileLabel string `json:"sourceFileLabel,omitempty"`
 }
 
 // ConfigFileInfo describes an SSH config file that can be edited.

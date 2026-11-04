@@ -1,17 +1,13 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
@@ -81,8 +77,15 @@ func main() {
 	}
 
 	app := NewApp(store, prefsStore, startHidden)
+	if err := runApplication(app, prefsStore.Get(), startHidden); err != nil {
+		slog.Error("wails application error", "error", err)
+		os.Exit(1)
+	}
+}
 
-	p := prefsStore.Get()
+// runApplication creates the Wails application and its main window, and blocks
+// until the application quits.
+func runApplication(app *App, p prefs.Prefs, startHidden bool) error {
 	initWidth := p.WindowWidth
 	initHeight := p.WindowHeight
 	if initWidth < 400 {
@@ -92,44 +95,60 @@ func main() {
 		initHeight = 600
 	}
 
-	err = wails.Run(&options.App{
-		Title:       "SSH Tunnel Manager",
-		Width:       initWidth,
-		Height:      initHeight,
-		Frameless:   true,
-		StartHidden: startHidden,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
+	wailsApp := application.New(application.Options{
+		Name:        "SSH Tunnel Manager",
+		Description: "SSH tunnels and server tools in one app",
+		Services:    []application.Service{application.NewService(app)},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
 		},
-		BackgroundColour: &options.RGBA{R: 10, G: 10, B: 10, A: 1},
-		SingleInstanceLock: &options.SingleInstanceLock{
+		Mac: application.MacOptions{
+			// The app keeps running in the tray with no windows open.
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
+		},
+		SingleInstance: &application.SingleInstanceOptions{
 			// Stable and beta builds deliberately share one lock so switching
 			// channels can never leave both variants running side by side.
-			UniqueId: "com.wails.ssh-tunnel-manager",
-			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
+			UniqueID: "com.wails.ssh-tunnel-manager",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
 				app.showWindow()
 			},
 		},
-		OnBeforeClose: func(ctx context.Context) bool {
-			if app.forceQuit {
-				return false // always allow quit from tray
-			}
-			if app.GetCloseToTray() {
-				runtime.WindowHide(ctx)
-				return true // cancel the close — hide instead
-			}
-			return false // allow quit
+		ShouldQuit: func() bool {
+			app.markQuitting()
+			return true
 		},
-		OnStartup:  app.startup,
-		OnShutdown: app.shutdown,
-		Bind: []interface{}{
-			app,
-		},
+		Logger:   slog.Default(),
+		LogLevel: slog.LevelWarn,
+		Server: serverOptions(),
 	})
+	app.attachWails(wailsApp)
+
+	setApplicationMenu(wailsApp)
+
+	main := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             mainWindowName,
+		Title:            "SSH Tunnel Manager",
+		Width:            initWidth,
+		Height:           initHeight,
+		MinWidth:         400,
+		MinHeight:        300,
+		Frameless:        true,
+		Hidden:           startHidden,
+		BackgroundColour: application.NewRGBA(10, 10, 10, 255),
+		URL:              "/",
+	})
+	app.attachMainWindow(main)
+	return wailsApp.Run()
+}
+
+// logFilePath is where the app log lives.
+func logFilePath() (string, error) {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		slog.Error("wails application error", "error", err)
-		os.Exit(1)
+		return "", err
 	}
+	return filepath.Join(home, ".config", "ssh-tunnel-manager", "app.log"), nil
 }
 
 // openLogFile opens the persistent app log at

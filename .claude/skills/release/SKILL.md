@@ -34,10 +34,11 @@ Nothing else needs bumping. The app takes its version from the tag at build time
 ## Publish a beta
 
 1. **Check the state.** On `main`, clean, and up to date with `git pull --ff-only`.
-2. **Test.** Build the frontend first, because `main.go` embeds `frontend/dist`. CI only runs `go test ./internal/...`.
+2. **Test.** CI repeats all of this for the tag and refuses to build or publish if anything fails, including the end-to-end tests and a smoke run of the built app on every platform.
    ```
-   (cd frontend && npm test && npm run build)
-   go test . ./internal/... -count=1
+   (cd frontend && npm run check && npm test && npm run build)
+   go test ./... -count=1
+   (cd frontend && npm run test:e2e)
    ```
 3. **Read what ships.** `git log <previous-tag>..HEAD --no-merges --pretty='%h %s'`
 4. **Write the notes** to `/tmp/release-notes/<version>.md`, in the format below.

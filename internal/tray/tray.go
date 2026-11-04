@@ -1,11 +1,12 @@
+// Package tray renders the system tray. BuildMenu is a pure function from the
+// app state to a tree of menu nodes, so the menu's content can be tested
+// without a native tray; Tray applies that tree through a Surface.
 package tray
 
 import (
 	"fmt"
 	"log/slog"
 	"sync"
-
-	"github.com/energye/systray"
 
 	"ssh-tunnel-manager/internal/config"
 	"ssh-tunnel-manager/internal/dns"
@@ -21,48 +22,81 @@ type Callbacks struct {
 	CopyToClip func(text string) error
 	GetTunnels func() []config.TunnelConfig
 	OnUpdate   func()
+	// AttachOptions lists what Attach can open for a tunnel, in menu order.
+	AttachOptions func(id string) []AttachOption
+	// Attach opens the chosen session.
+	Attach func(id string, option AttachOption) error
 }
 
-// Tray manages the system tray icon and context menu.
+// AttachOption is one way to attach to a tunnel or to a target behind it.
+type AttachOption struct {
+	Protocol   string
+	Label      string
+	RemoteHost string
+	RemotePort int
+}
+
+// Node is one entry of the tray menu.
+type Node struct {
+	Label     string
+	Tooltip   string
+	Disabled  bool
+	Separator bool
+	Icon      []byte
+	OnClick   func()
+	Children  []Node
+}
+
+// Surface is the native tray the menu and icon are applied to.
+type Surface interface {
+	SetMenu(nodes []Node)
+	SetIcon(icon []byte)
+	SetTooltip(tooltip string)
+	Destroy()
+}
+
+// Tray keeps the tray's state and refreshes its Surface.
 type Tray struct {
 	cb Callbacks
 
 	mu            sync.Mutex
-	menuMu        sync.Mutex // serializes ResetMenu and the complete menu rebuild
+	menuMu        sync.Mutex // serializes menu rebuilds
 	statuses      map[string]ssh.StatusEvent
-	updateVersion string // set when an update is available
-	endFunc       func() // called to tear down systray
+	updateVersion string
+	surface       Surface
 
-	// Pre-rendered status dot icons (cached)
-	dotGreen  []byte
-	dotBlue   []byte
-	dotOrange []byte
-	dotRed    []byte
-	dotGray   []byte
+	dots dotIcons
 }
 
-// New creates a new Tray with the given callbacks.
+type dotIcons struct {
+	green, blue, orange, red, gray []byte
+}
+
+// New creates a Tray with the given callbacks.
 func New(cb Callbacks) *Tray {
 	return &Tray{
-		cb:        cb,
-		statuses:  make(map[string]ssh.StatusEvent),
-		dotGreen:  StatusDotIcon(DotGreen),
-		dotBlue:   StatusDotIcon(DotBlue),
-		dotOrange: StatusDotIcon(DotOrange),
-		dotRed:    StatusDotIcon(DotRed),
-		dotGray:   StatusDotIcon(DotGray),
+		cb:       cb,
+		statuses: make(map[string]ssh.StatusEvent),
+		dots: dotIcons{
+			green:  StatusDotIcon(DotGreen),
+			blue:   StatusDotIcon(DotBlue),
+			orange: StatusDotIcon(DotOrange),
+			red:    StatusDotIcon(DotRed),
+			gray:   StatusDotIcon(DotGray),
+		},
 	}
 }
 
-// Start initializes the system tray. Safe to call from any goroutine.
-// Platform-specific startTray() implementations ensure window creation and
-// the message loop run on the correct OS thread.
-func (t *Tray) Start() {
-	t.startTray()
+// Start attaches the tray to its native surface and draws it.
+func (t *Tray) Start(surface Surface) {
+	t.mu.Lock()
+	t.surface = surface
+	t.mu.Unlock()
+	slog.Info("system tray ready")
+	t.RefreshMenu()
 }
 
-// RefreshMenu rebuilds the tray menu from current tunnel config.
-// Call this after any tunnel config change (add, update, delete, import).
+// RefreshMenu redraws the icon and the menu from the current state.
 func (t *Tray) RefreshMenu() {
 	t.updateIcon()
 	t.rebuildMenu()
@@ -71,26 +105,25 @@ func (t *Tray) RefreshMenu() {
 // Stop tears down the system tray.
 func (t *Tray) Stop() {
 	t.mu.Lock()
-	end := t.endFunc
+	surface := t.surface
+	t.surface = nil
 	t.mu.Unlock()
-	if end != nil {
-		end()
+	if surface != nil {
+		surface.Destroy()
 	}
 }
 
-// HandleStatusEvent processes a tunnel status change — updates internal state,
-// refreshes the tray icon and menu, and sends desktop notifications. Tunnel
-// errors are not notified here: the frontend shows them inside the app.
+// HandleStatusEvent records a tunnel status change, refreshes the tray and
+// sends a desktop notification on meaningful transitions. Tunnel errors are not
+// notified here: the frontend shows them inside the app.
 func (t *Tray) HandleStatusEvent(event ssh.StatusEvent) {
 	t.mu.Lock()
 	prev, hadPrev := t.statuses[event.TunnelID]
 	t.statuses[event.TunnelID] = event
 	t.mu.Unlock()
 
-	t.updateIcon()
-	t.rebuildMenu()
+	t.RefreshMenu()
 
-	// Notifications — only on meaningful transitions
 	if !hadPrev {
 		return
 	}
@@ -106,14 +139,13 @@ func (t *Tray) HandleStatusEvent(event ssh.StatusEvent) {
 	}
 }
 
-// Notify sends a desktop notification. Used for out-of-band events that aren't
-// a status transition (e.g. a portless forward failing to bind a privileged
-// port on Linux).
+// Notify sends a desktop notification for an out-of-band event, such as a
+// portless forward failing to bind a privileged port.
 func (t *Tray) Notify(title, body string) {
 	notify(title, body)
 }
 
-// SetUpdateAvailable stores the version and rebuilds the menu to show an update item.
+// SetUpdateAvailable stores the version and redraws the menu with an update item.
 func (t *Tray) SetUpdateAvailable(version string) {
 	t.mu.Lock()
 	t.updateVersion = version
@@ -121,260 +153,165 @@ func (t *Tray) SetUpdateAvailable(version string) {
 	t.rebuildMenu()
 }
 
-func (t *Tray) onReady() {
-	slog.Info("system tray ready")
-	systray.SetTooltip("SSH Tunnel Manager")
-
-	// Left single-click and double-click both show the manager window.
-	showFn := func(menu systray.IMenu) {
-		if t.cb.ShowWindow != nil {
-			t.cb.ShowWindow()
-		}
-	}
-	systray.SetOnClick(showFn)
-	systray.SetOnDClick(showFn)
-
-	// Right-click: show context menu.
-	// Do NOT set SetOnRClick — let the library default to ShowMenu() which
-	// is called directly from wndProc on the message loop thread, avoiding
-	// the extra callback indirection that can cause issues on Windows.
-
-	t.updateIcon()
-	t.rebuildMenu()
-}
-
-func (t *Tray) onExit() {
-	slog.Info("system tray exiting")
-}
-
-// updateIcon sets the tray icon based on aggregate tunnel status.
-func (t *Tray) updateIcon() {
+func (t *Tray) snapshot() (map[string]ssh.StatusEvent, string, Surface) {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	statuses := make(map[string]ssh.StatusEvent, len(t.statuses))
 	for k, v := range t.statuses {
 		statuses[k] = v
 	}
-	t.mu.Unlock()
+	return statuses, t.updateVersion, t.surface
+}
 
-	var connected, errors int
+func (t *Tray) updateIcon() {
+	statuses, _, surface := t.snapshot()
+	if surface == nil {
+		return
+	}
+	var connected, errored int
 	for _, s := range statuses {
 		switch s.Status {
 		case config.StatusConnected:
 			connected++
 		case config.StatusError:
-			errors++
+			errored++
 		}
 	}
-
-	var sc StatusColor
+	sc := ColorGray
 	switch {
-	case errors > 0:
+	case errored > 0:
 		sc = ColorRed
 	case connected > 0:
 		sc = ColorGreen
-	default:
-		sc = ColorGray
 	}
-
-	icon := GenerateIcon(sc, connected)
-	systray.SetIcon(icon)
-
-	// Tooltip with count
-	switch {
-	case connected > 0 && errors > 0:
-		systray.SetTooltip(fmt.Sprintf("SSH Tunnel Manager — %d connected, %d errors", connected, errors))
-	case connected > 0:
-		systray.SetTooltip(fmt.Sprintf("SSH Tunnel Manager — %d connected", connected))
-	case errors > 0:
-		systray.SetTooltip(fmt.Sprintf("SSH Tunnel Manager — %d errors", errors))
-	default:
-		systray.SetTooltip("SSH Tunnel Manager")
-	}
+	surface.SetIcon(GenerateIcon(sc, connected))
+	surface.SetTooltip(Tooltip(connected, errored))
 }
 
-// rebuildMenu clears and rebuilds the entire context menu from current state.
-// Tunnels with a Group are placed under group submenus; ungrouped tunnels
-// appear at the top level.
+// Tooltip returns the tray tooltip for the given counts.
+func Tooltip(connected, errored int) string {
+	switch {
+	case connected > 0 && errored > 0:
+		return fmt.Sprintf("SSH Tunnel Manager: %d connected, %d errors", connected, errored)
+	case connected > 0:
+		return fmt.Sprintf("SSH Tunnel Manager: %d connected", connected)
+	case errored > 0:
+		return fmt.Sprintf("SSH Tunnel Manager: %d errors", errored)
+	}
+	return "SSH Tunnel Manager"
+}
+
 func (t *Tray) rebuildMenu() {
-	// Status events are emitted by independent tunnel goroutines, so several
-	// rebuilds can arrive concurrently. ResetMenu followed by AddMenuItem calls
-	// is not atomic; interleaving two rebuilds leaves duplicate and partially
-	// ordered entries in the native menu (particularly visible on macOS).
+	// Status events come from independent tunnel goroutines, so rebuilds can
+	// arrive concurrently and must not interleave.
 	t.menuMu.Lock()
 	defer t.menuMu.Unlock()
 
-	systray.ResetMenu()
-
-	// Tunnel items — grouped
-	tunnels := t.cb.GetTunnels()
-	t.mu.Lock()
-	statuses := make(map[string]ssh.StatusEvent, len(t.statuses))
-	for k, v := range t.statuses {
-		statuses[k] = v
+	statuses, updateVersion, surface := t.snapshot()
+	if surface == nil {
+		return
 	}
-	t.mu.Unlock()
+	surface.SetMenu(t.BuildMenu(t.cb.GetTunnels(), statuses, updateVersion))
+}
 
-	// Count total active tunnels for header
+// BuildMenu returns the complete tray menu for the given state. Ungrouped
+// tunnels come first, then one submenu per group in order of first appearance.
+func (t *Tray) BuildMenu(tunnels []config.TunnelConfig, statuses map[string]ssh.StatusEvent, updateVersion string) []Node {
 	var totalActive int
 	for _, s := range statuses {
 		if isActive(s.Status) {
 			totalActive++
 		}
 	}
-
-	// Header with active count
-	headerLabel := "SSH Tunnel Manager"
+	header := "SSH Tunnel Manager"
 	if totalActive > 0 {
-		headerLabel = fmt.Sprintf("SSH Tunnel Manager — %d active", totalActive)
+		header = fmt.Sprintf("SSH Tunnel Manager: %d active", totalActive)
 	}
-	header := systray.AddMenuItem(headerLabel, "")
-	header.Disable()
+	nodes := []Node{{Label: header, Disabled: true}, {Separator: true}}
 
-	systray.AddSeparator()
-
-	// Collect groups in order of first appearance
 	var groupOrder []string
 	groups := make(map[string][]config.TunnelConfig)
-	var ungrouped []config.TunnelConfig
-
 	for _, tc := range tunnels {
-		if tc.Group != "" {
-			if _, seen := groups[tc.Group]; !seen {
-				groupOrder = append(groupOrder, tc.Group)
-			}
-			groups[tc.Group] = append(groups[tc.Group], tc)
-		} else {
-			ungrouped = append(ungrouped, tc)
+		if tc.Group == "" {
+			nodes = append(nodes, t.tunnelNode(tc, statuses[tc.ID]))
+			continue
 		}
+		if _, seen := groups[tc.Group]; !seen {
+			groupOrder = append(groupOrder, tc.Group)
+		}
+		groups[tc.Group] = append(groups[tc.Group], tc)
 	}
-
-	// Ungrouped tunnels first, at top level
-	for _, tc := range ungrouped {
-		t.addTunnelMenuItem(tc, statuses[tc.ID], nil)
-	}
-
-	// Grouped tunnels under submenus
 	for _, g := range groupOrder {
-		members := groups[g]
-
-		// Count connected in this group
-		var groupConnected int
-		var allConnected, noneConnected bool
-		for _, tc := range members {
-			if s, ok := statuses[tc.ID]; ok && isActive(s.Status) {
-				groupConnected++
-			}
-		}
-		allConnected = groupConnected == len(members)
-		noneConnected = groupConnected == 0
-
-		groupLabel := fmt.Sprintf("%s (%d/%d)", g, groupConnected, len(members))
-		groupItem := systray.AddMenuItem(groupLabel, "")
-
-		// Connect All / Disconnect All as first submenu item
-		if allConnected {
-			disconnectAll := groupItem.AddSubMenuItem("Disconnect All", "")
-			groupName := g
-			ids := make([]string, len(members))
-			for i, tc := range members {
-				ids[i] = tc.ID
-			}
-			disconnectAll.Click(func() {
-				slog.Info("tray: disconnecting group", "group", groupName)
-				for _, id := range ids {
-					if err := t.cb.Disconnect(id); err != nil {
-						slog.Error("tray: disconnect failed", "tunnel", id, "error", err)
-					}
-				}
-			})
-		} else if noneConnected {
-			connectAll := groupItem.AddSubMenuItem("Connect All", "")
-			groupName := g
-			ids := make([]string, len(members))
-			for i, tc := range members {
-				ids[i] = tc.ID
-			}
-			connectAll.Click(func() {
-				slog.Info("tray: connecting group", "group", groupName)
-				for _, id := range ids {
-					if err := t.cb.Connect(id); err != nil {
-						slog.Error("tray: connect failed", "tunnel", id, "error", err)
-					}
-				}
-			})
-		} else {
-			// Mixed state — show both
-			connectRest := groupItem.AddSubMenuItem("Connect All", "")
-			disconnectAll := groupItem.AddSubMenuItem("Disconnect All", "")
-			groupName := g
-			ids := make([]string, len(members))
-			for i, tc := range members {
-				ids[i] = tc.ID
-			}
-			connectRest.Click(func() {
-				slog.Info("tray: connecting group", "group", groupName)
-				for _, id := range ids {
-					if err := t.cb.Connect(id); err != nil {
-						slog.Error("tray: connect failed", "tunnel", id, "error", err)
-					}
-				}
-			})
-			disconnectAll.Click(func() {
-				slog.Info("tray: disconnecting group", "group", groupName)
-				for _, id := range ids {
-					if err := t.cb.Disconnect(id); err != nil {
-						slog.Error("tray: disconnect failed", "tunnel", id, "error", err)
-					}
-				}
-			})
-		}
-
-		for _, tc := range members {
-			t.addTunnelMenuItem(tc, statuses[tc.ID], groupItem)
-		}
+		nodes = append(nodes, t.groupNode(g, groups[g], statuses))
 	}
-
 	if len(tunnels) == 0 {
-		noTunnels := systray.AddMenuItem("No tunnels configured", "")
-		noTunnels.Disable()
+		nodes = append(nodes, Node{Label: "No tunnels configured", Disabled: true})
 	}
+	nodes = append(nodes, Node{Separator: true})
 
-	systray.AddSeparator()
-
-	t.mu.Lock()
-	updateVer := t.updateVersion
-	t.mu.Unlock()
-
-	if updateVer != "" {
-		updateItem := systray.AddMenuItem("⬆ Update to v"+updateVer, "Download and install the latest version")
-		updateItem.Click(func() {
-			slog.Info("tray: user triggered update", "version", updateVer)
-			if t.cb.OnUpdate != nil {
-				t.cb.OnUpdate()
+	if updateVersion != "" {
+		nodes = append(nodes,
+			Node{
+				Label:   "Update to v" + updateVersion,
+				Tooltip: "Download and install the latest version",
+				OnClick: func() {
+					slog.Info("tray: user triggered update", "version", updateVersion)
+					if t.cb.OnUpdate != nil {
+						t.cb.OnUpdate()
+					}
+				},
+			},
+			Node{Separator: true},
+		)
+	}
+	nodes = append(nodes,
+		Node{Label: "Show Window", Tooltip: "Open the manager window", OnClick: func() {
+			if t.cb.ShowWindow != nil {
+				t.cb.ShowWindow()
 			}
-		})
-		systray.AddSeparator()
-	}
-
-	// Show Window
-	showItem := systray.AddMenuItem("Show Window", "Open the manager window")
-	showItem.Click(func() {
-		if t.cb.ShowWindow != nil {
-			t.cb.ShowWindow()
-		}
-	})
-
-	// Quit
-	quitItem := systray.AddMenuItem("Quit", "Quit SSH Tunnel Manager")
-	quitItem.Click(func() {
-		if t.cb.Quit != nil {
-			t.cb.Quit()
-		}
-	})
+		}},
+		Node{Label: "Quit", Tooltip: "Quit SSH Tunnel Manager", OnClick: func() {
+			if t.cb.Quit != nil {
+				t.cb.Quit()
+			}
+		}},
+	)
+	return nodes
 }
 
-// isActive returns true for statuses that count as "active" (connected,
-// connecting, or reconnecting).
+func (t *Tray) groupNode(group string, members []config.TunnelConfig, statuses map[string]ssh.StatusEvent) Node {
+	ids := make([]string, len(members))
+	var connected int
+	for i, tc := range members {
+		ids[i] = tc.ID
+		if s, ok := statuses[tc.ID]; ok && isActive(s.Status) {
+			connected++
+		}
+	}
+	each := func(verb string, action func(string) error) func() {
+		return func() {
+			slog.Info("tray: "+verb+" group", "group", group)
+			for _, id := range ids {
+				if err := action(id); err != nil {
+					slog.Error("tray: "+verb+" failed", "tunnel", id, "error", err)
+				}
+			}
+		}
+	}
+	var children []Node
+	if connected < len(members) {
+		children = append(children, Node{Label: "Connect All", OnClick: each("connecting", t.cb.Connect)})
+	}
+	if connected > 0 {
+		children = append(children, Node{Label: "Disconnect All", OnClick: each("disconnecting", t.cb.Disconnect)})
+	}
+	for _, tc := range members {
+		children = append(children, t.tunnelNode(tc, statuses[tc.ID]))
+	}
+	return Node{Label: fmt.Sprintf("%s (%d/%d)", group, connected, len(members)), Children: children}
+}
+
+// isActive returns true for connected, connecting and reconnecting.
 func isActive(s config.TunnelStatus) bool {
 	switch s {
 	case config.StatusConnected, config.StatusConnecting, config.StatusReconnecting:
@@ -383,125 +320,117 @@ func isActive(s config.TunnelStatus) bool {
 	return false
 }
 
-func (t *Tray) addTunnelMenuItem(tc config.TunnelConfig, se ssh.StatusEvent, parent *systray.MenuItem) {
+func (t *Tray) tunnelNode(tc config.TunnelConfig, se ssh.StatusEvent) Node {
 	status := se.Status
 	if status == "" {
 		status = config.StatusDisconnected
 	}
-
-	// Tooltip shows status on hover
-	var tooltip string
+	var tooltip, prefix string
+	var icon []byte
 	switch status {
 	case config.StatusConnected:
-		tooltip = tc.Name + " — connected"
+		tooltip, prefix, icon = tc.Name+": connected", "● ", t.dots.green
 	case config.StatusConnecting:
-		tooltip = tc.Name + " — connecting..."
+		tooltip, prefix, icon = tc.Name+": connecting", "◐ ", t.dots.blue
 	case config.StatusReconnecting:
-		tooltip = tc.Name + " — reconnecting..."
+		tooltip, prefix, icon = tc.Name+": reconnecting", "◌ ", t.dots.orange
 	case config.StatusError:
 		errMsg := se.Error
 		if errMsg == "" {
 			errMsg = "unknown error"
 		}
-		tooltip = tc.Name + " — error: " + errMsg
+		tooltip, prefix, icon = tc.Name+": "+errMsg, "! ", t.dots.red
 	default:
-		tooltip = tc.Name + " — disconnected"
+		tooltip, prefix, icon = tc.Name+": disconnected", "○ ", t.dots.gray
 	}
 
-	// Unicode status prefix for visibility
-	var prefix string
-	switch status {
-	case config.StatusConnected:
-		prefix = "● "
-	case config.StatusConnecting:
-		prefix = "◐ "
-	case config.StatusReconnecting:
-		prefix = "◌ "
-	case config.StatusError:
-		prefix = "! "
-	default:
-		prefix = "○ "
-	}
-	label := prefix + tc.Name
-
-	var item *systray.MenuItem
-	if parent != nil {
-		item = parent.AddSubMenuItem(label, tooltip)
+	id, name := tc.ID, tc.Name
+	var children []Node
+	if isActive(status) {
+		children = append(children, Node{Label: "Disconnect", OnClick: func() {
+			slog.Info("tray: disconnecting tunnel", "tunnel", name)
+			if err := t.cb.Disconnect(id); err != nil {
+				slog.Error("tray: disconnect failed", "tunnel", name, "error", err)
+			}
+		}})
 	} else {
-		item = systray.AddMenuItem(label, tooltip)
-	}
-
-	// Colored icon for connection state (supplement to text prefix)
-	switch status {
-	case config.StatusConnected:
-		item.SetIcon(t.dotGreen)
-	case config.StatusConnecting:
-		item.SetIcon(t.dotBlue)
-	case config.StatusReconnecting:
-		item.SetIcon(t.dotOrange)
-	case config.StatusError:
-		item.SetIcon(t.dotRed)
-	default:
-		item.SetIcon(t.dotGray)
-	}
-
-	// Connect or Disconnect action as first submenu item
-	tunnelID := tc.ID
-	tunnelName := tc.Name
-	switch status {
-	case config.StatusConnected, config.StatusConnecting, config.StatusReconnecting:
-		disconnectItem := item.AddSubMenuItem("Disconnect", "")
-		disconnectItem.Click(func() {
-			slog.Info("tray: disconnecting tunnel", "tunnel", tunnelName)
-			if err := t.cb.Disconnect(tunnelID); err != nil {
-				slog.Error("tray: disconnect failed", "tunnel", tunnelName, "error", err)
+		children = append(children, Node{Label: "Connect", OnClick: func() {
+			slog.Info("tray: connecting tunnel", "tunnel", name)
+			if err := t.cb.Connect(id); err != nil {
+				slog.Error("tray: connect failed", "tunnel", name, "error", err)
 			}
-		})
-	default:
-		connectItem := item.AddSubMenuItem("Connect", "")
-		connectItem.Click(func() {
-			slog.Info("tray: connecting tunnel", "tunnel", tunnelName)
-			if err := t.cb.Connect(tunnelID); err != nil {
-				slog.Error("tray: connect failed", "tunnel", tunnelName, "error", err)
-			}
-		})
+		}})
 	}
-
-	// Port forward submenu items — copy to clipboard on click
+	if attach := t.attachNode(id); attach != nil {
+		children = append(children, *attach)
+	}
 	for _, pf := range tc.PortForwards {
-		var portLabel, clipText string
-		if pf.Portless && pf.Domain != "" {
-			port := pf.RemotePort
-			if pf.ExposePort > 0 {
-				port = pf.ExposePort
-			}
-			host := fmt.Sprintf("%s.%s", pf.Domain, dns.TLD)
-			switch port {
-			case 80:
-				clipText = "http://" + host
-			case 443:
-				clipText = "https://" + host
-			default:
-				clipText = fmt.Sprintf("%s:%d", host, port)
-			}
-			portLabel = clipText
-			if pf.Description != "" {
-				portLabel = fmt.Sprintf("%s (%s)", clipText, pf.Description)
-			}
-		} else {
-			portLabel = fmt.Sprintf("%d", pf.LocalPort)
-			if pf.Description != "" {
-				portLabel = fmt.Sprintf("%d (%s)", pf.LocalPort, pf.Description)
-			}
-			clipText = fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
-		}
-		sub := item.AddSubMenuItem(portLabel, "Copy "+clipText)
-		sub.Click(func() {
-			if t.cb.CopyToClip != nil {
-				if err := t.cb.CopyToClip(clipText); err != nil {
-					slog.Error("tray: clipboard copy failed", "error", err)
-				}
-			}
-		})
+		children = append(children, t.forwardNode(pf))
 	}
+	return Node{Label: prefix + tc.Name, Tooltip: tooltip, Icon: icon, Children: children}
+}
+
+// attachNode returns one Attach entry when there is a single option, and a
+// submenu only when there are several.
+func (t *Tray) attachNode(id string) *Node {
+	if t.cb.AttachOptions == nil || t.cb.Attach == nil {
+		return nil
+	}
+	options := t.cb.AttachOptions(id)
+	click := func(option AttachOption) func() {
+		return func() {
+			if err := t.cb.Attach(id, option); err != nil {
+				slog.Error("tray: attach failed", "tunnel", id, "error", err)
+			}
+		}
+	}
+	switch len(options) {
+	case 0:
+		return nil
+	case 1:
+		return &Node{Label: "Attach", Tooltip: options[0].Label, OnClick: click(options[0])}
+	}
+	node := &Node{Label: "Attach"}
+	for _, option := range options {
+		node.Children = append(node.Children, Node{Label: option.Label, OnClick: click(option)})
+	}
+	return node
+}
+
+func (t *Tray) forwardNode(pf config.PortForward) Node {
+	clip := ForwardAddress(pf)
+	label := clip
+	if !pf.Portless || pf.Domain == "" {
+		label = fmt.Sprintf("%d", pf.LocalPort)
+	}
+	if pf.Description != "" {
+		label = fmt.Sprintf("%s (%s)", label, pf.Description)
+	}
+	return Node{Label: label, Tooltip: "Copy " + clip, OnClick: func() {
+		if t.cb.CopyToClip == nil {
+			return
+		}
+		if err := t.cb.CopyToClip(clip); err != nil {
+			slog.Error("tray: clipboard copy failed", "error", err)
+		}
+	}}
+}
+
+// ForwardAddress returns the address a forward is reached at locally.
+func ForwardAddress(pf config.PortForward) string {
+	if !pf.Portless || pf.Domain == "" {
+		return fmt.Sprintf("127.0.0.1:%d", pf.LocalPort)
+	}
+	port := pf.RemotePort
+	if pf.ExposePort > 0 {
+		port = pf.ExposePort
+	}
+	host := fmt.Sprintf("%s.%s", pf.Domain, dns.TLD)
+	switch port {
+	case 80:
+		return "http://" + host
+	case 443:
+		return "https://" + host
+	}
+	return fmt.Sprintf("%s:%d", host, port)
 }
