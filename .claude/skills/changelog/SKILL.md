@@ -53,7 +53,7 @@ The dev server is `https://ssh-tunnel-manager.justcode.ovh` (user `preview`, Art
 
 ```
 git push -u origin <branch>
-ssh mikrus-g146 docker service update --env-add REF=$(git rev-parse HEAD) --force --detach=false ssh_tunnel_manager_justcode_ovh_app
+~/agent-shared/tools/preview/stm-redeploy.sh "$(git rev-parse HEAD)"
 ```
 
 Give Artur the link to the entry: `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/`.

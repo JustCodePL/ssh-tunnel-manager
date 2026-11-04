@@ -51,6 +51,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
    git push origin <version>
    ```
 9. **Watch CI and verify** as described below.
+10. **Update the dev preview** as described under After publishing.
 
 ## Publish production
 
@@ -105,5 +106,13 @@ gh release list --limit 3
 To fix a body afterwards: `gh release edit <version> --notes-file <file>`. That file holds only the body, without the title line.
 
 ## After publishing
+
+Every release, beta or production, also goes to the dev preview, so it shows the same site. It runs from `MacBook-Pro-Artur-Agent`, and without an argument takes the tip of `main`:
+
+```
+~/agent-shared/tools/preview/stm-redeploy.sh "$(git rev-parse '<version>^{commit}')"
+```
+
+Check `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/`.
 
 Update tracking as `AGENTS.md` describes, keeping implemented, beta and production as separate states. Describe something as released only after the release and its assets exist.
