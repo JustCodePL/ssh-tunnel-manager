@@ -26,11 +26,14 @@
 
   function start(window) {
     const anchors = [...window.document.querySelectorAll(".changelog-history a")];
-    const page = pageForHash(anchors.map((anchor) => anchor.href), window.location.hash);
-    if (page) {
-      window.location.replace(page);
-      return;
-    }
+    const follow = () => {
+      const page = pageForHash(anchors.map((anchor) => anchor.href), window.location.hash);
+      if (page) window.location.replace(page);
+      return Boolean(page);
+    };
+    // The browser does not reload for a new hash on a page that is already open.
+    window.addEventListener("hashchange", follow);
+    if (follow()) return;
     // Keep the open release in view in a long history, without moving the page.
     const history = window.document.querySelector(".changelog-history");
     const current = history?.querySelector("[aria-current]");
