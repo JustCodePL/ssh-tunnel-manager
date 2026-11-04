@@ -154,7 +154,7 @@ function createReleaseRow(release) {
   if (window.CHANGELOG_VERSIONS.includes(release.tag_name)) {
     const changelogLink = document.createElement("a");
     changelogLink.className = "release-changelog";
-    changelogLink.href = `changelog/#${release.tag_name}`;
+    changelogLink.href = `changelog/${release.tag_name}/`;
     changelogLink.textContent = COPY.whatsNew;
     window.AnalyticsEvents.applyAttributes(changelogLink, {
       "data-umami-event": "changelog-click",

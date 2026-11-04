@@ -82,7 +82,7 @@ Short title of what changed
 
 - Anything untested or missing. Betas only.
 
-**What's new**: https://justcodepl.github.io/ssh-tunnel-manager/changelog/#<version>
+**What's new**: https://justcodepl.github.io/ssh-tunnel-manager/changelog/<version>/
 
 **Full Changelog**: https://github.com/JustCodePL/ssh-tunnel-manager/compare/<previous-tag>...<version>
 ```

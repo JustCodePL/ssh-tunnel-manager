@@ -1,0 +1,35 @@
+<article class="changelog-entry" id="v1.0.25">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.25/">v1.0.25</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 May 2026</time></p>
+            <h3>Host header overrides for Portless forwards</h3>
+            <p>Portless forwards can rewrite the upstream Host header, and disconnecting no longer hangs on portless tunnels.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Host header override</h4>
+              <p>Services behind a host-routing reverse proxy (Portainer, Traefik, nginx) now work when reached through <code>*.ssh-local</code>. In this release the toggle is on by default. When the field is empty and <code>RemoteHost</code> looks like an FQDN, that name is used automatically. The setting is stored in <code>~/.ssh/config</code>.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Disconnecting and the settings window</h4>
+              <p>Shutting down a portless tunnel now has a time limit, so the save spinner in the tunnel form can't lock up. Dragging a text selection out of an input no longer closes the forward settings window.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Click the ⚙ on a port forward and fill in <code>Host header override</code>.</li>
+                <li>Turn off the toggle to opt out.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>The override works for HTTP only.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.25" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

@@ -1,0 +1,35 @@
+<article class="changelog-entry" id="v1.0.25">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.25/">v1.0.25</a> <span class="release-badge">STABLE</span> <time datetime="2026-05-28">28 maja 2026</time></p>
+            <h3>Nadpisywanie nagłówka Host na przekierowaniach Portless</h3>
+            <p>Przekierowania portless mogą nadpisywać nagłówek Host wysyłany do usługi, a rozłączanie tuneli portless już się nie zawiesza.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Nadpisywanie nagłówka Host</h4>
+              <p>Usługi za reverse proxy kierującym ruch po nazwie hosta (Portainer, Traefik, nginx) działają teraz także przez <code>*.ssh-local</code>. W tym wydaniu przełącznik jest domyślnie włączony. Gdy pole jest puste, a <code>RemoteHost</code> wygląda jak FQDN, ta nazwa jest używana automatycznie. Ustawienie jest zapisywane w <code>~/.ssh/config</code>.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Rozłączanie i okno ustawień</h4>
+              <p>Zamykanie tunelu portless ma teraz limit czasu, więc wskaźnik zapisu w formularzu tunelu nie może się zablokować. Przeciągnięcie zaznaczenia tekstu poza pole nie zamyka już okna ustawień przekierowania.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Kliknij ⚙ przy przekierowaniu i uzupełnij pole <code>Host header override</code>.</li>
+                <li>Żeby zrezygnować, wyłącz przełącznik.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Nadpisywanie działa tylko dla HTTP.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.25" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>

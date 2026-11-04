@@ -1,0 +1,93 @@
+<article class="changelog-entry" id="v1.2.0-beta.3">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.3/">v1.2.0-beta.3</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 November 2026</time></p>
+            <h3>Separate tool windows and a new tunnel list</h3>
+            <p>Tools now open in their own windows, and the main window became a short list. The app also moved to Wails 3.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>A list with room to breathe</h4>
+              <p>A tunnel is one row: status, name, Attach and a switch. Its address, tools and forwards appear when you expand it, a failed tunnel shows a red <code>!</code> and the reason in the row, and a tunnel's colour tints its row.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/attach-menu.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/attach-menu.png" alt="Expanded tunnel with its tools, forwards and the Attach menu" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Attach</h4>
+              <p>Attach opens a session. It goes straight to the terminal, and shows a menu only when the tunnel also has a remote desktop. A forward of type RDP or SSH has the same button, also with Portless, so every server behind a bastion opens in its own window.</p>
+            </div>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Separate windows</h4>
+              <p>Terminal, files, Docker, htop, disk, logs and remote desktop each open in a native window that can leave the main window. Several terminals on one target are tabs. Grouping, what windows do after a disconnect and closing the main window are all settings.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/windows-settings.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/windows-settings.png" alt="Window settings" width="900" height="620" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Saved logins and a shared clipboard</h4>
+              <p>Name a login once and assign it to any number of tunnels and forwards, for SSH and remote desktops. A tunnel can now log in with a saved password, sent only to a server with the host key seen on the first connection. The remote desktop login form offers every saved login and can save a new one. Secrets stay in the system keychain. The remote desktop shares the clipboard, with a direction per tunnel.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/credentials.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/credentials.png" alt="Saved logins" width="900" height="620" loading="lazy" /></a>
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/tunnel-attach.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/tunnel-attach.png" alt="A login per forward and the clipboard direction" width="900" height="860" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Settings per tunnel</h4>
+              <p>Each tunnel has a settings window for its connection, forwards, credentials, row, monitoring intervals and disconnect behaviour, with one Save for all of them. A tunnel can set a Portless suffix, so <code>dev</code> gives <code>name.dev.ssh-local</code>. Settings, Maintenance shows the app log. Docker and Disk show cards, with details one click away. Docker refreshes by hand by default and its environment variables stay closed until you open them.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/docker.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/docker.png" alt="Docker window with container cards and details" width="960" height="560" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Terminal and Graphite themes</h4>
+              <p>The green Terminal look stays the default. Graphite is a quieter option under Settings, Appearance. The font now ships with the app instead of loading from Google Fonts.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/graphite.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/graphite.png" alt="The list in the Graphite theme" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Keyboard</h4>
+              <p><code>⌘K</code> or <code>Ctrl+K</code> finds tunnels and runs actions. In the list, arrows or <code>j</code> and <code>k</code> move, Enter expands, Space connects, and letters open tools.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.3/palette.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.3/palette.png" alt="Command palette" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Click a tunnel to expand it, and use its switch to connect.</li>
+                <li>Add a tunnel or a group with the <code>+</code> button, or with New tunnel at the end of a group.</li>
+                <li>Open Settings with the gear button at the top, and a tunnel’s settings with the gear in its row.</li>
+                <li>Press <code>⌘K</code> or <code>Ctrl+K</code> to find anything.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>Saved RDP logins are not carried over: a remote desktop asks once, and the old entries stay unused in the keychain.</li>
+                <li>The clipboard was tested on macOS against GNOME Remote Desktop on Ubuntu: text, pictures and files cross both ways. xrdp 0.9.12 does not exchange pictures, because the client prefers a format (DIBV5) that this server does not implement. Windows as the server has not been tested.</li>
+                <li>A saved SSH password was tested against OpenSSH. Tunnels that use only a key or agent still do not check the host key.</li>
+                <li>Windows and Linux had an automatic start-up check only. Remote desktop on WebView2 and WebKitGTK and with Windows as the server is still untested.</li>
+                <li>Linux needs GTK 4 and WebKitGTK 6.0, so a recent distribution.</li>
+                <li>VNC logins can be saved, but there is no VNC client yet.</li>
+                <li>A Portless suffix was tested in the settings and the config file. Resolving such a name on a real system was not.</li>
+                <li>After 3 failed attempts nothing retries on its own, as in the previous beta.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.3" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+        </article>

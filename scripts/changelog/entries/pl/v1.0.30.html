@@ -1,0 +1,32 @@
+<article class="changelog-entry" id="v1.0.30">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.30/">v1.0.30</a> <span class="release-badge">STABLE</span> <time datetime="2026-06-19">19 czerwca 2026</time></p>
+            <h3>Więcej informacji w widokach Dockera i htop</h3>
+            <p>Widok Dockera ma grupy, szczegóły kontenerów i sortowanie, a widok htop sortuje procesy.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Docker</h4>
+              <p>Kontenery są podzielone na grupy active i stopped, przy czym stopped jest domyślnie zwinięta. Po kliknięciu kontenera widać bieżące użycie CPU i RAM, opublikowane porty, montowania, sieci i zmienne środowiskowe. Pasek sortowania układa listę po nazwie, CPU lub RAM. Automatycznego odświeżania już nie ma: lista odświeża się po otwarciu okna, kliknięciu ⟳ albo zmianie sortowania. Zwykła lista uruchamia tylko <code>docker ps</code>, więc na małych VPS-ach ładuje się dużo szybciej.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/docker-overview.png"><img src="@ROOT@/assets/screenshots/docker-overview.png" alt="Widok Dockera z grupami kontenerów active i stopped oraz paskiem sortowania po nazwie, CPU i RAM" width="960" height="560" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>htop</h4>
+              <p>Pasek sortowania układa procesy po CPU, pamięci, nazwie lub PID.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/htop.png"><img src="@ROOT@/assets/screenshots/htop.png" alt="Monitor procesów z paskiem sortowania po CPU, pamięci, nazwie i PID nad listą procesów" width="860" height="520" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Niezawodność</h4>
+              <p>Docker i htop są wykrywane przy każdym połączeniu, więc narzędzie zainstalowane od ostatniego połączenia pojawia się bez restartu aplikacji. Polecenia zdalne nie są już przerywane po sztywno ustawionych 8 sekundach. Polecenia Dockera mają 45 sekund, a błąd przekroczenia czasu podaje, ile naprawdę trwało oczekiwanie.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.30" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Pliki wydania na GitHubie <span aria-hidden="true">↗</span></a></p>
+        </article>

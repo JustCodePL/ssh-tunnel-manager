@@ -1,0 +1,29 @@
+<article class="changelog-entry" id="v1.1.0">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.1.0/">v1.1.0</a> <span class="release-badge">STABLE</span> <time datetime="2026-10-29">29 October 2026</time></p>
+            <h3>Persistent Portless on macOS and a notarized app inside the DMG</h3>
+            <p>On macOS 13+ Portless keeps working after a reboot, once you approve a signed system service.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Portless system service on macOS</h4>
+              <p>The service restores DNS, loopback aliases and forwarding on privileged ports at boot, for every macOS account. If its registration goes stale, the app shows a recovery hint. Local ports remain as a fallback.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Logs, updates and the DMG</h4>
+              <p>Application logs go to a private file with bounded rotation, also for background launches. The app relaunches reliably after an update when it was started at login. The macOS app inside each DMG carries its own stapled notarization ticket. In the port forwarding form, the add action sits below the list.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>On macOS 13+, approve the signed Portless system service once.</li>
+                <li>Inspect, refresh or remove the service in Settings.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.1.0" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

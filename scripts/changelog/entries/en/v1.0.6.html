@@ -1,0 +1,23 @@
+<article class="changelog-entry" id="v1.0.6">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.0.6/">v1.0.6</a> <span class="release-badge">STABLE</span> <time datetime="2026-03-03">3 March 2026</time></p>
+            <h3>Tunnel logs and safer authentication failures</h3>
+            <p>Each tunnel gets its own log viewer, and failed authentication no longer starts a reconnect loop.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Tunnel logs</h4>
+              <p>A new log viewer shows the log of a single tunnel.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/screenshots/logs.png"><img src="@ROOT@/assets/screenshots/logs.png" alt="Tunnel log window with INFO and WARN entries for one tunnel" width="800" height="360" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Authentication failures</h4>
+              <p>Auto-reconnect stops on SSH authentication failures, so the app doesn't hammer the server with bad credentials. The Windows tray icon size is also fixed.</p>
+            </div>
+          </section>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.0.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noreferrer">Release files on GitHub <span aria-hidden="true">↗</span></a></p>
+        </article>

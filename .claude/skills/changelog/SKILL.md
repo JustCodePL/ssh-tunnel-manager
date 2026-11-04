@@ -35,7 +35,7 @@ Copy the chosen frames back to `docs/assets/changelog/<version>/` with descripti
 
 ## 3. Write the entry
 
-Add one `<article class="changelog-entry" id="<version>">` at the top of the list in **both** `docs/changelog/index.html` and `docs/pl/changelog/index.html`. Copy the structure of the entry below it. Each has:
+Add one file per language: `scripts/changelog/entries/en/<version>.html` and `scripts/changelog/entries/pl/<version>.html`, each holding one `<article class="changelog-entry" id="<version>">`. Copy the structure of the previous release, and use `@ROOT@/assets/...` for images. Each has:
 
 - The tag, a badge (`BETA`, or `STABLE` with the class `release-badge`), the date and a plain title.
 - One `feature-detail` section per change: what is different, with its screenshot. Use the `no-shot` class only when there is nothing to show.
@@ -43,9 +43,7 @@ Add one `<article class="changelog-entry" id="<version>">` at the top of the lis
 - **Known limits:** what doesn't work or wasn't tested. Same honesty as the release notes.
 - A link to the GitHub release.
 
-The page shows one entry at a time. `docs/changelog.js` builds the sidebar and the Next and Previous links from the articles, so an entry needs nothing else, as long as it stays inside `changelog-content`, above the pager.
-
-Set `width` and `height` to the file's real size (`sips -g pixelWidth -g pixelHeight <file>`) and write `alt` text. Add the version at the start of the list in `docs/changelog-versions.js`.
+Set `width` and `height` to the file's real size (`sips -g pixelWidth -g pixelHeight <file>`) and write `alt` text. Add the version at the start of the list in `docs/changelog-versions.js`, then run `node scripts/build-changelog.cjs`. It writes the release's page in both languages (`docs/changelog/<version>/`, `docs/pl/changelog/<version>/`), the sidebar and Next and Previous links on every page, the news page, which shows the newest release, and the sitemap. Commit the output: the site deploys `docs/` as it is, and a test fails if the pages are out of date.
 
 Describe only what the code does and what you saw it do. Test with `node --test docs/*.test.cjs`.
 
@@ -58,7 +56,7 @@ git push -u origin <branch>
 ssh mikrus-g146 docker service update --env-add REF=$(git rev-parse HEAD) --force --detach=false ssh_tunnel_manager_justcode_ovh_app
 ```
 
-Give Artur the link to the entry: `https://ssh-tunnel-manager.justcode.ovh/changelog/#<version>`.
+Give Artur the link to the entry: `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/`.
 
 ## 5. Connect it to the release
 
