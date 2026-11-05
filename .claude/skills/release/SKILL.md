@@ -5,7 +5,7 @@ description: Publish a beta or production release of SSH Tunnel Manager. Use whe
 
 # Release SSH Tunnel Manager
 
-Pushing a version tag is the whole release. CI tests, builds, signs and publishes from the tag. There is no `develop` branch: work is merged to `main` through PRs, and merging publishes nothing.
+Pushing a version tag is the whole release. CI tests, builds, signs and publishes from the tag. Merging publishes no release. `AGENTS.md` describes the branches: `beta` holds what is in beta and `main` what is in production.
 
 Never publish a tag or release without Artur's explicit approval of the version and notes. Never force-push or delete a published tag without asking.
 
@@ -14,7 +14,7 @@ Never publish a tag or release without Artur's explicit approval of the version 
 | | Beta | Production |
 |---|---|---|
 | Tag | `vX.Y.Z-beta.N` | `vX.Y.Z` |
-| Commit | Current `main` | Normally the same commit as the last beta |
+| Commit | Current `beta` | Merge of the last beta into `main` |
 | GitHub release | Pre-release, not Latest | Latest |
 | Who receives it | Beta channel only | Stable and beta channels |
 
@@ -33,7 +33,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
 
 ## Publish a beta
 
-1. **Check the state.** On `main`, clean, and up to date with `git pull --ff-only`.
+1. **Check the state.** On `beta`, clean, and up to date with `git pull --ff-only`. Run `git log HEAD..origin/main` and align `beta` first if it lists anything.
 2. **Test.** CI repeats all of this for the tag and refuses to build or publish if anything fails, including the end-to-end tests and a smoke run of the built app on every platform.
    ```
    (cd frontend && npm run check && npm test && npm run build)
@@ -44,7 +44,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
 4. **Write the notes** to `/tmp/release-notes/<version>.md`, in the format below.
 5. **Write the changelog entry** with the `changelog` skill, unless the release has no user-visible change.
 6. **Get approval.** Show the version, notes and the changelog preview to Artur, and wait.
-7. **Merge the entry to `main`** and pull. Pages deploy on the merge, so the link in the notes works once the release is out.
+7. **Merge the entry to `beta`** and pull. Pages deploy on the merge, so the link in the notes works once the release is out.
 8. **Tag and push.** The tag must be annotated, because CI reads the release title and body from its message.
    ```
    git tag -a <version> -F /tmp/release-notes/<version>.md
@@ -55,18 +55,25 @@ Nothing else needs bumping. The app takes its version from the tag at build time
 
 ## Publish production
 
-Production promotes a beta that was tested. `v1.1.0` and `v1.1.0-beta.5` are the same commit.
+Production promotes a beta that was tested: the tagged commit on `main` has the same files as the last beta, apart from the site entry for the release.
 
 1. **Confirm the beta is good.** Ask Artur whether it was tested. Any new fix goes out as another beta first.
-2. **Check the site and docs.** The PR template requires the Features page (`docs/features/`, `docs/pl/features/`), README and comparison page to match. Pages deploy on push to `main`, so a page describing an unreleased feature goes live before its release.
+2. **Check the site and docs.** The PR template requires the Features page (`docs/features/`, `docs/pl/features/`), README and comparison page to match. The site root deploys from `main`, so these go live when the promotion merges, just before the tag. Merge straight before tagging.
 3. **Write the notes** for everything since the previous production release, not since the last beta. Add a changelog entry for the version that summarizes its betas, with the `changelog` skill. End with `Tested as vX.Y.Z-beta.1 to vX.Y.Z-beta.N.` and the Full Changelog line.
 4. **Get approval.** Show the version and notes to Artur, and wait.
-5. **Tag the beta's commit**, not the tip of `main`, which may contain untested changes.
+5. **Promote the beta.** Merge the changelog entry to `beta`, then open a PR from `beta` to `main` and list `Fixes #N` for each issue it ships. If `beta` holds other commits after the last beta tag, create `release/<version>` at that tag instead, add the entry there and open the PR from it. Merge with a merge commit, not a squash or rebase. Check that only the entry differs: `git diff --stat <last-beta-tag> origin/main`.
+6. **Tag the merge commit on `main`.**
    ```
-   git tag -a <version> -F /tmp/release-notes/<version>.md <last-beta-tag>^{commit}
+   git switch main && git pull --ff-only
+   git tag -a <version> -F /tmp/release-notes/<version>.md
    git push origin <version>
    ```
-6. **Watch CI and verify** as described below.
+7. **Watch CI and verify** as described below.
+8. **Align `beta` with `main`** as `AGENTS.md` describes: `git switch beta && git pull --ff-only && git merge origin/main && git push origin beta`.
+
+## Publish a production hotfix
+
+For a fix that cannot wait for a beta, only with Artur's approval. Branch from `main`, open a PR to `main`, then follow steps 3, 4, 6, 7 and 8 above with the next patch version.
 
 ## Notes format
 
@@ -88,6 +95,8 @@ Short title of what changed
 **Full Changelog**: https://github.com/JustCodePL/ssh-tunnel-manager/compare/<previous-tag>...<version>
 ```
 
+A beta's page is on the beta site, so its `What's new` link is `https://justcodepl.github.io/ssh-tunnel-manager/beta/changelog/<version>/`.
+
 Compare a beta with the previous release: `v1.1.0...v1.2.0-beta.1`. A later beta states what is new and adds that it contains the earlier betas.
 
 ## Watch CI and verify
@@ -107,7 +116,7 @@ To fix a body afterwards: `gh release edit <version> --notes-file <file>`. That 
 
 ## After publishing
 
-Every release, beta or production, also goes to the dev preview, so it shows the same site. It runs from `MacBook-Pro-Artur-Agent`, and without an argument takes the tip of `main`:
+Every release, beta or production, also goes to the dev preview, so it shows the same site. It runs from `MacBook-Pro-Artur-Agent`, and without an argument takes the tip of `main`, so pass the release's commit:
 
 ```
 ~/agent-shared/tools/preview/stm-redeploy.sh "$(git rev-parse '<version>^{commit}')"

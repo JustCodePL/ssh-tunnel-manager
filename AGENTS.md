@@ -25,11 +25,29 @@ Rules:
 - Set the task's release field to the SemVer version it ships in. Derive the next version from the latest release or Git tag: a patch increment for a backward-compatible bug fix, a minor increment for a backward-compatible feature.
 - Never publish a tag, GitHub Release, or other externally visible release without Artur's explicit approval.
 
+## Branches and where changes go
+
+There are two long-lived branches. `main` holds what is in production, and every stable release `vX.Y.Z` is tagged on it. `beta` holds what is in beta, and every prerelease `vX.Y.Z-beta.N` is tagged on it.
+
+Every change reaches these branches through a pull request; never commit to them directly. The one exception is the alignment push described below. Choose the base branch like this:
+
+| Change | Base branch |
+|---|---|
+| Features, bug fixes and anything else that changes the app | `beta` |
+| Production hotfix that cannot wait for the next beta: branch from `main`, then release it as a stable patch | `main` |
+| Change that applies to production now and does not touch the app: site corrections, CI, these rules | `main` |
+| Promotion of a tested beta to production, at a stable release | `main` |
+
+- **Promotion:** open the pull request from `beta` when it holds nothing after the last beta tag except the release's changelog entry. If it holds more, either publish another beta or open the pull request from a `release/vX.Y.Z` branch created at that tag, so nothing untested ships. Merge it with a merge commit, never a squash or rebase, then tag the merge commit on `main`.
+- **Alignment:** after every stable release, and after any other merge to `main`, bring `beta` up to date with `main`: `git switch beta && git pull --ff-only && git merge origin/main && git push origin beta`. This fast-forwards when `beta` has no commits of its own and creates a merge commit otherwise. If it conflicts, resolve the conflict in a pull request to `beta`. Never rebase or force-push either branch. `git log origin/beta..origin/main` is empty once they are aligned.
+- **Publishing:** merging publishes no release; only a version tag does, and tags need Artur's approval. See the `release` skill.
+- **Transition:** `main` still contains the `v1.2.0` betas, 39 commits past the production release `v1.1.0`, from before this model. That history stays as it is, and `main` matches production again once `v1.2.0` is released. Until then, ask Artur before releasing a hotfix for `v1.1.0`.
+
 ## Public GitHub issue tracking
 
 - Track every public issue for this repository in the JustCodePL organization project at `https://github.com/orgs/JustCodePL/projects/1`.
-- Deliver every issue-backed change and every bug fix through a pull request; do not commit those changes directly to the default branch.
-- Link the pull request to its GitHub issue by using a closing keyword such as `Fixes #<number>` in the pull request description, unless the issue must intentionally remain open after merge; in that case, use an explicit non-closing issue link.
+- Keep the issue's status in the project current: Backlog, In progress, In review, Done.
+- Link every pull request to its GitHub issue. GitHub applies closing keywords only to pull requests into `main`, so a pull request to `beta` uses a non-closing link such as `Refs #<number>`, and the promotion pull request lists `Fixes #<number>` for each issue it ships. A pull request to `main` uses `Fixes #<number>` directly, unless the issue must intentionally remain open after merge.
 - Attach the pull request URL to the corresponding Notion task as soon as the pull request is created. Keep the GitHub issue, pull request, and Notion task mutually traceable.
 - Keep the public issue updated automatically with concise English comments whenever its distribution state materially changes, including when the implementation is completed, when it is published in a beta or other prerelease, and when it reaches a stable release.
 - State the exact verified availability in each comment. Include the commit SHA only after it is pushed and the GitHub commit link resolves; include the release version and public release link only after the corresponding release and artifacts have been published and verified.
@@ -37,11 +55,11 @@ Rules:
 
 ## Distribution labels
 
-- Keep the `Labels` of a Notion task aligned with the highest distribution channel that actually contains the change: `develop` when it is merged but unpublished, `beta` once a prerelease is published and verified, neither once it is in a stable release. Preserve unrelated labels.
+- Keep the `Labels` of a Notion task aligned with the highest distribution channel that actually contains the change: `develop` when it is merged to `beta` or `main` but unpublished, `beta` once a prerelease containing it is published and verified, neither once it is in a stable release. Preserve unrelated labels.
 
 ## Project site and feature documentation
 
-- The project site lives in `docs/` and is deployed to GitHub Pages on every merge to `main`. Each user-visible feature has a section on the Features page: `docs/features/index.html` (English) and `docs/pl/features/index.html` (Polish), with a stable anchor such as `#local-forwarding`.
+- The project site lives in `docs/` and is deployed to GitHub Pages on every merge to `main` or `beta`. `docs/` from `main` is served at the site root and describes production; `docs/` from `beta` is served under `/beta/`, marked `noindex`, and describes the beta. Each user-visible feature has a section on the Features page: `docs/features/index.html` (English) and `docs/pl/features/index.html` (Polish), with a stable anchor such as `#local-forwarding`.
 - Every change to a user-visible feature (new feature, changed UI or behaviour, removal) updates the matching Features section in both languages in the same pull request. Add a section for a new feature, rewrite it for a changed one, and remove it for a removed one. Describe only what the code does; do not announce planned features.
 - When the UI changes, list the screenshots that must be refreshed (file names under `docs/assets/screenshots/`) in the pull request description. Marketing regenerates the screenshot set with its demo script for each release and delivers files named `v<version>-...`; replace the files on the site and keep `alt`, `width` and `height` accurate.
 - When a change affects claims elsewhere on the site, update them in the same pull request too: the home page, `docs/compare/` (EN/PL), the README (Features and Limitations) and `docs/sitemap.xml` for new pages.
@@ -102,12 +120,3 @@ Go backend + Wails 3 + Svelte frontend. Single binary, no Electron.
 
 - See `.claude/skills/` for SSH and systray patterns (the Wails skill describes v2, check the v3 docs)
 - See `.claude/rules/` for Go and frontend conventions
-## Workflow — GitHub Projects
-
-Projekt: https://github.com/orgs/JustCodePL/projects/1
-
-Zasady przy pracy nad zadaniami:
-- **Pewny fix** → push na `main` bezpośrednio, status → Done
-- **Niepewny / wymaga testów** → branch + PR, status → In review
-- Aktualizuj status w projekcie na bieżąco: Backlog → In progress → Done/In review
-- Commituj z `Closes #N` żeby GitHub auto-zamknął issue
