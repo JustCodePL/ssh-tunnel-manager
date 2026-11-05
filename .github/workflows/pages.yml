@@ -2,7 +2,7 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta]
     paths:
       - "docs/**"
       - ".github/workflows/pages.yml"
@@ -24,8 +24,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      # One Pages deployment replaces the previous one, so every run publishes
+      # both branches, whichever of them triggered it.
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+
+      - name: Checkout beta
+        uses: actions/checkout@v4
+        with:
+          ref: beta
+          path: beta
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -36,12 +47,23 @@ jobs:
           node-version: "24"
 
       - name: Test release presentation
-        run: node --test docs/*.test.cjs
+        run: |
+          (cd main && node --test docs/*.test.cjs)
+          (cd beta && node --test docs/*.test.cjs)
+
+      - name: Assemble site
+        run: |
+          test ! -e main/docs/beta
+          cp -R main/docs _site
+          cp -R beta/docs _site/beta
+          # Search engines should index production pages only.
+          find _site/beta -name '*.html' -exec \
+            sed -i 's|<head>|<head><meta name="robots" content="noindex" />|' {} +
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
