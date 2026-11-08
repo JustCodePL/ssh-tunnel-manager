@@ -6,6 +6,7 @@
   import TunnelForm from "./components/TunnelForm.svelte";
   import ImportDialog from "./components/ImportDialog.svelte";
   import PassphraseDialog from "./components/PassphraseDialog.svelte";
+  import HostKeyDialog from "./components/HostKeyDialog.svelte";
   import CommandPalette from "./components/CommandPalette.svelte";
   import ToastContainer from "./components/ToastContainer.svelte";
   import ConfirmHost from "./components/ConfirmHost.svelte";
@@ -25,7 +26,8 @@
   } from "./stores/tunnels";
   import { initSettings } from "./stores/settings";
   import { loadSavedCapabilities } from "./stores/capabilities";
-  import { CopyToClipboard, ReportWindowReady } from "../bindings/ssh-tunnel-manager/app";
+  import { CopyToClipboard, GetPendingHostKey, ReportWindowReady } from "../bindings/ssh-tunnel-manager/app";
+  import type { HostKeyPrompt } from "../bindings/ssh-tunnel-manager/models";
   import { EventsOn } from "./lib/runtime";
   import { openTool } from "./lib/openTool";
   import { showToast } from "./stores/toast";
@@ -37,6 +39,7 @@
   let showMenu = false;
   let showPalette = false;
   let passphraseKeyPath: string | null = null;
+  let hostKeyPrompt: HostKeyPrompt | null = null;
   let updateAvailable = false;
   let query = "";
   let filter = "all";
@@ -50,6 +53,15 @@
 
     EventsOn("passphrase:request", (keyPath: string) => {
       passphraseKeyPath = keyPath;
+    });
+    EventsOn("hostkey:request", (prompt: HostKeyPrompt) => {
+      hostKeyPrompt = prompt;
+    });
+    EventsOn("hostkey:resolved", (id: number) => {
+      if (hostKeyPrompt?.id === id) hostKeyPrompt = null;
+    });
+    void GetPendingHostKey().then((prompt) => {
+      if (prompt) hostKeyPrompt = prompt;
     });
     EventsOn("updater:update-available", () => {
       updateAvailable = true;
@@ -190,6 +202,10 @@
 
   {#if passphraseKeyPath}
     <PassphraseDialog keyPath={passphraseKeyPath} on:close={() => (passphraseKeyPath = null)} />
+  {/if}
+
+  {#if hostKeyPrompt}
+    <HostKeyDialog prompt={hostKeyPrompt} on:close={() => (hostKeyPrompt = null)} />
   {/if}
 </div>
 

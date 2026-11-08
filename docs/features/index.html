@@ -196,7 +196,7 @@ Host staging
           <div class="feature-detail-copy">
             <span class="feature-number">09</span>
             <h3 id="credentials-title">Saved logins</h3>
-            <p>Name a login once and use it for SSH and remote desktops on many tunnels and forwards. User, domain and password stay in the system keychain; only the login's name and where it is used are in the app's settings file. The remote desktop login form offers every saved login, starts on the tunnel's SSH login, and can save a new one. A tunnel with a saved SSH login tries its key and agent first, and sends the password only to a server with the host key seen on the first connection. The shared clipboard carries text, pictures and files, and each tunnel chooses its direction or turns it off. Tested with GNOME Remote Desktop. xrdp 0.9.12 does not exchange pictures, and Windows has not been tested yet.</p>
+            <p>Name a login once and use it for SSH and remote desktops on many tunnels and forwards. User, domain and password stay in the system keychain; only the login's name and where it is used are in the app's settings file. The remote desktop login form offers every saved login, starts on the tunnel's SSH login, and can save a new one. A tunnel with a saved SSH login tries its key and agent first, and sends the password only after the server's host key is verified. The shared clipboard carries text, pictures and files, and each tunnel chooses its direction or turns it off. Tested with GNOME Remote Desktop. xrdp 0.9.12 does not exchange pictures, and Windows has not been tested yet.</p>
           </div>
           <figure class="feature-detail-shots">
             <img src="../assets/screenshots/credentials.png" alt="Credentials settings with a saved login" width="900" height="620" loading="lazy" />
@@ -270,7 +270,7 @@ Host staging
           <div class="feature-detail-copy">
             <span class="feature-number">16</span>
             <h3 id="auth-title">Authentication methods</h3>
-            <p>Key files (RSA, ECDSA, Ed25519) with the passphrase kept in the OS keychain, a running <code>ssh-agent</code>, or the default keys in <code>~/.ssh</code>. <code>IdentityAgent</code> from <code>~/.ssh/config</code> is not read yet.</p>
+            <p>Key files (RSA, ECDSA, Ed25519) with the passphrase kept in the OS keychain, a running <code>ssh-agent</code>, or the default keys in <code>~/.ssh</code>. <code>IdentityAgent</code> from <code>~/.ssh/config</code> is not read yet. Every connection checks the server's host key against <code>~/.ssh/known_hosts</code> and the keys you accepted in the app. An unknown server shows its fingerprint and connects only after you trust it, and a changed key stops the connection.</p>
           </div>
           <figure class="feature-detail-shots">
             <img src="../assets/screenshots/auth-passphrase.png" alt="Passphrase prompt for an encrypted SSH key" width="806" height="298" loading="lazy" />

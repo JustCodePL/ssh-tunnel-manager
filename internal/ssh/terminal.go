@@ -74,6 +74,14 @@ type TerminalManager struct {
 	nextID        int
 	getPassphrase PassphraseFunc
 	getLogin      LoginFunc
+	checkHostKey  HostKeyFunc
+}
+
+// WithHostKeyCheck sets how the manager decides whether to trust a server.
+func (tm *TerminalManager) WithHostKeyCheck(check HostKeyFunc) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	tm.checkHostKey = check
 }
 
 // WithLoginProvider sets where the manager finds a tunnel's password login.
@@ -115,14 +123,15 @@ func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, 
 	// Build SSH client config (reuse same logic as Tunnel)
 	tm.mu.Lock()
 	getLogin := tm.getLogin
+	checkHostKey := tm.checkHostKey
 	tm.mu.Unlock()
-	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase, getLogin)
+	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase, getLogin, checkHostKey)
 	if err != nil {
 		return "", fmt.Errorf("building SSH config for terminal: %w", err)
 	}
 
 	// Dial SSH connection (own connection, separate from tunnel)
-	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, GetLogin: getLogin, Via: via}
+	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, GetLogin: getLogin, CheckHostKey: checkHostKey, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", fmt.Errorf("connecting terminal to %s: %w", cfg.Host, err)
@@ -286,10 +295,13 @@ func (tm *TerminalManager) cleanupSession(sessionID string) {
 //  3. Default key files (~/.ssh/id_ed25519, id_rsa, etc.) when KeyPath is empty
 //  4. The tunnel's saved password login, if it has one
 //
-// A tunnel with a password login only talks to a server whose host key passes
-// the login's check, because a password, unlike a key signature, reaches the
-// server itself.
-func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, getLogin LoginFunc) (*ssh.ClientConfig, error) {
+// Every connection goes through the host key check, and without one there is
+// no connection: the key is the only proof of which server this is.
+func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, getLogin LoginFunc, checkHostKey HostKeyFunc) (*ssh.ClientConfig, error) {
+	if checkHostKey == nil {
+		return nil, fmt.Errorf("no host key check is set for %s", cfg.Name)
+	}
+
 	var authMethods []ssh.AuthMethod
 
 	var login *PasswordLogin
@@ -341,18 +353,11 @@ func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, ge
 
 	// 4. Saved password login
 	user := cfg.User
-	hostKeyCallback := ssh.InsecureIgnoreHostKey()
 	if login != nil {
-		if login.CheckHostKey == nil {
-			return nil, fmt.Errorf("the saved login of %s has no host key check", cfg.Name)
-		}
 		if login.Username != "" {
 			user = login.Username
 		}
 		authMethods = append(authMethods, ssh.Password(login.Password), passwordChallenge(login.Password))
-		hostKeyCallback = func(address string, _ net.Addr, key ssh.PublicKey) error {
-			return login.CheckHostKey(address, ssh.FingerprintSHA256(key))
-		}
 	}
 
 	if len(authMethods) == 0 {
@@ -362,7 +367,7 @@ func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, ge
 	return &ssh.ClientConfig{
 		User:            user,
 		Auth:            authMethods,
-		HostKeyCallback: hostKeyCallback,
+		HostKeyCallback: hostKeyCallback(cfg.ID, checkHostKey),
 		Timeout:         10 * time.Second,
 	}, nil
 }

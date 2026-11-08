@@ -34,9 +34,16 @@ func staticLogin(login *PasswordLogin) LoginFunc {
 	return func(string) (*PasswordLogin, error) { return login, nil }
 }
 
+func trustAnyHostKey(string, string, gossh.PublicKey) error { return nil }
+
 func dial(t *testing.T, cfg config.TunnelConfig, getLogin LoginFunc) error {
 	t.Helper()
-	clientConfig, err := buildClientConfig(cfg, nil, getLogin)
+	return dialChecked(t, cfg, getLogin, trustAnyHostKey)
+}
+
+func dialChecked(t *testing.T, cfg config.TunnelConfig, getLogin LoginFunc, check HostKeyFunc) error {
+	t.Helper()
+	clientConfig, err := buildClientConfig(cfg, nil, getLogin, check)
 	if err != nil {
 		return err
 	}
@@ -50,17 +57,16 @@ func dial(t *testing.T, cfg config.TunnelConfig, getLogin LoginFunc) error {
 func TestSavedPasswordLogsInWithTheLoginsUser(t *testing.T) {
 	_, cfg := newPasswordServer(t)
 	var seen []string
-	err := dial(t, cfg, staticLogin(&PasswordLogin{
+	err := dialChecked(t, cfg, staticLogin(&PasswordLogin{
 		Username: e2efixture.PasswordUser,
 		Password: e2efixture.Password,
-		CheckHostKey: func(address, fingerprint string) error {
-			seen = append(seen, fingerprint)
-			if address != fmt.Sprintf("127.0.0.1:%d", cfg.Port) {
-				t.Errorf("address = %q", address)
-			}
-			return nil
-		},
-	}))
+	}), func(tunnelID, address string, key gossh.PublicKey) error {
+		seen = append(seen, gossh.FingerprintSHA256(key))
+		if tunnelID != cfg.ID || address != fmt.Sprintf("127.0.0.1:%d", cfg.Port) {
+			t.Errorf("tunnel = %q, address = %q", tunnelID, address)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,9 +78,8 @@ func TestSavedPasswordLogsInWithTheLoginsUser(t *testing.T) {
 func TestWrongSavedPasswordIsRejected(t *testing.T) {
 	_, cfg := newPasswordServer(t)
 	err := dial(t, cfg, staticLogin(&PasswordLogin{
-		Username:     e2efixture.PasswordUser,
-		Password:     "wrong",
-		CheckHostKey: func(string, string) error { return nil },
+		Username: e2efixture.PasswordUser,
+		Password: "wrong",
 	}))
 	if err == nil || !strings.Contains(err.Error(), "unable to authenticate") {
 		t.Fatalf("err = %v", err)
@@ -86,19 +91,18 @@ func TestWrongSavedPasswordIsRejected(t *testing.T) {
 func TestChangedHostKeyStopsTheLogin(t *testing.T) {
 	_, cfg := newPasswordServer(t)
 	refused := errors.New("host key changed")
-	err := dial(t, cfg, staticLogin(&PasswordLogin{
-		Username:     e2efixture.PasswordUser,
-		Password:     e2efixture.Password,
-		CheckHostKey: func(string, string) error { return refused },
-	}))
+	err := dialChecked(t, cfg, staticLogin(&PasswordLogin{
+		Username: e2efixture.PasswordUser,
+		Password: e2efixture.Password,
+	}), func(string, string, gossh.PublicKey) error { return refused })
 	if !errors.Is(err, refused) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestALoginWithoutAHostKeyCheckIsRefused(t *testing.T) {
+func TestAConnectionWithoutAHostKeyCheckIsRefused(t *testing.T) {
 	_, cfg := newPasswordServer(t)
-	err := dial(t, cfg, staticLogin(&PasswordLogin{Username: e2efixture.PasswordUser, Password: e2efixture.Password}))
+	err := dialChecked(t, cfg, staticLogin(&PasswordLogin{Username: e2efixture.PasswordUser, Password: e2efixture.Password}), nil)
 	if err == nil || !strings.Contains(err.Error(), "host key check") {
 		t.Fatalf("err = %v", err)
 	}
@@ -120,9 +124,8 @@ func TestUnusableKeyOnlyMattersWithoutALogin(t *testing.T) {
 		t.Fatalf("without a login: %v", err)
 	}
 	err := dial(t, cfg, staticLogin(&PasswordLogin{
-		Username:     e2efixture.PasswordUser,
-		Password:     e2efixture.Password,
-		CheckHostKey: func(string, string) error { return nil },
+		Username: e2efixture.PasswordUser,
+		Password: e2efixture.Password,
 	}))
 	if err != nil {
 		t.Fatalf("with a login: %v", err)
@@ -166,10 +169,10 @@ func TestManagerConnectsWithASavedPassword(t *testing.T) {
 			}
 		}
 	}, nil)
+	m.WithHostKeyCheck(trustAnyHostKey)
 	m.WithLoginProvider(staticLogin(&PasswordLogin{
-		Username:     e2efixture.PasswordUser,
-		Password:     e2efixture.Password,
-		CheckHostKey: func(string, string) error { return nil },
+		Username: e2efixture.PasswordUser,
+		Password: e2efixture.Password,
 	}))
 	if err := m.Connect(cfg); err != nil {
 		t.Fatal(err)
@@ -193,6 +196,9 @@ func TestARejectedPasswordIsNotRetried(t *testing.T) {
 	}
 	if !isHostKeyRefusal(errors.New("connecting: the host key changed for a:22")) {
 		t.Error("a host key refusal was not recognized")
+	}
+	if !isHostKeyRefusal(errors.New("connecting: the host key of a:22 (SHA256:x) was not trusted")) {
+		t.Error("a declined host key was not recognized")
 	}
 	if isHostKeyRefusal(errors.New("connection refused")) {
 		t.Error("an ordinary failure counted as a host key refusal")

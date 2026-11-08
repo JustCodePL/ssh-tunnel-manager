@@ -241,7 +241,7 @@
                     <p class="note">No saved credentials yet.</p>
                     <button type="button" class="btn" on:click={() => void openTool({ tool: "settings", tunnelId: "" })}>Open Settings</button>
                   {/if}
-                  <p class="note">A key and the agent are still tried first. The password stays in the system keychain and goes only to a server with the host key seen on the first connection. It applies from the next connection.</p>
+                  <p class="note">A key and the agent are still tried first. The password stays in the system keychain and goes only to a server whose host key you trusted or that is in known_hosts. It applies from the next connection.</p>
                 {/if}
                 {#if hostKeys.length}
                   {#each hostKeys as key}

@@ -55,6 +55,14 @@ export function AddTunnel(t: config$0.TunnelConfig): $CancellablePromise<void> {
 }
 
 /**
+ * AnswerHostKey records the user's decision about a host key question. An
+ * answer to a question that is no longer waiting is ignored.
+ */
+export function AnswerHostKey(id: number, accepted: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2672311560, id, accepted);
+}
+
+/**
  * ApplyRowToGroup copies a tunnel's row layout onto the other tunnels of its
  * group. It is a one-time copy: later changes do not follow.
  */
@@ -214,7 +222,7 @@ export function ForgetRDPLogin(tunnelID: string, target: $models.ForwardTarget):
 
 /**
  * ForgetSSHHostKeys removes a tunnel's pinned host keys, so the next connection
- * pins the keys it finds.
+ * asks about any server that is not in known_hosts.
  */
 export function ForgetSSHHostKeys(tunnelID: string): $CancellablePromise<void> {
     return $Call.ByID(3493947836, tunnelID);
@@ -346,12 +354,22 @@ export function GetIncludedConfigFiles(): $CancellablePromise<config$0.ConfigFil
 }
 
 /**
+ * GetPendingHostKey returns the question waiting for an answer, or nil. The main
+ * window asks when it loads, because an auto-connect can start before it does.
+ */
+export function GetPendingHostKey(): $CancellablePromise<$models.HostKeyPrompt | null> {
+    return $Call.ByID(1848268199).then(($result: any) => {
+        return $$createType16($result);
+    });
+}
+
+/**
  * GetPortlessFallback returns the active degradation warning, if any. The
  * frontend calls it on mount so a hidden auto-connect cannot lose the event.
  */
 export function GetPortlessFallback(): $CancellablePromise<$models.PortlessFallbackStatus | null> {
     return $Call.ByID(495442527).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType18($result);
     });
 }
 
@@ -361,7 +379,7 @@ export function GetPortlessFallback(): $CancellablePromise<$models.PortlessFallb
  */
 export function GetPortlessServiceStatus(): $CancellablePromise<$models.PortlessServiceStatus> {
     return $Call.ByID(1017703362).then(($result: any) => {
-        return $$createType17($result);
+        return $$createType19($result);
     });
 }
 
@@ -373,7 +391,7 @@ export function GetPortlessServiceStatus(): $CancellablePromise<$models.Portless
  */
 export function GetProcessStats(tunnelID: string): $CancellablePromise<sysstats$0.ProcessStats> {
     return $Call.ByID(3998423223, tunnelID).then(($result: any) => {
-        return $$createType18($result);
+        return $$createType20($result);
     });
 }
 
@@ -382,7 +400,7 @@ export function GetProcessStats(tunnelID: string): $CancellablePromise<sysstats$
  */
 export function GetRDPLogin(tunnelID: string, target: $models.ForwardTarget): $CancellablePromise<$models.RDPSavedLogin> {
     return $Call.ByID(2583446952, tunnelID, target).then(($result: any) => {
-        return $$createType19($result);
+        return $$createType21($result);
     });
 }
 
@@ -391,7 +409,7 @@ export function GetRDPLogin(tunnelID: string, target: $models.ForwardTarget): $C
  */
 export function GetSSHHostKeys(tunnelID: string): $CancellablePromise<$models.SSHHostKey[]> {
     return $Call.ByID(123891905, tunnelID).then(($result: any) => {
-        return $$createType21($result);
+        return $$createType23($result);
     });
 }
 
@@ -401,7 +419,7 @@ export function GetSSHHostKeys(tunnelID: string): $CancellablePromise<$models.SS
  */
 export function GetSavedCapabilities(): $CancellablePromise<{ [_ in string]?: sysstats$0.Capabilities }> {
     return $Call.ByID(873420004).then(($result: any) => {
-        return $$createType23($result);
+        return $$createType25($result);
     });
 }
 
@@ -413,7 +431,7 @@ export function GetSavedCapabilities(): $CancellablePromise<{ [_ in string]?: sy
  */
 export function GetServerCapabilities(tunnelID: string): $CancellablePromise<sysstats$0.Capabilities> {
     return $Call.ByID(1639110850, tunnelID).then(($result: any) => {
-        return $$createType22($result);
+        return $$createType24($result);
     });
 }
 
@@ -424,7 +442,7 @@ export function GetServerCapabilities(tunnelID: string): $CancellablePromise<sys
  */
 export function GetServerStats(tunnelID: string): $CancellablePromise<sysstats$0.ServerStats> {
     return $Call.ByID(3005431887, tunnelID).then(($result: any) => {
-        return $$createType24($result);
+        return $$createType26($result);
     });
 }
 
@@ -440,7 +458,7 @@ export function GetStartMinimized(): $CancellablePromise<boolean> {
  */
 export function GetToolWindow(name: string): $CancellablePromise<windows$0.Window> {
     return $Call.ByID(17745977, name).then(($result: any) => {
-        return $$createType25($result);
+        return $$createType27($result);
     });
 }
 
@@ -449,7 +467,7 @@ export function GetToolWindow(name: string): $CancellablePromise<windows$0.Windo
  */
 export function GetTunnelLogs(tunnelID: string): $CancellablePromise<config$0.LogEntry[]> {
     return $Call.ByID(3707372042, tunnelID).then(($result: any) => {
-        return $$createType27($result);
+        return $$createType29($result);
     });
 }
 
@@ -458,7 +476,7 @@ export function GetTunnelLogs(tunnelID: string): $CancellablePromise<config$0.Lo
  */
 export function GetTunnelSettings(tunnelID: string): $CancellablePromise<prefs$0.TunnelSettings> {
     return $Call.ByID(275296940, tunnelID).then(($result: any) => {
-        return $$createType28($result);
+        return $$createType30($result);
     });
 }
 
@@ -467,7 +485,7 @@ export function GetTunnelSettings(tunnelID: string): $CancellablePromise<prefs$0
  */
 export function GetTunnelStatuses(): $CancellablePromise<{ [_ in string]?: ssh$0.StatusEvent }> {
     return $Call.ByID(1781920467).then(($result: any) => {
-        return $$createType30($result);
+        return $$createType32($result);
     });
 }
 
@@ -476,7 +494,7 @@ export function GetTunnelStatuses(): $CancellablePromise<{ [_ in string]?: ssh$0
  */
 export function GetTunnels(): $CancellablePromise<config$0.TunnelConfig[]> {
     return $Call.ByID(2458647734).then(($result: any) => {
-        return $$createType32($result);
+        return $$createType34($result);
     });
 }
 
@@ -493,7 +511,7 @@ export function GetUpdateChannel(): $CancellablePromise<string> {
  */
 export function ImportPreview(path: string): $CancellablePromise<config$0.TunnelConfig[]> {
     return $Call.ByID(3662914056, path).then(($result: any) => {
-        return $$createType32($result);
+        return $$createType34($result);
     });
 }
 
@@ -524,7 +542,7 @@ export function InstallUpdate(): $CancellablePromise<void> {
  */
 export function ListCredentials(): $CancellablePromise<$models.CredentialView[]> {
     return $Call.ByID(1708936845).then(($result: any) => {
-        return $$createType34($result);
+        return $$createType36($result);
     });
 }
 
@@ -539,7 +557,7 @@ export function ListCredentials(): $CancellablePromise<$models.CredentialView[]>
  */
 export function ListDockerContainers(tunnelID: string, withStats: boolean): $CancellablePromise<sysstats$0.DockerContainer[]> {
     return $Call.ByID(3393532525, tunnelID, withStats).then(($result: any) => {
-        return $$createType36($result);
+        return $$createType38($result);
     });
 }
 
@@ -557,7 +575,7 @@ export function OpenCommandTerminal(tunnelID: string, command: string): $Cancell
  */
 export function OpenForwardSFTP(tunnelID: string, target: $models.ForwardTarget): $CancellablePromise<$models.SFTPOpenResult | null> {
     return $Call.ByID(267798687, tunnelID, target).then(($result: any) => {
-        return $$createType38($result);
+        return $$createType40($result);
     });
 }
 
@@ -587,7 +605,7 @@ export function OpenPortlessServiceSettings(): $CancellablePromise<void> {
  */
 export function OpenRDP(tunnelID: string, target: $models.ForwardTarget, login: $models.RDPLogin): $CancellablePromise<$models.RDPSession | null> {
     return $Call.ByID(2527362709, tunnelID, target, login).then(($result: any) => {
-        return $$createType40($result);
+        return $$createType42($result);
     });
 }
 
@@ -596,7 +614,7 @@ export function OpenRDP(tunnelID: string, target: $models.ForwardTarget, login: 
  */
 export function OpenSFTP(tunnelID: string): $CancellablePromise<$models.SFTPOpenResult | null> {
     return $Call.ByID(1020096580, tunnelID).then(($result: any) => {
-        return $$createType38($result);
+        return $$createType40($result);
     });
 }
 
@@ -612,7 +630,7 @@ export function OpenTerminal(tunnelID: string): $CancellablePromise<string> {
  */
 export function OpenTool(spec: windows$0.Spec): $CancellablePromise<$models.ToolOpenResult> {
     return $Call.ByID(3221487091, spec).then(($result: any) => {
-        return $$createType41($result);
+        return $$createType43($result);
     });
 }
 
@@ -630,7 +648,7 @@ export function PingEvents(token: string): $CancellablePromise<void> {
  */
 export function ReadClipboard(includeImage: boolean): $CancellablePromise<$models.ClipboardContent> {
     return $Call.ByID(3110812313, includeImage).then(($result: any) => {
-        return $$createType42($result);
+        return $$createType44($result);
     });
 }
 
@@ -709,7 +727,7 @@ export function SFTPDownloadDir(sessionID: string, remotePath: string): $Cancell
  */
 export function SFTPListDir(sessionID: string, remotePath: string): $CancellablePromise<ssh$0.FileEntry[]> {
     return $Call.ByID(3485056463, sessionID, remotePath).then(($result: any) => {
-        return $$createType44($result);
+        return $$createType46($result);
     });
 }
 
@@ -726,7 +744,7 @@ export function SFTPMkdir(sessionID: string, remotePath: string): $CancellablePr
  */
 export function SFTPPickUploadFiles(sessionID: string, remoteDir: string): $CancellablePromise<$models.SFTPUploadPick | null> {
     return $Call.ByID(4245866255, sessionID, remoteDir).then(($result: any) => {
-        return $$createType46($result);
+        return $$createType48($result);
     });
 }
 
@@ -738,7 +756,7 @@ export function SFTPPickUploadFiles(sessionID: string, remoteDir: string): $Canc
  */
 export function SFTPReadText(sessionID: string, remotePath: string, force: boolean): $CancellablePromise<ssh$0.TextFileResult | null> {
     return $Call.ByID(1763411251, sessionID, remotePath, force).then(($result: any) => {
-        return $$createType48($result);
+        return $$createType50($result);
     });
 }
 
@@ -765,7 +783,7 @@ export function SFTPUploadFiles(sessionID: string, paths: string[], remoteDir: s
  */
 export function SFTPWriteText(sessionID: string, remotePath: string, content: string, expectModTimeMs: number): $CancellablePromise<$models.SFTPWriteResult | null> {
     return $Call.ByID(1931182056, sessionID, remotePath, content, expectModTimeMs).then(($result: any) => {
-        return $$createType50($result);
+        return $$createType52($result);
     });
 }
 
@@ -774,7 +792,7 @@ export function SFTPWriteText(sessionID: string, remotePath: string, content: st
  */
 export function SaveCredential(input: $models.CredentialInput): $CancellablePromise<$models.CredentialView> {
     return $Call.ByID(3204725985, input).then(($result: any) => {
-        return $$createType33($result);
+        return $$createType35($result);
     });
 }
 
@@ -942,39 +960,41 @@ const $$createType11 = $models.EffectiveSettings.createFrom;
 const $$createType12 = $Create.Map($Create.Any, $$createType11);
 const $$createType13 = config$0.ConfigFileInfo.createFrom;
 const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = $models.PortlessFallbackStatus.createFrom;
+const $$createType15 = $models.HostKeyPrompt.createFrom;
 const $$createType16 = $Create.Nullable($$createType15);
-const $$createType17 = $models.PortlessServiceStatus.createFrom;
-const $$createType18 = sysstats$0.ProcessStats.createFrom;
-const $$createType19 = $models.RDPSavedLogin.createFrom;
-const $$createType20 = $models.SSHHostKey.createFrom;
-const $$createType21 = $Create.Array($$createType20);
-const $$createType22 = sysstats$0.Capabilities.createFrom;
-const $$createType23 = $Create.Map($Create.Any, $$createType22);
-const $$createType24 = sysstats$0.ServerStats.createFrom;
-const $$createType25 = windows$0.Window.createFrom;
-const $$createType26 = config$0.LogEntry.createFrom;
-const $$createType27 = $Create.Array($$createType26);
-const $$createType28 = prefs$0.TunnelSettings.createFrom;
-const $$createType29 = ssh$0.StatusEvent.createFrom;
-const $$createType30 = $Create.Map($Create.Any, $$createType29);
-const $$createType31 = config$0.TunnelConfig.createFrom;
-const $$createType32 = $Create.Array($$createType31);
-const $$createType33 = $models.CredentialView.createFrom;
+const $$createType17 = $models.PortlessFallbackStatus.createFrom;
+const $$createType18 = $Create.Nullable($$createType17);
+const $$createType19 = $models.PortlessServiceStatus.createFrom;
+const $$createType20 = sysstats$0.ProcessStats.createFrom;
+const $$createType21 = $models.RDPSavedLogin.createFrom;
+const $$createType22 = $models.SSHHostKey.createFrom;
+const $$createType23 = $Create.Array($$createType22);
+const $$createType24 = sysstats$0.Capabilities.createFrom;
+const $$createType25 = $Create.Map($Create.Any, $$createType24);
+const $$createType26 = sysstats$0.ServerStats.createFrom;
+const $$createType27 = windows$0.Window.createFrom;
+const $$createType28 = config$0.LogEntry.createFrom;
+const $$createType29 = $Create.Array($$createType28);
+const $$createType30 = prefs$0.TunnelSettings.createFrom;
+const $$createType31 = ssh$0.StatusEvent.createFrom;
+const $$createType32 = $Create.Map($Create.Any, $$createType31);
+const $$createType33 = config$0.TunnelConfig.createFrom;
 const $$createType34 = $Create.Array($$createType33);
-const $$createType35 = sysstats$0.DockerContainer.createFrom;
+const $$createType35 = $models.CredentialView.createFrom;
 const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = $models.SFTPOpenResult.createFrom;
-const $$createType38 = $Create.Nullable($$createType37);
-const $$createType39 = $models.RDPSession.createFrom;
+const $$createType37 = sysstats$0.DockerContainer.createFrom;
+const $$createType38 = $Create.Array($$createType37);
+const $$createType39 = $models.SFTPOpenResult.createFrom;
 const $$createType40 = $Create.Nullable($$createType39);
-const $$createType41 = $models.ToolOpenResult.createFrom;
-const $$createType42 = $models.ClipboardContent.createFrom;
-const $$createType43 = ssh$0.FileEntry.createFrom;
-const $$createType44 = $Create.Array($$createType43);
-const $$createType45 = $models.SFTPUploadPick.createFrom;
-const $$createType46 = $Create.Nullable($$createType45);
-const $$createType47 = ssh$0.TextFileResult.createFrom;
+const $$createType41 = $models.RDPSession.createFrom;
+const $$createType42 = $Create.Nullable($$createType41);
+const $$createType43 = $models.ToolOpenResult.createFrom;
+const $$createType44 = $models.ClipboardContent.createFrom;
+const $$createType45 = ssh$0.FileEntry.createFrom;
+const $$createType46 = $Create.Array($$createType45);
+const $$createType47 = $models.SFTPUploadPick.createFrom;
 const $$createType48 = $Create.Nullable($$createType47);
-const $$createType49 = $models.SFTPWriteResult.createFrom;
+const $$createType49 = ssh$0.TextFileResult.createFrom;
 const $$createType50 = $Create.Nullable($$createType49);
+const $$createType51 = $models.SFTPWriteResult.createFrom;
+const $$createType52 = $Create.Nullable($$createType51);

@@ -16,6 +16,7 @@ export {
     Diagnostics,
     EffectiveSettings,
     ForwardTarget,
+    HostKeyPrompt,
     LogEntry,
     PortlessFallbackStatus,
     PortlessServiceStatus,

@@ -21,12 +21,14 @@ import (
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // Server is a running fixture.
 type Server struct {
 	config   *ssh.ServerConfig
 	listener net.Listener
+	hostKey  ssh.PublicKey
 	Port     int
 	Root     string
 
@@ -66,12 +68,18 @@ func New(root string, authorized ssh.PublicKey) (*Server, error) {
 	s := &Server{
 		config:   config,
 		listener: listener,
+		hostKey:  signer.PublicKey(),
 		Port:     listener.Addr().(*net.TCPAddr).Port,
 		Root:     root,
 		conns:    make(map[*ssh.ServerConn]struct{}),
 	}
 	go s.acceptLoop()
 	return s, nil
+}
+
+// KnownHostsLine returns the known_hosts entry of this server.
+func (s *Server) KnownHostsLine() string {
+	return knownhosts.Line([]string{knownhosts.Normalize(fmt.Sprintf("127.0.0.1:%d", s.Port))}, s.hostKey)
 }
 
 // DropConnections closes every SSH connection, like a network failure.
@@ -203,6 +211,19 @@ func runShell(channel ssh.Channel) {
 	}
 }
 
+func (s *Server) relayToSelf(channel ssh.Channel) {
+	conn, err := net.Dial("tcp", s.listener.Addr().String())
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	go func() {
+		_, _ = io.Copy(conn, channel)
+		_ = conn.Close()
+	}()
+	_, _ = io.Copy(channel, conn)
+}
+
 func (s *Server) directTCPIP(newChannel ssh.NewChannel) {
 	var target struct {
 		Host       string
@@ -220,6 +241,12 @@ func (s *Server) directTCPIP(newChannel ssh.NewChannel) {
 	}
 	defer channel.Close()
 	go ssh.DiscardRequests(requests)
+	// A forward to this server itself reaches it for real, which is what a jump
+	// host does. Anything else is answered by the fixture below.
+	if int(target.Port) == s.Port {
+		s.relayToSelf(channel)
+		return
+	}
 
 	if target.Port == 3389 {
 		answerX224(channel)

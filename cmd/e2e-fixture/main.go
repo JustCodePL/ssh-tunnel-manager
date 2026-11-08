@@ -37,6 +37,10 @@ func main() {
 	if err := os.WriteFile(filepath.Join(home, ".ssh", "config"), []byte(config), 0o600); err != nil {
 		log.Fatal(err)
 	}
+	// The app only talks to servers it can verify.
+	if err := os.WriteFile(filepath.Join(home, ".ssh", "known_hosts"), []byte(server.KnownHostsLine()+"\n"), 0o600); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("fixture ready home=%s ssh=%d\n", home, server.Port)
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+os.Args[2], e2efixture.ControlHandler(server)))
 }

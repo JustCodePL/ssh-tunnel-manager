@@ -196,7 +196,7 @@ Host staging
           <div class="feature-detail-copy">
             <span class="feature-number">09</span>
             <h3 id="credentials-title">Zapisane loginy</h3>
-            <p>Login nazywasz raz i używasz go do SSH i pulpitów zdalnych na wielu tunelach i forwardach. Użytkownik, domena i hasło zostają w systemowym keychainie, a w pliku ustawień aplikacji jest tylko nazwa loginu i miejsca jego użycia. Formularz logowania do pulpitu zdalnego pokazuje wszystkie zapisane loginy, zaczyna od loginu SSH tunelu i może zapisać nowy. Tunel z zapisanym loginem SSH najpierw próbuje klucza i agenta, a hasło wysyła tylko do serwera z kluczem hosta widzianym przy pierwszym połączeniu. Wspólny schowek przenosi tekst, obrazki i pliki, a każdy tunel wybiera jego kierunek albo go wyłącza. Sprawdzone z GNOME Remote Desktop. xrdp 0.9.12 nie wymienia obrazków, a Windows nie jest jeszcze sprawdzony.</p>
+            <p>Login nazywasz raz i używasz go do SSH i pulpitów zdalnych na wielu tunelach i forwardach. Użytkownik, domena i hasło zostają w systemowym keychainie, a w pliku ustawień aplikacji jest tylko nazwa loginu i miejsca jego użycia. Formularz logowania do pulpitu zdalnego pokazuje wszystkie zapisane loginy, zaczyna od loginu SSH tunelu i może zapisać nowy. Tunel z zapisanym loginem SSH najpierw próbuje klucza i agenta, a hasło wysyła dopiero po sprawdzeniu klucza hosta serwera. Wspólny schowek przenosi tekst, obrazki i pliki, a każdy tunel wybiera jego kierunek albo go wyłącza. Sprawdzone z GNOME Remote Desktop. xrdp 0.9.12 nie wymienia obrazków, a Windows nie jest jeszcze sprawdzony.</p>
           </div>
           <figure class="feature-detail-shots">
             <img src="../../assets/screenshots/credentials.png" alt="Ustawienia loginów z zapisanym loginem" width="900" height="620" loading="lazy" />
@@ -270,7 +270,7 @@ Host staging
           <div class="feature-detail-copy">
             <span class="feature-number">16</span>
             <h3 id="auth-title">Metody uwierzytelniania</h3>
-            <p>Pliki kluczy (RSA, ECDSA, Ed25519) z hasłem przechowywanym w systemowym pęku kluczy, działający <code>ssh-agent</code> albo domyślne klucze w <code>~/.ssh</code>. <code>IdentityAgent</code> z <code>~/.ssh/config</code> nie jest jeszcze odczytywany.</p>
+            <p>Pliki kluczy (RSA, ECDSA, Ed25519) z hasłem przechowywanym w systemowym pęku kluczy, działający <code>ssh-agent</code> albo domyślne klucze w <code>~/.ssh</code>. <code>IdentityAgent</code> z <code>~/.ssh/config</code> nie jest jeszcze odczytywany. Każde połączenie sprawdza klucz hosta serwera w <code>~/.ssh/known_hosts</code> i wśród kluczy zaakceptowanych w aplikacji. Nieznany serwer pokazuje odcisk klucza i łączy się dopiero po potwierdzeniu, a zmieniony klucz zatrzymuje połączenie.</p>
           </div>
           <figure class="feature-detail-shots">
             <img src="../../assets/screenshots/auth-passphrase.png" alt="Monit o hasło do zaszyfrowanego klucza SSH" width="806" height="298" loading="lazy" />
