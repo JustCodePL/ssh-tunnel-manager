@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="Trzy poprawki po przeglądzie bezpieczeństwa kodu. Każde połączenie SSH sprawdza teraz serwer, zapisane hasło nie trafia już na bastion, a usunięcie dowiązania nie rusza tego, na co ono wskazuje."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:title" content="v1.2.0-beta.5: Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania · Aktualności · SSH Tunnel Manager" />
+    <meta
+      property="og:description"
+      content="Trzy poprawki po przeglądzie bezpieczeństwa kodu. Każde połączenie SSH sprawdza teraz serwer, zapisane hasło nie trafia już na bastion, a usunięcie dowiązania nie rusza tego, na co ono wskazuje."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.5/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.5/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.5/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.5/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.5/" />
+    <link rel="icon" type="image/png" href="../../../assets/appicon.png" />
+    <link rel="stylesheet" href="../../../styles.css?v=20261104.2" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script src="../../../changelog.js?v=20261104.3" defer></script>
+    <script src="../../../lightbox.js?v=20261103.1" defer></script>
+    <title>v1.2.0-beta.5: Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania · Aktualności · SSH Tunnel Manager</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Przejdź do treści</a>
+
+    <header class="site-header">
+      <a class="brand" href="../../" aria-label="SSH Tunnel Manager — strona główna">
+        <img src="../../../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Główna nawigacja">
+        <a href="../../features/">Funkcje</a>
+        <a href="../../#pobierz">Pobierz</a>
+        <a href="../../#wydania">Wydania</a>
+        <a href="../../#faq">FAQ</a>
+        <a href="../../compare/">Porównanie</a>
+        <a href="../../changelog/" aria-current="page">Aktualności</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Wybór języka">
+          <a href="../../../changelog/v1.2.0-beta.5/" lang="en" hreflang="en">EN</a>
+          <span aria-current="page">PL</span>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// SSH TUNNEL MANAGER</p>
+          <h2>Aktualności</h2>
+        </div>
+
+        <div class="changelog-layout">
+          <nav class="changelog-history" aria-label="Historia aktualizacji">
+            <a href="../../changelog/v1.2.0-beta.5/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania</span></a>
+            <a href="../../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Systemowy pasek tytułu na macOS</span></a>
+            <a href="../../changelog/v1.2.0-beta.3/"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Osobne okna narzędzi i nowa lista tuneli</span></a>
+            <a href="../../changelog/v1.2.0-beta.2/"><span class="changelog-history-version">v1.2.0-beta.2</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Tunel po nieudanych próbach przestaje się łączyć, a błąd widać w aplikacji</span></a>
+            <a href="../../changelog/v1.2.0-beta.1/"><span class="changelog-history-version">v1.2.0-beta.1</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Wbudowany pulpit zdalny i przyciski przy przekierowaniach</span></a>
+            <a href="../../changelog/v1.1.0/"><span class="changelog-history-version">v1.1.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Portless na macOS działa po restarcie, a aplikacja w DMG jest notaryzowana</span></a>
+            <a href="../../changelog/v1.0.36/"><span class="changelog-history-version">v1.0.36</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Pewniejszy Portless, aktualizacje i praca w tle</span></a>
+            <a href="../../changelog/v1.0.31/"><span class="changelog-history-version">v1.0.31</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Kanały aktualizacji Stable i Beta</span></a>
+            <a href="../../changelog/v1.0.30/"><span class="changelog-history-version">v1.0.30</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Więcej informacji w widokach Dockera i htop</span></a>
+            <a href="../../changelog/v1.0.29/"><span class="changelog-history-version">v1.0.29</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Podgląd zdalnego hosta na żywo</span></a>
+            <a href="../../changelog/v1.0.28/"><span class="changelog-history-version">v1.0.28</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Bezpieczniejsze ustawienia Portless i poprawione aktualizacje na Linuksie</span></a>
+            <a href="../../changelog/v1.0.27/"><span class="changelog-history-version">v1.0.27</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Uprzywilejowane porty Portless na Linuksie</span></a>
+            <a href="../../changelog/v1.0.26/"><span class="changelog-history-version">v1.0.26</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Wbudowana edycja plików przez SFTP</span></a>
+            <a href="../../changelog/v1.0.25/"><span class="changelog-history-version">v1.0.25</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Nadpisywanie nagłówka Host na przekierowaniach Portless</span></a>
+            <a href="../../changelog/v1.0.24/"><span class="changelog-history-version">v1.0.24</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawione automatyczne aktualizacje na Linuksie</span></a>
+            <a href="../../changelog/v1.0.23/"><span class="changelog-history-version">v1.0.23</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Domeny .ssh-local w trybie Portless</span></a>
+            <a href="../../changelog/v1.0.22/"><span class="changelog-history-version">v1.0.22</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Przeglądarka SFTP i jednolite okna nakładkowe</span></a>
+            <a href="../../changelog/v1.0.21/"><span class="changelog-history-version">v1.0.21</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Schowek i minimalizacja w terminalu</span></a>
+            <a href="../../changelog/v1.0.20/"><span class="changelog-history-version">v1.0.20</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Nowe logo i start bez okna</span></a>
+            <a href="../../changelog/v1.0.19/"><span class="changelog-history-version">v1.0.19</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Podpisane i notaryzowane wydania na macOS</span></a>
+            <a href="../../changelog/v1.0.18/"><span class="changelog-history-version">v1.0.18</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Zapamiętany rozmiar okna i akcje zbiorcze w zasobniku</span></a>
+            <a href="../../changelog/v1.0.17/"><span class="changelog-history-version">v1.0.17</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Grupy tuneli, przypięte hosty i uporządkowany interfejs</span></a>
+            <a href="../../changelog/v1.0.16/"><span class="changelog-history-version">v1.0.16</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Dyrektywa Include w konfiguracji SSH i lepszy start</span></a>
+            <a href="../../changelog/v1.0.15/"><span class="changelog-history-version">v1.0.15</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Czytelniejsze błędy połączenia przez ProxyCommand</span></a>
+            <a href="../../changelog/v1.0.14/"><span class="changelog-history-version">v1.0.14</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Interaktywny terminal SSH</span></a>
+            <a href="../../changelog/v1.0.13/"><span class="changelog-history-version">v1.0.13</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Nowy interfejs w stylu cyberpunk</span></a>
+            <a href="../../changelog/v1.0.12/"><span class="changelog-history-version">v1.0.12</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawiona obsługa zasobnika na Windows</span></a>
+            <a href="../../changelog/v1.0.11/"><span class="changelog-history-version">v1.0.11</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Naprawione ikony menu w zasobniku na Windows</span></a>
+            <a href="../../changelog/v1.0.10/"><span class="changelog-history-version">v1.0.10</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Naprawiona ikona w zasobniku na Windows</span></a>
+            <a href="../../changelog/v1.0.9/"><span class="changelog-history-version">v1.0.9</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Aktualizacje na Windows z podniesieniem uprawnień</span></a>
+            <a href="../../changelog/v1.0.8/"><span class="changelog-history-version">v1.0.8</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Szybszy błąd DNS i prostsza ikona w zasobniku na Windows</span></a>
+            <a href="../../changelog/v1.0.7/"><span class="changelog-history-version">v1.0.7</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Aktualizacje na macOS przez DMG</span></a>
+            <a href="../../changelog/v1.0.6/"><span class="changelog-history-version">v1.0.6</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Logi tuneli i bezpieczniejsza obsługa nieudanego uwierzytelniania</span></a>
+            <a href="../../changelog/v1.0.5/"><span class="changelog-history-version">v1.0.5</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawiony start zasobnika na macOS</span></a>
+            <a href="../../changelog/v1.0.4/"><span class="changelog-history-version">v1.0.4</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawka awarii AppKit na macOS</span></a>
+            <a href="../../changelog/v1.0.3/"><span class="changelog-history-version">v1.0.3</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Obsługa Maców z procesorem Intel</span></a>
+            <a href="../../changelog/v1.0.2/"><span class="changelog-history-version">v1.0.2</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Instalator DMG na macOS</span></a>
+            <a href="../../changelog/v1.0.1/"><span class="changelog-history-version">v1.0.1</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Poprawione sprawdzanie aktualizacji i budowanie wydań</span></a>
+            <a href="../../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Pierwsze publiczne wydanie</span></a>
+          </nav>
+          <div class="changelog-content">
+        <article class="changelog-entry" id="v1.2.0-beta.5">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="../../changelog/v1.2.0-beta.5/">v1.2.0-beta.5</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-08">8 listopada 2026</time></p>
+            <h3>Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania</h3>
+            <p>Trzy poprawki po przeglądzie bezpieczeństwa kodu. Każde połączenie SSH sprawdza teraz serwer, zapisane hasło nie trafia już na bastion, a usunięcie dowiązania nie rusza tego, na co ono wskazuje.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Każde połączenie sprawdza serwer</h4>
+              <p>Dotąd klucz hosta serwera sprawdzały tylko tunele z zapisanym hasłem, a plik <code>~/.ssh/known_hosts</code> nie był czytany. Teraz sprawdzane jest każde połączenie: tunele, terminal, Pliki, bastiony i ProxyCommand. Serwer z <code>known_hosts</code> albo z zaakceptowanym kluczem łączy się jak dotąd. Nieznany serwer otwiera główne okno z odciskiem klucza i łączy się dopiero po potwierdzeniu. Zmieniony klucz zatrzymuje połączenie i nie jest ponawiany.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../../assets/changelog/v1.2.0-beta.5/host-key-prompt.png"><img src="../../../assets/changelog/v1.2.0-beta.5/host-key-prompt.png" alt="Okno Unknown server z nazwą tunelu, adresem serwera i odciskiem SHA-256" width="900" height="620" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Zapisane hasło nie trafia na bastion</h4>
+              <p>Zapisane hasło tunelu było oferowane także bastionowi ProxyJump. Teraz bastion dostaje tylko klucze i agenta, a hasło idzie wyłącznie do serwera za nim.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Usunięcie dowiązania kasuje tylko dowiązanie</h4>
+              <p>W oknie Pliki usunięcie dowiązania symbolicznego do katalogu kasowało zawartość tego katalogu. Teraz znika tylko dowiązanie, o czym mówi też potwierdzenie. Można też usuwać dowiązania, których cel już nie istnieje.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Gdy pojawi się okno <strong>Unknown server</strong>, porównaj odcisk klucza z tym od administratora serwera, potem wybierz <strong>Trust this server</strong> albo <strong>Cancel</strong>.</li>
+                <li>Zaakceptowane klucze zobaczysz i usuniesz w ustawieniach tunelu, w sekcji danych logowania, przyciskiem <strong>Forget host keys</strong>.</li>
+                <li>Jeśli klucz zmienił się z dobrego powodu, usuń tam stary klucz albo popraw <code>known_hosts</code>, jeśli to tam jest zapisany.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Serwer spoza <code>known_hosts</code> pyta raz dla każdego tunelu i adresu, także przy auto-connect. Bez odpowiedzi przez 90 sekund tunel kończy się błędem i trzeba połączyć go ręcznie.</li>
+                <li>Bastion przyjmujący wyłącznie hasła nie działa już z zapisanym loginem. Potrzebuje klucza albo agenta.</li>
+                <li>Zapisane hasło nadal trafia do serwera za forwardem SSH, gdy otworzysz na nim Terminal, Pliki lub Edytor.</li>
+                <li>Zrzut pochodzi z testowej wersji w przeglądarce. Okno było sprawdzone tam, a nie ręcznie w aplikacji desktopowej.</li>
+                <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.5" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>
+            <nav class="changelog-pager" aria-label="Starsze i nowsze wydania">
+              <span class="changelog-pager-newer"></span>
+              <a href="../../changelog/v1.2.0-beta.4/" class="changelog-pager-older"><span class="changelog-pager-label">Poprzednia</span><span class="changelog-pager-version">v1.2.0-beta.4</span></a>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../../">
+        <img src="../../../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · Licencja MIT · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Wydania</a>
+        <a href="../../features/">Funkcje</a>
+        <a href="../../compare/">Co wybrać</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Kontakt</a>
+      </div>
+    </footer>
+  </body>
+</html>

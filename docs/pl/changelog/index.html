@@ -76,7 +76,8 @@
 
         <div class="changelog-layout">
           <nav class="changelog-history" aria-label="Historia aktualizacji">
-            <a href="../changelog/v1.2.0-beta.4/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Systemowy pasek tytułu na macOS</span></a>
+            <a href="../changelog/v1.2.0-beta.5/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania</span></a>
+            <a href="../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Systemowy pasek tytułu na macOS</span></a>
             <a href="../changelog/v1.2.0-beta.3/"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Osobne okna narzędzi i nowa lista tuneli</span></a>
             <a href="../changelog/v1.2.0-beta.2/"><span class="changelog-history-version">v1.2.0-beta.2</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Tunel po nieudanych próbach przestaje się łączyć, a błąd widać w aplikacji</span></a>
             <a href="../changelog/v1.2.0-beta.1/"><span class="changelog-history-version">v1.2.0-beta.1</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Wbudowany pulpit zdalny i przyciski przy przekierowaniach</span></a>
@@ -116,44 +117,58 @@
             <a href="../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Pierwsze publiczne wydanie</span></a>
           </nav>
           <div class="changelog-content">
-        <article class="changelog-entry" id="v1.2.0-beta.4">
+        <article class="changelog-entry" id="v1.2.0-beta.5">
           <header class="changelog-entry-head">
-            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.4/">v1.2.0-beta.4</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 listopada 2026</time></p>
-            <h3>Systemowy pasek tytułu na macOS</h3>
-            <p>Na macOS główne okno ma teraz prawdziwe przyciski okna, po lewej, na pasku w kolorze motywu.</p>
+            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.5/">v1.2.0-beta.5</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-08">8 listopada 2026</time></p>
+            <h3>Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania</h3>
+            <p>Trzy poprawki po przeglądzie bezpieczeństwa kodu. Każde połączenie SSH sprawdza teraz serwer, zapisane hasło nie trafia już na bastion, a usunięcie dowiązania nie rusza tego, na co ono wskazuje.</p>
           </header>
           <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>Prawdziwe przyciski okna</h4>
-              <p>Główne okno rysowało dotąd własne przyciski po prawej. Teraz zachowuje systemowy pasek tytułu, więc zamykanie, minimalizacja, zoom, menu na zielonym przycisku, pełny ekran i przeciąganie działają jak w innych aplikacjach na Maca. Pasek ma kolor motywu w każdym oknie i zmienia go od razu po przełączeniu motywu. Windows i Linux zostają bez zmian.</p>
+              <h4>Każde połączenie sprawdza serwer</h4>
+              <p>Dotąd klucz hosta serwera sprawdzały tylko tunele z zapisanym hasłem, a plik <code>~/.ssh/known_hosts</code> nie był czytany. Teraz sprawdzane jest każde połączenie: tunele, terminal, Pliki, bastiony i ProxyCommand. Serwer z <code>known_hosts</code> albo z zaakceptowanym kluczem łączy się jak dotąd. Nieznany serwer otwiera główne okno z odciskiem klucza i łączy się dopiero po potwierdzeniu. Zmieniony klucz zatrzymuje połączenie i nie jest ponawiany.</p>
             </div>
             <figure class="feature-detail-shots">
-              <a href="../../assets/changelog/v1.2.0-beta.4/title-bar-terminal.png"><img src="../../assets/changelog/v1.2.0-beta.4/title-bar-terminal.png" alt="Główne okno w motywie Terminal z systemowym paskiem tytułu" width="1798" height="1254" loading="lazy" /></a>
-              <a href="../../assets/changelog/v1.2.0-beta.4/title-bar-graphite.png"><img src="../../assets/changelog/v1.2.0-beta.4/title-bar-graphite.png" alt="Okno ustawień w motywie Graphite z paskiem w tym samym kolorze" width="1638" height="1254" loading="lazy" /></a>
+              <a href="../../assets/changelog/v1.2.0-beta.5/host-key-prompt.png"><img src="../../assets/changelog/v1.2.0-beta.5/host-key-prompt.png" alt="Okno Unknown server z nazwą tunelu, adresem serwera i odciskiem SHA-256" width="900" height="620" loading="lazy" /></a>
             </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Zapisane hasło nie trafia na bastion</h4>
+              <p>Zapisane hasło tunelu było oferowane także bastionowi ProxyJump. Teraz bastion dostaje tylko klucze i agenta, a hasło idzie wyłącznie do serwera za nim.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Usunięcie dowiązania kasuje tylko dowiązanie</h4>
+              <p>W oknie Pliki usunięcie dowiązania symbolicznego do katalogu kasowało zawartość tego katalogu. Teraz znika tylko dowiązanie, o czym mówi też potwierdzenie. Można też usuwać dowiązania, których cel już nie istnieje.</p>
+            </div>
           </section>
           <div class="changelog-notes">
             <div>
               <h4>Jak z tego korzystać</h4>
               <ul>
-                <li>Korzystaj z przycisków po lewej stronie paska i przeciągaj okno za pasek.</li>
-                <li>Przytrzymaj wskaźnik na zielonym przycisku, żeby zobaczyć opcje wypełnienia ekranu i układania okien.</li>
+                <li>Gdy pojawi się okno <strong>Unknown server</strong>, porównaj odcisk klucza z tym od administratora serwera, potem wybierz <strong>Trust this server</strong> albo <strong>Cancel</strong>.</li>
+                <li>Zaakceptowane klucze zobaczysz i usuniesz w ustawieniach tunelu, w sekcji danych logowania, przyciskiem <strong>Forget host keys</strong>.</li>
+                <li>Jeśli klucz zmienił się z dobrego powodu, usuń tam stary klucz albo popraw <code>known_hosts</code>, jeśli to tam jest zapisany.</li>
               </ul>
             </div>
             <div>
               <h4>Znane ograniczenia</h4>
               <ul>
-                <li>Dzielenie ekranu przez przeciągnięcie okna do krawędzi to funkcja macOS 15, która wymaga włączenia w ustawieniach systemu. Nie sprawdzaliśmy jej z tą aplikacją.</li>
-                <li>Tytuł głównego okna jest teraz pisany czcionką systemową, więc na macOS nie ma już napisu <code>[ SSH TUNNEL MANAGER ]</code>.</li>
+                <li>Serwer spoza <code>known_hosts</code> pyta raz dla każdego tunelu i adresu, także przy auto-connect. Bez odpowiedzi przez 90 sekund tunel kończy się błędem i trzeba połączyć go ręcznie.</li>
+                <li>Bastion przyjmujący wyłącznie hasła nie działa już z zapisanym loginem. Potrzebuje klucza albo agenta.</li>
+                <li>Zapisane hasło nadal trafia do serwera za forwardem SSH, gdy otworzysz na nim Terminal, Pliki lub Edytor.</li>
+                <li>Zrzut pochodzi z testowej wersji w przeglądarce. Okno było sprawdzone tam, a nie ręcznie w aplikacji desktopowej.</li>
                 <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
               </ul>
             </div>
           </div>
-          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.4" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.5" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
         </article>
             <nav class="changelog-pager" aria-label="Starsze i nowsze wydania">
               <span class="changelog-pager-newer"></span>
-              <a href="../changelog/v1.2.0-beta.3/" class="changelog-pager-older"><span class="changelog-pager-label">Poprzednia</span><span class="changelog-pager-version">v1.2.0-beta.3</span></a>
+              <a href="../changelog/v1.2.0-beta.4/" class="changelog-pager-older"><span class="changelog-pager-label">Poprzednia</span><span class="changelog-pager-version">v1.2.0-beta.4</span></a>
             </nav>
           </div>
         </div>
