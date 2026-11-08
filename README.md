@@ -19,7 +19,7 @@ Built with Go + [Wails 3](https://wails.io) + Svelte. Ships as a single binary (
 - **Attach** — one button opens a session; it shows a menu only when a tunnel offers more than one, such as a terminal and a remote desktop
 - **Credentials** — named RDP and VNC logins saved in the OS keychain and reusable across tunnels and forwards
 - **Host key verification** — every connection checks the server against `~/.ssh/known_hosts` and the keys you accepted in the app. An unknown server shows its fingerprint and connects only after you trust it; a changed key stops the connection
-- **Saved logins** — one login for SSH and remote desktops, in the system keychain. A tunnel with a saved SSH login tries its key and agent first, and sends the password only after the server's host key is verified
+- **Saved logins** — one login for SSH and remote desktops, in the system keychain. A tunnel with a saved SSH login tries its key and agent first, and sends the password only after the server's host key is verified. A jump host never receives it and needs its own key or the agent
 - **Shared clipboard** — text, pictures and files between your computer and a remote desktop, with a direction setting per tunnel. Tested with GNOME Remote Desktop. xrdp 0.9.12 does not exchange pictures, and Windows has not been tested yet
 - **Per-tunnel settings** — what a row shows, refresh intervals, clipboard and what happens after a disconnect can each be overridden on one tunnel
 - **Command palette** — `⌘K` or `Ctrl+K` finds tunnels and runs actions; the list works from the keyboard
