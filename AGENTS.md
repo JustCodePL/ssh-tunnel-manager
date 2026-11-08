@@ -102,6 +102,7 @@ Go backend + Wails 3 + Svelte frontend. Single binary, no Electron.
 - One goroutine per tunnel, managed via context.Context + sync.WaitGroup
 - Config stored in ~/.ssh/config as standard Host blocks; app metadata (port forwards, groups, colour, auto-connect) stored as comments that round-trip cleanly
 - Every SSH connection checks the host key (`ssh.HostKeyFunc`, required): a key the user accepted for that tunnel and address (`prefs.json`), then `~/.ssh/known_hosts`, then the user's decision in the main window. A changed key stops the connection and is not retried
+- A saved SSH password goes only to the target server. A ProxyJump host is offered keys and the agent
 - Passphrases stored in OS keychain (macOS Keychain / Windows Credential Manager / Linux Secret Service)
 - System tray is the PRIMARY interface; manager window is secondary
 - Use `127.0.0.1` not `localhost` for port forwarding (avoids IPv6 issues)

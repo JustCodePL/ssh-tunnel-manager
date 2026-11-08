@@ -619,8 +619,19 @@ func (t *Tunnel) dialViaProxyJump(ctx context.Context, addr string, sshConfig *s
 	}
 	slog.Info("connecting via ProxyJump", "tunnel", t.Config.Name, "jump", jumpHost, "target", addr)
 
-	jumpClient, err := ssh.Dial("tcp", jumpHost, sshConfig)
+	// A saved password belongs to the target. Only keys and the agent, whose
+	// signatures do not reveal anything reusable, are offered to the jump host.
+	jumpConfig, err := buildClientConfig(t.Config, t.GetPassphrase, nil, t.CheckHostKey)
 	if err != nil {
+		return nil, fmt.Errorf("logging in to jump host %s, which needs a key or the agent because a saved password only goes to the target: %w", jumpHost, err)
+	}
+	jumpConfig.User = sshConfig.User
+
+	jumpClient, err := ssh.Dial("tcp", jumpHost, jumpConfig)
+	if err != nil {
+		if len(jumpConfig.Auth) < len(sshConfig.Auth) {
+			return nil, fmt.Errorf("dialing jump host %s, which needs a key or the agent because a saved password only goes to the target: %w", jumpHost, err)
+		}
 		return nil, fmt.Errorf("dialing jump host %s: %w", jumpHost, err)
 	}
 
