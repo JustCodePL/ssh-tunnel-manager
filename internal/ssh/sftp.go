@@ -485,10 +485,11 @@ func (s *SFTPSession) Mkdir(remotePath string) error {
 	return nil
 }
 
-// Remove deletes the file or empty directory at the given remote path.
-// For directories, it recurses through children first.
+// Remove deletes the file or directory at the given remote path. For
+// directories, it recurses through children first. A symbolic link is removed
+// itself and whatever it points to stays.
 func (s *SFTPSession) Remove(remotePath string) error {
-	info, err := s.sftpc.Stat(remotePath)
+	info, err := s.sftpc.Lstat(remotePath)
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", remotePath, err)
 	}

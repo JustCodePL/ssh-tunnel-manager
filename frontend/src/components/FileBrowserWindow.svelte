@@ -316,7 +316,7 @@
   }
 
   async function handleDelete(e: FileEntry) {
-    const label = e.isDir ? `directory "${e.name}" and all its contents` : `file "${e.name}"`;
+    const label = e.isLink ? `link "${e.name}" (what it points to is kept)` : e.isDir ? `directory "${e.name}" and all its contents` : `file "${e.name}"`;
     if (!(await askConfirm({ title: "Delete", message: `Delete ${label}?`, confirmLabel: "Delete", danger: true }))) return;
     try {
       await SFTPDelete(sessionId, e.path);
