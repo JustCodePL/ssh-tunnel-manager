@@ -1,0 +1,49 @@
+<article class="changelog-entry" id="v1.2.0-beta.5">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.5/">v1.2.0-beta.5</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-08">8 listopada 2026</time></p>
+            <h3>Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania</h3>
+            <p>Trzy poprawki po przeglądzie bezpieczeństwa kodu. Każde połączenie SSH sprawdza teraz serwer, zapisane hasło nie trafia już na bastion, a usunięcie dowiązania nie rusza tego, na co ono wskazuje.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Każde połączenie sprawdza serwer</h4>
+              <p>Dotąd klucz hosta serwera sprawdzały tylko tunele z zapisanym hasłem, a plik <code>~/.ssh/known_hosts</code> nie był czytany. Teraz sprawdzane jest każde połączenie: tunele, terminal, Pliki, bastiony i ProxyCommand. Serwer z <code>known_hosts</code> albo z zaakceptowanym kluczem łączy się jak dotąd. Nieznany serwer otwiera główne okno z odciskiem klucza i łączy się dopiero po potwierdzeniu. Zmieniony klucz zatrzymuje połączenie i nie jest ponawiany.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.5/host-key-prompt.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.5/host-key-prompt.png" alt="Okno Unknown server z nazwą tunelu, adresem serwera i odciskiem SHA-256" width="900" height="620" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Zapisane hasło nie trafia na bastion</h4>
+              <p>Zapisane hasło tunelu było oferowane także bastionowi ProxyJump. Teraz bastion dostaje tylko klucze i agenta, a hasło idzie wyłącznie do serwera za nim.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Usunięcie dowiązania kasuje tylko dowiązanie</h4>
+              <p>W oknie Pliki usunięcie dowiązania symbolicznego do katalogu kasowało zawartość tego katalogu. Teraz znika tylko dowiązanie, o czym mówi też potwierdzenie. Można też usuwać dowiązania, których cel już nie istnieje.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Gdy pojawi się okno <strong>Unknown server</strong>, porównaj odcisk klucza z tym od administratora serwera, potem wybierz <strong>Trust this server</strong> albo <strong>Cancel</strong>.</li>
+                <li>Zaakceptowane klucze zobaczysz i usuniesz w ustawieniach tunelu, w sekcji danych logowania, przyciskiem <strong>Forget host keys</strong>.</li>
+                <li>Jeśli klucz zmienił się z dobrego powodu, usuń tam stary klucz albo popraw <code>known_hosts</code>, jeśli to tam jest zapisany.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Serwer spoza <code>known_hosts</code> pyta raz dla każdego tunelu i adresu, także przy auto-connect. Bez odpowiedzi przez 90 sekund tunel kończy się błędem i trzeba połączyć go ręcznie.</li>
+                <li>Bastion przyjmujący wyłącznie hasła nie działa już z zapisanym loginem. Potrzebuje klucza albo agenta.</li>
+                <li>Zapisane hasło nadal trafia do serwera za forwardem SSH, gdy otworzysz na nim Terminal, Pliki lub Edytor.</li>
+                <li>Zrzut pochodzi z testowej wersji w przeglądarce. Okno było sprawdzone tam, a nie ręcznie w aplikacji desktopowej.</li>
+                <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.5" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>

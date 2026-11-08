@@ -76,7 +76,8 @@
 
         <div class="changelog-layout">
           <nav class="changelog-history" aria-label="Release history">
-            <a href="../changelog/v1.2.0-beta.4/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">The system title bar on macOS</span></a>
+            <a href="../changelog/v1.2.0-beta.5/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Security fixes: host keys, saved passwords and links</span></a>
+            <a href="../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">The system title bar on macOS</span></a>
             <a href="../changelog/v1.2.0-beta.3/"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Separate tool windows and a new tunnel list</span></a>
             <a href="../changelog/v1.2.0-beta.2/"><span class="changelog-history-version">v1.2.0-beta.2</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Failed tunnels stop retrying and report errors in the app</span></a>
             <a href="../changelog/v1.2.0-beta.1/"><span class="changelog-history-version">v1.2.0-beta.1</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Built-in remote desktop and actions on port forwards</span></a>
@@ -116,44 +117,58 @@
             <a href="../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">First public release</span></a>
           </nav>
           <div class="changelog-content">
-        <article class="changelog-entry" id="v1.2.0-beta.4">
+        <article class="changelog-entry" id="v1.2.0-beta.5">
           <header class="changelog-entry-head">
-            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.4/">v1.2.0-beta.4</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-04">4 November 2026</time></p>
-            <h3>The system title bar on macOS</h3>
-            <p>On macOS the main window now has the real window buttons, on the left, in a bar that takes the colour of your theme.</p>
+            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.5/">v1.2.0-beta.5</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-08">8 November 2026</time></p>
+            <h3>Security fixes: host keys, saved passwords and links</h3>
+            <p>Three fixes from a security review of the code. Every SSH connection now verifies the server, a saved password no longer goes to a jump host, and deleting a link no longer touches what it points to.</p>
           </header>
           <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>Real window buttons</h4>
-              <p>The main window used to draw its own buttons on the right. It now keeps the system title bar, so closing, minimizing, zoom, the menu on the green button, full screen and dragging are the ones you know from other Mac apps. The bar takes the colour of the theme in every window and changes as soon as you switch themes. Windows and Linux stay as they were.</p>
+              <h4>Every connection verifies the server</h4>
+              <p>Until now only tunnels with a saved password checked the server's host key, and <code>~/.ssh/known_hosts</code> was not read. Now every connection is checked: tunnels, the terminal, Files, jump hosts and ProxyCommand. A server in <code>known_hosts</code>, or one whose key you accepted, connects as before. An unknown server opens the main window with its fingerprint and connects only after you trust it. A changed key stops the connection and it is not retried.</p>
             </div>
             <figure class="feature-detail-shots">
-              <a href="../assets/changelog/v1.2.0-beta.4/title-bar-terminal.png"><img src="../assets/changelog/v1.2.0-beta.4/title-bar-terminal.png" alt="Main window in the Terminal theme with the system title bar" width="1798" height="1254" loading="lazy" /></a>
-              <a href="../assets/changelog/v1.2.0-beta.4/title-bar-graphite.png"><img src="../assets/changelog/v1.2.0-beta.4/title-bar-graphite.png" alt="Settings window in the Graphite theme with the title bar in the same colour" width="1638" height="1254" loading="lazy" /></a>
+              <a href="../assets/changelog/v1.2.0-beta.5/host-key-prompt.png"><img src="../assets/changelog/v1.2.0-beta.5/host-key-prompt.png" alt="The Unknown server dialog with the tunnel, the server address and the SHA-256 fingerprint" width="900" height="620" loading="lazy" /></a>
             </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>A saved password stays away from the jump host</h4>
+              <p>A tunnel's saved password was also offered to its ProxyJump host. The jump host now gets only keys and the agent, and the password goes only to the server behind it.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Deleting a link deletes only the link</h4>
+              <p>In the Files window, deleting a symbolic link to a folder used to remove the contents of that folder. Now only the link goes, and the confirmation says so. Links whose target no longer exists can be deleted too.</p>
+            </div>
           </section>
           <div class="changelog-notes">
             <div>
               <h4>How to use it</h4>
               <ul>
-                <li>Use the buttons on the left of the title bar, and drag the window by the bar.</li>
-                <li>Hold the pointer over the green button for the options to fill or tile the window.</li>
+                <li>When the <strong>Unknown server</strong> dialog appears, compare the fingerprint with the one from the server's administrator, then choose <strong>Trust this server</strong> or <strong>Cancel</strong>.</li>
+                <li>To see or remove accepted keys, open the tunnel's settings, go to its credentials and use <strong>Forget host keys</strong>.</li>
+                <li>If a key changed for a good reason, forget the old key there, or update <code>known_hosts</code> if that is where it is listed.</li>
               </ul>
             </div>
             <div>
               <h4>Known limits</h4>
               <ul>
-                <li>Dragging a window to a screen edge to tile it is a macOS 15 feature that needs its option turned on. It has not been tested with this app.</li>
-                <li>The main window title is now in the system font, so the <code>[ SSH TUNNEL MANAGER ]</code> label no longer appears on macOS.</li>
+                <li>A server missing from <code>known_hosts</code> asks once per tunnel and address, also during auto-connect. With no answer within 90 seconds the tunnel stops with an error, and you connect it again by hand.</li>
+                <li>A jump host that accepts only passwords no longer works with a saved login. It needs a key or the agent.</li>
+                <li>A saved password still reaches a server behind an SSH forward when you open Terminal, Files or the Editor on that forward.</li>
+                <li>The screenshot comes from the test build in a browser. The dialog was tested there and not by hand in the desktop window.</li>
                 <li>The limits of the previous beta still apply.</li>
               </ul>
             </div>
           </div>
-          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.4" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.5" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
         </article>
             <nav class="changelog-pager" aria-label="Older and newer releases">
               <span class="changelog-pager-newer"></span>
-              <a href="../changelog/v1.2.0-beta.3/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.3</span></a>
+              <a href="../changelog/v1.2.0-beta.4/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.4</span></a>
             </nav>
           </div>
         </div>
