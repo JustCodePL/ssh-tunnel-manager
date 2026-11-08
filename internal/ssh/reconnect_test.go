@@ -32,6 +32,7 @@ func TestServerDropReconnectsAtOnceAndCommandsWork(t *testing.T) {
 			mu.Unlock()
 		}
 	}, nil)
+	m.WithHostKeyCheck(trustAnyHostKey)
 	connections := func() int {
 		mu.Lock()
 		defer mu.Unlock()

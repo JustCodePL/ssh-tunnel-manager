@@ -105,7 +105,8 @@ func TestReportForwardingBlockedOnce(t *testing.T) {
 	var events []PortForwardError
 	var logs []string
 	tun := &Tunnel{
-		Config: config.TunnelConfig{ID: "nas-id"},
+		CheckHostKey: trustAnyHostKey,
+		Config:       config.TunnelConfig{ID: "nas-id"},
 		OnForwardError: func(err PortForwardError) {
 			events = append(events, err)
 		},
@@ -261,6 +262,7 @@ func TestProxyCommandFailureMessageExplainsMissingHelpers(t *testing.T) {
 
 func TestBuildSSHConfig_MissingKey(t *testing.T) {
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			KeyPath: "/nonexistent/key",
 			User:    "test",
@@ -278,6 +280,7 @@ func TestBuildSSHConfig_InvalidKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			KeyPath: tmp,
 			User:    "test",
@@ -301,6 +304,7 @@ func TestBuildSSHConfig_ValidKey(t *testing.T) {
 	}
 
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			KeyPath: keyPath,
 			User:    "test",
@@ -317,6 +321,7 @@ func TestBuildSSHConfig_ValidKey(t *testing.T) {
 
 func TestCheckPortConflicts_Available(t *testing.T) {
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			Name: "test",
 			PortForwards: []config.PortForward{
@@ -343,6 +348,7 @@ func TestCheckPortConflicts_InUse(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			Name: "test",
 			PortForwards: []config.PortForward{
@@ -380,6 +386,7 @@ func TestCheckPortConflicts_PortlessFallbackUsesLocalPort(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			Name: "degraded",
 			PortForwards: []config.PortForward{{
@@ -405,6 +412,7 @@ func TestCheckPortConflicts_ActivePortlessSkipsLocalPort(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			Name: "active-portless",
 			PortForwards: []config.PortForward{{
@@ -431,7 +439,8 @@ func TestForwardPort_PortlessWithoutDNSFallsBackToLocalListener(t *testing.T) {
 
 	logCh := make(chan string, 1)
 	tun := &Tunnel{
-		Config: config.TunnelConfig{ID: "db-id", Name: "db"},
+		CheckHostKey: trustAnyHostKey,
+		Config:       config.TunnelConfig{ID: "db-id", Name: "db"},
 		LogFunc: func(_ string, msg string) {
 			select {
 			case logCh <- msg:
@@ -481,6 +490,7 @@ func TestForwardPort_PortlessWithoutDNSFallsBackToLocalListener(t *testing.T) {
 
 func TestConnect_ContextCancellation(t *testing.T) {
 	tun := &Tunnel{
+		CheckHostKey: trustAnyHostKey,
 		Config: config.TunnelConfig{
 			Name:    "cancel-test",
 			Host:    "192.0.2.1", // RFC 5737 TEST-NET, will timeout

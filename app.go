@@ -57,6 +57,13 @@ type App struct {
 
 	credentialsMu sync.Mutex
 
+	// Host key questions: one at a time, the current one in hostKeyPending.
+	hostKeyPromptMu sync.Mutex
+	hostKeyMu       sync.Mutex
+	hostKeyPending  *pendingHostKey
+	hostKeyNextID   uint64
+	hostKeyClosed   bool
+
 	appHidden bool
 
 	smokeMu      sync.Mutex
@@ -172,6 +179,9 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 	app.manager.WithLoginProvider(app.sshLogin)
 	app.termMgr.WithLoginProvider(app.sshLogin)
 	app.sftpMgr.WithLoginProvider(app.sshLogin)
+	app.manager.WithHostKeyCheck(app.checkSSHHostKey)
+	app.termMgr.WithHostKeyCheck(app.checkSSHHostKey)
+	app.sftpMgr.WithHostKeyCheck(app.checkSSHHostKey)
 	app.manager.WithLogEmitter(func(tunnelID, level, msg string) {
 		app.appendTunnelLog(tunnelID, level, msg)
 	})
@@ -302,6 +312,7 @@ func (a *App) shutdown() {
 	slog.Info("shutting down, disconnecting all tunnels")
 	a.saveWindowSize()
 	a.tray.Stop()
+	a.closeHostKeyPrompts()
 	a.termMgr.CloseAll()
 	a.sftpMgr.CloseAll()
 	if a.rdpBridge != nil {

@@ -374,6 +374,46 @@ export class ForwardTarget {
 }
 
 /**
+ * HostKeyPrompt asks the user whether to trust the key of an unknown server.
+ */
+export class HostKeyPrompt {
+    "id": number;
+    "tunnelName": string;
+    "address": string;
+    "keyType": string;
+    "fingerprint": string;
+
+    /** Creates a new HostKeyPrompt instance. */
+    constructor($$source: Partial<HostKeyPrompt> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = 0;
+        }
+        if (!("tunnelName" in $$source)) {
+            this["tunnelName"] = "";
+        }
+        if (!("address" in $$source)) {
+            this["address"] = "";
+        }
+        if (!("keyType" in $$source)) {
+            this["keyType"] = "";
+        }
+        if (!("fingerprint" in $$source)) {
+            this["fingerprint"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HostKeyPrompt instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HostKeyPrompt {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HostKeyPrompt($$parsedSource as Partial<HostKeyPrompt>);
+    }
+}
+
+/**
  * LogEntry is one line of the app log.
  */
 export class LogEntry {
@@ -724,7 +764,7 @@ export class SFTPWriteResult {
 }
 
 /**
- * SSHHostKey is a pinned host key of a tunnel with a password login.
+ * SSHHostKey is a host key the user accepted for a tunnel.
  */
 export class SSHHostKey {
     "address": string;

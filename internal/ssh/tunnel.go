@@ -52,11 +52,6 @@ type PasswordLogin struct {
 	// Username replaces the tunnel's user when it is not empty.
 	Username string
 	Password string
-	// CheckHostKey receives a server's address and SHA-256 host key fingerprint
-	// before any authentication. A password reaches the server itself, so it must
-	// only go to a known host. A connection through a jump host checks both.
-	// Required.
-	CheckHostKey func(address, fingerprint string) error
 }
 
 // LoginFunc returns the password login of a tunnel, or nil when it has none.
@@ -69,7 +64,9 @@ type Tunnel struct {
 	GetPassphrase PassphraseFunc
 	// GetLogin returns the tunnel's password login, if it has one.
 	GetLogin LoginFunc
-	LogFunc  func(level, msg string) // optional: called for connection events
+	// CheckHostKey decides whether to trust each server on the way. Required.
+	CheckHostKey HostKeyFunc
+	LogFunc      func(level, msg string) // optional: called for connection events
 	// OnBindError is called when a portless forward cannot bind its listener.
 	// The App layer surfaces it to the user (banner + tray) — most importantly
 	// the Linux privileged-port case that needs CAP_NET_BIND_SERVICE.
@@ -221,7 +218,7 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 }
 
 func (t *Tunnel) buildSSHConfig() (*ssh.ClientConfig, error) {
-	return buildClientConfig(t.Config, t.GetPassphrase, t.GetLogin)
+	return buildClientConfig(t.Config, t.GetPassphrase, t.GetLogin, t.CheckHostKey)
 }
 
 // runCommandTimeout is a fallback cap for RunCommand callers that pass a
@@ -323,17 +320,28 @@ func (t *Tunnel) dialVia(ctx context.Context, addr string, sshConfig *ssh.Client
 	if timeout <= 0 {
 		timeout = viaHandshakeTimeout
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	dialCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	conn, err := t.Via(ctx, addr)
+	conn, err := t.Via(dialCtx, addr)
 	if err != nil {
 		return nil, err
 	}
+	timer := time.AfterFunc(timeout, func() { _ = conn.Close() })
+	defer timer.Stop()
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 
-	c, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
+	// The host key check may wait for the user, so its time does not count.
+	handshakeConfig := *sshConfig
+	check := sshConfig.HostKeyCallback
+	handshakeConfig.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		timer.Stop()
+		defer timer.Reset(timeout)
+		return check(hostname, remote, key)
+	}
+
+	c, chans, reqs, err := ssh.NewClientConn(conn, addr, &handshakeConfig)
 	if err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("SSH handshake with %s through tunnel: %w", addr, err)

@@ -264,36 +264,10 @@ func (a *App) sshLogin(tunnelID string) (*ssh.PasswordLogin, error) {
 	return &ssh.PasswordLogin{
 		Username: login.Username,
 		Password: login.Password,
-		CheckHostKey: func(address, fingerprint string) error {
-			return a.checkSSHHostKey(tunnelID, address, fingerprint)
-		},
 	}, nil
 }
 
-// checkSSHHostKey pins a server's host key on first use and refuses a different
-// one, so a saved password never goes to a server pretending to be this one.
-func (a *App) checkSSHHostKey(tunnelID, address, fingerprint string) error {
-	a.credentialsMu.Lock()
-	defer a.credentialsMu.Unlock()
-	p := a.prefs.Get()
-	pinned := p.SSHHostKeys[tunnelID][address]
-	if pinned == fingerprint {
-		return nil
-	}
-	if pinned != "" {
-		return fmt.Errorf("the host key changed for %s (expected %s, got %s), so the saved password was not sent. If this change is expected, forget the old key in the tunnel's settings", address, pinned, fingerprint)
-	}
-	slog.Info("pinning SSH host key on first use", "tunnel", tunnelID, "address", address, "sha256", fingerprint)
-	keys := make(map[string]string, len(p.SSHHostKeys[tunnelID])+1)
-	for key, value := range p.SSHHostKeys[tunnelID] {
-		keys[key] = value
-	}
-	keys[address] = fingerprint
-	p.SSHHostKeys = withSSHHostKeys(p.SSHHostKeys, tunnelID, keys)
-	return a.prefs.Set(p)
-}
-
-// SSHHostKey is a pinned host key of a tunnel with a password login.
+// SSHHostKey is a host key the user accepted for a tunnel.
 type SSHHostKey struct {
 	Address     string `json:"address"`
 	Fingerprint string `json:"fingerprint"`
@@ -311,7 +285,7 @@ func (a *App) GetSSHHostKeys(tunnelID string) []SSHHostKey {
 }
 
 // ForgetSSHHostKeys removes a tunnel's pinned host keys, so the next connection
-// pins the keys it finds.
+// asks about any server that is not in known_hosts.
 func (a *App) ForgetSSHHostKeys(tunnelID string) error {
 	a.credentialsMu.Lock()
 	defer a.credentialsMu.Unlock()

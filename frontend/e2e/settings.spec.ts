@@ -224,7 +224,8 @@ test.describe("shared logins", () => {
     await expect(own.getByTestId("tool-window")).toBeVisible();
     await own.getByTestId("tunnel-credentials").click();
     await expect(own.getByTestId("ssh-login")).toHaveAttribute("data-value", /.+/);
-    await expect(own.getByTestId("ssh-host-key")).toContainText("SHA256:");
+    // The fixture is in known_hosts, so no key had to be accepted.
+    await expect(own.getByTestId("ssh-host-key")).toHaveCount(0);
     await own.close();
 
     await connect(page, "prod-web");
@@ -262,8 +263,6 @@ test.describe("shared logins", () => {
     await prodSettings.close();
     const laptop = await toolWindow(context, () => tunnel(page, "laptop").getByTestId("tunnel-settings").click());
     await laptop.getByTestId("tunnel-credentials").click();
-    await laptop.getByTestId("forget-host-key").click();
-    await expect(laptop.getByTestId("ssh-host-key")).toHaveCount(0);
     await laptop.getByTestId("login-method-key").click();
     await laptop.getByTestId("tunnel-save").click();
     await expect(laptop.getByText("Saved", { exact: true })).toBeVisible();

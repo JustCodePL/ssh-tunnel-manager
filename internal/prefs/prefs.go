@@ -35,8 +35,8 @@ type Prefs struct {
 	// RDPCertificates pins the SHA-256 fingerprint of each host's RDP server
 	// certificate on first use, keyed by tunnel ID.
 	RDPCertificates map[string]string `json:"rdpCertificates,omitempty"`
-	// SSHHostKeys pins, on first use, the SHA-256 host key fingerprints a tunnel
-	// with a password login has seen: tunnel ID, then server address.
+	// SSHHostKeys holds the SHA-256 host key fingerprints the user accepted for
+	// servers missing from known_hosts: tunnel ID, then server address.
 	SSHHostKeys map[string]map[string]string `json:"sshHostKeys,omitempty"`
 
 	// Theme is the app's look: "terminal" or "graphite".

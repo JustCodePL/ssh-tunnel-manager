@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	gossh "golang.org/x/crypto/ssh"
+
 	"ssh-tunnel-manager/internal/config"
 )
 
@@ -33,15 +35,14 @@ func TestSavedPasswordAgainstARealServer(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("SSH_AUTH_SOCK", "")
 	cfg := config.TunnelConfig{ID: "live", Name: "live", Host: host, Port: port}
-	err = dial(t, cfg, func(string) (*PasswordLogin, error) {
+	err = dialChecked(t, cfg, func(string) (*PasswordLogin, error) {
 		return &PasswordLogin{
 			Username: read("STM_SSH_LIVE_USER_FILE"),
 			Password: read("STM_SSH_LIVE_PASSWORD_FILE"),
-			CheckHostKey: func(address, fingerprint string) error {
-				fmt.Println("host key", address, fingerprint)
-				return nil
-			},
 		}, nil
+	}, func(_, address string, key gossh.PublicKey) error {
+		fmt.Println("host key", address, gossh.FingerprintSHA256(key))
+		return nil
 	})
 	if err != nil {
 		t.Fatalf("login failed: %v", err)

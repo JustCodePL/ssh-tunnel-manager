@@ -556,6 +556,14 @@ type SFTPManager struct {
 	nextID        int
 	getPassphrase PassphraseFunc
 	getLogin      LoginFunc
+	checkHostKey  HostKeyFunc
+}
+
+// WithHostKeyCheck sets how the manager decides whether to trust a server.
+func (sm *SFTPManager) WithHostKeyCheck(check HostKeyFunc) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.checkHostKey = check
 }
 
 // WithLoginProvider sets where the manager finds a tunnel's password login.
@@ -584,13 +592,14 @@ func (sm *SFTPManager) OpenSession(cfg config.TunnelConfig) (string, string, err
 func (sm *SFTPManager) OpenSessionVia(cfg config.TunnelConfig, via RemoteDialer) (string, string, error) {
 	sm.mu.Lock()
 	getLogin := sm.getLogin
+	checkHostKey := sm.checkHostKey
 	sm.mu.Unlock()
-	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase, getLogin)
+	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase, getLogin, checkHostKey)
 	if err != nil {
 		return "", "", fmt.Errorf("building SSH config for SFTP: %w", err)
 	}
 
-	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, GetLogin: getLogin, Via: via}
+	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, GetLogin: getLogin, CheckHostKey: checkHostKey, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", "", fmt.Errorf("connecting SFTP to %s: %w", cfg.Host, err)

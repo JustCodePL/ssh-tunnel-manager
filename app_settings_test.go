@@ -427,19 +427,10 @@ func TestSSHLoginFollowsItsTunnelAndPinsTheHostKey(t *testing.T) {
 		t.Fatalf("login = %+v err=%v", login, err)
 	}
 
-	if err := login.CheckHostKey("a:22", "SHA256:first"); err != nil {
-		t.Fatalf("first use: %v", err)
-	}
-	if err := login.CheckHostKey("a:22", "SHA256:first"); err != nil {
-		t.Fatalf("same key: %v", err)
-	}
-	err = login.CheckHostKey("a:22", "SHA256:other")
-	if err == nil || !strings.Contains(err.Error(), "not sent") || !strings.Contains(err.Error(), "host key changed") {
-		t.Fatalf("changed key: %v", err)
-	}
-	// A jump host has its own key.
-	if err := login.CheckHostKey("jump:22", "SHA256:jump"); err != nil {
-		t.Fatalf("second address: %v", err)
+	for address, fingerprint := range map[string]string{"a:22": "SHA256:first", "jump:22": "SHA256:jump"} {
+		if err := app.pinSSHHostKey("old", address, fingerprint); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if got := app.GetSSHHostKeys("old"); len(got) != 2 || got[0].Address != "a:22" || got[0].Fingerprint != "SHA256:first" || got[1].Address != "jump:22" {
 		t.Errorf("pinned = %+v", got)
@@ -460,8 +451,11 @@ func TestSSHLoginFollowsItsTunnelAndPinsTheHostKey(t *testing.T) {
 	if err := app.ForgetSSHHostKeys("new"); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.checkSSHHostKey("new", "a:22", "SHA256:other"); err != nil {
-		t.Fatalf("after forgetting: %v", err)
+	if got := app.GetSSHHostKeys("new"); len(got) != 0 {
+		t.Fatalf("after forgetting: %+v", got)
+	}
+	if err := app.pinSSHHostKey("new", "a:22", "SHA256:other"); err != nil {
+		t.Fatal(err)
 	}
 
 	app.removeRDPState("new", nil)

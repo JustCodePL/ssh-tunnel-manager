@@ -76,6 +76,7 @@ type Manager struct {
 	emitter        EventEmitter
 	getPassphrase  PassphraseFunc
 	getLogin       LoginFunc
+	checkHostKey   HostKeyFunc
 	logEmitter     func(tunnelID, level, msg string)
 	bindErrEmit    BindErrorEmitter
 	forwardErrEmit ForwardErrorEmitter
@@ -112,6 +113,13 @@ func (m *Manager) WithDNSRegistry(reg dns.ForwardRegistry) {
 	m.dnsRegistry = reg
 }
 
+// WithHostKeyCheck sets how the manager decides whether to trust a server.
+func (m *Manager) WithHostKeyCheck(check HostKeyFunc) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.checkHostKey = check
+}
+
 // WithLoginProvider sets where the manager finds a tunnel's password login.
 func (m *Manager) WithLoginProvider(getLogin LoginFunc) {
 	m.mu.Lock()
@@ -133,12 +141,6 @@ func isAuthError(err error) bool {
 		strings.Contains(msg, "permission denied") ||
 		strings.Contains(msg, "no authentication methods available") ||
 		strings.Contains(msg, "authentication failed")
-}
-
-// isHostKeyRefusal returns true if a saved login's host key check stopped the
-// connection. Retrying cannot help, and the message says what to do.
-func isHostKeyRefusal(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "host key changed")
 }
 
 // isDNSError returns true if the error is a DNS resolution failure.
@@ -273,12 +275,14 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 		forwardErrEmit := m.forwardErrEmit
 		dnsRegistry := m.dnsRegistry
 		getLogin := m.getLogin
+		checkHostKey := m.checkHostKey
 		m.mu.Unlock()
 
 		tun := &Tunnel{
 			Config:         cfg,
 			GetPassphrase:  m.getPassphrase,
 			GetLogin:       getLogin,
+			CheckHostKey:   checkHostKey,
 			DNSRegistry:    dnsRegistry,
 			OnBindError:    bindErrEmit,
 			OnForwardError: forwardErrEmit,
