@@ -51,7 +51,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
    git push origin <version>
    ```
 9. **Watch CI and verify** as described below.
-10. **Update the dev preview** as described under After publishing.
+10. **Check the dev preview** as described under After publishing.
 
 ## Publish production
 
@@ -95,8 +95,6 @@ Short title of what changed
 **Full Changelog**: https://github.com/JustCodePL/ssh-tunnel-manager/compare/<previous-tag>...<version>
 ```
 
-A beta's page is on the beta site, so its `What's new` link is `https://justcodepl.github.io/ssh-tunnel-manager/beta/changelog/<version>/`.
-
 Compare a beta with the previous release: `v1.1.0...v1.2.0-beta.1`. A later beta states what is new and adds that it contains the earlier betas.
 
 ## Watch CI and verify
@@ -116,12 +114,6 @@ To fix a body afterwards: `gh release edit <version> --notes-file <file>`. That 
 
 ## After publishing
 
-Every release, beta or production, also goes to the dev preview, so it shows the same site. It runs from `MacBook-Pro-Artur-Agent`, and without an argument takes the tip of `main`, so pass the release's commit:
-
-```
-~/agent-shared/tools/preview/stm-redeploy.sh "$(git rev-parse '<version>^{commit}')"
-```
-
-Check `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/`.
+The dev preview updates itself: merging to `main` or `beta` runs `dev.yml`, so it shows the same site as production. Nothing to run by hand. Check `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/` once `gh run list --workflow=dev.yml --limit 1` shows the run succeeded.
 
 Update tracking as `AGENTS.md` describes, keeping implemented, beta and production as separate states. Describe something as released only after the release and its assets exist.
