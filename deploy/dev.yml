@@ -1,0 +1,25 @@
+services:
+  app:
+    image: ${DOCKER_IMAGE_NAME}
+    networks:
+      - traefik
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        order: start-first
+      placement:
+        constraints:
+          - node.role == worker
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.ssh_tunnel_manager_justcode_ovh.rule=Host(`ssh-tunnel-manager.justcode.ovh`)
+        - traefik.http.routers.ssh_tunnel_manager_justcode_ovh.entrypoints=web
+        - traefik.http.routers.ssh_tunnel_manager_justcode_ovh.service=ssh_tunnel_manager_justcode_ovh
+        - traefik.http.services.ssh_tunnel_manager_justcode_ovh.loadbalancer.server.port=80
+        - "traefik.http.middlewares.ssh_tunnel_manager_basicauth.basicauth.users=${BASIC_AUTH_USERS}"
+        - traefik.http.routers.ssh_tunnel_manager_justcode_ovh.middlewares=ssh_tunnel_manager_basicauth
+
+networks:
+  traefik:
+    external: true

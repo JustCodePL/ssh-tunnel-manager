@@ -1,0 +1,149 @@
+name: Deploy dev site
+
+# The dev site (https://ssh-tunnel-manager.justcode.ovh, behind basic auth) shows
+# the same docs/ as production. A push to `main` or `beta` updates it together
+# with GitHub Pages, so it matches production again. A tag `deploy-dev-*` puts
+# the tagged commit there to try a larger change (a refactor, say) before it
+# merges, until the next deploy of `main` or `beta` replaces it.
+#
+# The steps follow the shared pipeline in JustCodePL/Actions (build and publish
+# image, deploy stack, swarm cleanup). That repository is private, and a public
+# repository cannot call its reusable workflows, so this workflow checks it out
+# with PERSONAL_ACCESS_TOKEN and uses its composite actions directly.
+on:
+  push:
+    branches: [main, beta]
+    tags: ["deploy-dev-*"]
+    paths:
+      - "docs/**"
+      - "deploy/**"
+      - ".github/workflows/dev.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deploys queue instead of cancelling a stack update that is already running.
+concurrency:
+  group: dev-site
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Test release presentation
+        run: node --test docs/*.test.cjs
+
+  deploy:
+    needs: verify
+    runs-on:
+      group: Private macOS Builders
+      labels: justcode
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/justcodepl/ssh-tunnel-manager-site:${{ github.sha }}-dev
+      STACK_NAME: ssh_tunnel_manager_justcode_ovh
+      ENVIRONMENT: dev
+    steps:
+      - name: Checkout shared actions
+        uses: actions/checkout@v4
+        with:
+          repository: JustCodePL/Actions
+          ref: eacc7ce7112128c2cd4b92f12e9b186ddb8322e2
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          path: actions
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: caller
+
+      - name: Configure job-scoped Docker state
+        shell: bash
+        run: |
+          DOCKER_ENDPOINT=$(docker context inspect --format '{{.Endpoints.docker.Host}}' "$(docker context show)")
+          if [ -z "$DOCKER_ENDPOINT" ]; then
+            echo "Unable to resolve the active Docker endpoint" >&2
+            exit 1
+          fi
+          DOCKER_CONFIG_DIR="${RUNNER_TEMP:?}/justcode-docker"
+          install -d -m 700 "$DOCKER_CONFIG_DIR"
+          if BUILDX_PATH=$(command -v docker-buildx 2>/dev/null); then
+            install -d -m 700 "$DOCKER_CONFIG_DIR/cli-plugins"
+            ln -s "$BUILDX_PATH" "$DOCKER_CONFIG_DIR/cli-plugins/docker-buildx"
+          fi
+          DOCKER_CONFIG="$DOCKER_CONFIG_DIR" DOCKER_HOST="$DOCKER_ENDPOINT" docker buildx version
+          echo "DOCKER_HOST=$DOCKER_ENDPOINT" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG_DIR" >> "$GITHUB_ENV"
+
+      - name: Configure temporary GitHub Container Registry credentials
+        shell: bash
+        env:
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          AUTH_VALUE=$(printf '%s' "$REGISTRY_USERNAME:$REGISTRY_PASSWORD" | base64 | tr -d '\r\n')
+          jq -n --arg auth "$AUTH_VALUE" '{"auths":{"ghcr.io":{"auth":$auth}}}' > "$DOCKER_CONFIG/config.json"
+          chmod 600 "$DOCKER_CONFIG/config.json"
+
+      - name: Build and publish the image
+        shell: bash
+        run: |
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "Image $IMAGE already exists, skipping build"
+            exit 0
+          fi
+          DOCKER_BUILDKIT=1 docker build --platform linux/amd64 -t "$IMAGE" -f caller/deploy/Dockerfile ./caller
+          docker push "$IMAGE"
+
+      - name: Set up SSH to the swarm
+        uses: ./actions/.github/actions/setup-ssh
+        with:
+          infisical_token_ci: ${{ secrets.INFISICAL_TOKEN_CI_DEV }}
+          env: ${{ env.ENVIRONMENT }}
+
+      - name: Load the stack's variables
+        uses: ./actions/.github/actions/load-secrets
+        with:
+          infisical_token: ${{ secrets.INFISICAL_TOKEN_APP_DEV }}
+          env: ${{ env.ENVIRONMENT }}
+          env_file: .env-app
+          secrets_path: /
+
+      - name: Deploy the stack
+        shell: bash
+        env:
+          DOCKER_IMAGE_NAME: ${{ env.IMAGE }}
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          source .env-ci-export
+          source .env-app-export
+          envsubst < caller/deploy/dev.yml > docker-compose.yml
+          ssh -F "$JUSTCODE_SSH_CONFIG" ssh-host "mkdir -p ~/stacks/$STACK_NAME"
+          scp -F "$JUSTCODE_SSH_CONFIG" docker-compose.yml "ssh-host:~/stacks/$STACK_NAME/docker-compose.yml"
+          printf '%s' "$REGISTRY_PASSWORD" | ssh -F "$JUSTCODE_SSH_CONFIG" ssh-host "docker login ghcr.io -u '$REGISTRY_USERNAME' --password-stdin"
+          ssh -F "$JUSTCODE_SSH_CONFIG" ssh-host "docker stack deploy -c ~/stacks/$STACK_NAME/docker-compose.yml $STACK_NAME --with-registry-auth --prune"
+
+      - name: Remove temporary credentials
+        if: always()
+        shell: bash
+        run: |
+          rm -f .env .env-export .env-app .env-app-export .env-ci .env-ci-export docker-compose.yml
+          rm -rf "${RUNNER_TEMP:?}/justcode-ssh" "${RUNNER_TEMP:?}/justcode-docker"
+
+      - name: Clean up the swarm
+        uses: ./actions/.github/actions/swarm-cleanup
+        with:
+          infisical_token_ci: ${{ secrets.INFISICAL_TOKEN_CI_DEV }}
+          env: ${{ env.ENVIRONMENT }}

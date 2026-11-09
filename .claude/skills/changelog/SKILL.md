@@ -49,15 +49,17 @@ Describe only what the code does and what you saw it do. Test with `node --test 
 
 ## 4. Preview on dev
 
-The dev server is `https://ssh-tunnel-manager.justcode.ovh` (user `preview`, Artur has the password; `noindex`). It serves `docs/` of a commit from GitHub, so the commit must be pushed. Analytics are stripped there.
+The dev server is `https://ssh-tunnel-manager.justcode.ovh` (user `preview`, Artur has the password; `noindex`, analytics stripped). It serves `docs/` of the commit that the last `dev.yml` run deployed. A push to `main` or `beta` deploys it, so it matches production. To show an entry before it merges, push the commit and tag it; the tag name is single-use, so pick a new one for each version of the entry:
 
 ```
 git push -u origin <branch>
-~/agent-shared/tools/preview/stm-redeploy.sh "$(git rev-parse HEAD)"
+git tag deploy-dev-<name> && git push origin deploy-dev-<name>
 ```
+
+Watch it with `gh run list --workflow=dev.yml --limit 1`. The next deploy of `main` or `beta` replaces it.
 
 Give Artur the link to the entry: `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/`.
 
 ## 5. Connect it to the release
 
-The release notes end with the `What's new` line from the `release` skill's format. The site's release list links to the entry through `docs/changelog-versions.js`. Before tagging, merge the entry to `beta` for a beta, where it appears under `/beta/changelog/<version>/`. A production entry goes to `main` with the promotion PR.
+The release notes end with the `What's new` line from the `release` skill's format. The site's release list links to the entry through `docs/changelog-versions.js`. Before tagging, merge the entry to `beta` for a beta, where it appears under `/changelog/<version>/` on the site once `beta` deploys. A production entry goes to `main` with the promotion PR.
