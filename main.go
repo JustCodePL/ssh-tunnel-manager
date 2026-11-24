@@ -113,7 +113,10 @@ func runApplication(app *App, p prefs.Prefs, startHidden bool) error {
 			UniqueID: singleInstanceID(isSmokeTest()),
 			ExitCode: secondInstanceExitCode(isSmokeTest()),
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
-				app.showWindow()
+				// A second smoke test must not move this one's windows.
+				if !isSmokeTest() {
+					app.showWindow()
+				}
 			},
 		},
 		ShouldQuit: func() bool {

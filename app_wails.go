@@ -200,10 +200,10 @@ func singleInstanceID(smokeTest bool) string {
 
 // secondInstanceExitCode is the status a launch exits with when another
 // instance holds the lock. A smoke test that hands over to another one has
-// tested nothing, so it fails.
+// tested nothing, so it fails, with a code runSmokeTest does not use.
 func secondInstanceExitCode(smokeTest bool) int {
 	if smokeTest {
-		return 10
+		return 20
 	}
 	return 0
 }
