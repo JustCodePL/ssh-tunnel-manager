@@ -47,18 +47,9 @@ Set `width` and `height` to the file's real size (`sips -g pixelWidth -g pixelHe
 
 Describe only what the code does and what you saw it do. Test with `node --test docs/*.test.cjs`.
 
-## 4. Preview on dev
+## 4. Preview locally, on request
 
-The dev server is `https://ssh-tunnel-manager.justcode.ovh` (user `preview`, Artur has the password; `noindex`, analytics stripped). It serves `docs/` of the commit that the last `dev.yml` run deployed. A push to `main` or `beta` deploys it, so it matches production. To show an entry before it merges, push the commit and tag it; the tag name is single-use, so pick a new one for each version of the entry:
-
-```
-git push -u origin <branch>
-git tag deploy-dev-<name> && git push origin deploy-dev-<name>
-```
-
-Watch it with `gh run list --workflow=dev.yml --limit 1`. The next deploy of `main` or `beta` replaces it.
-
-Give Artur the link to the entry: `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/`.
+There is no dev copy of the site. Show the entry only when Artur asks for it: render `docs/changelog/<version>/index.html` and `docs/pl/changelog/<version>/index.html` from the branch in T3 (`html_preview` with the file path, then `html_render`). Nothing is published. Otherwise the review happens in the pull request.
 
 ## 5. Connect it to the release
 
