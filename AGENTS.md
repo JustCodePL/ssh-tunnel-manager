@@ -120,3 +120,8 @@ Go backend + Wails 3 + Svelte frontend. Single binary, no Electron.
 
 - See `.claude/skills/` for SSH and systray patterns (the Wails skill describes v2, check the v3 docs)
 - See `.claude/rules/` for Go and frontend conventions
+
+## Project notes
+
+- Desktop app (Wails/Go, macOS first). Weekly Umami report: part of the Monday routine `routines/umami.md` in `JustCodePL/home-agent`.
+- Test preview (as of 2026-11-07, unverified): `https://ssh-tunnel-manager.justcode.ovh` runs on the DEV swarm (`mikrus-g146`, stack `/root/stacks/ssh_tunnel_manager_justcode_ovh.yml`) behind Basic Auth (Bitwarden entry `[DEV] SSH Tunnel Manager preview basicauth`). Rebuild it with `~/agent-shared/tools/preview/stm-redeploy.sh [sha]` (default: `HEAD` of `main`); it verifies the result.
