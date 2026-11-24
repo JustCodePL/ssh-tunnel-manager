@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <meta
+      name="description"
+      content="The screen of a Mac (macOS Screen Sharing) or of another VNC server now opens in a window of the app, through the SSH tunnel, like the built-in remote desktop."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="v1.2.0-beta.6: Screen sharing over VNC, for a Mac behind a tunnel · News · SSH Tunnel Manager" />
+    <meta
+      property="og:description"
+      content="The screen of a Mac (macOS Screen Sharing) or of another VNC server now opens in a window of the app, through the SSH tunnel, like the built-in remote desktop."
+    />
+    <meta property="og:url" content="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.6/" />
+    <meta property="og:image" content="https://justcodepl.github.io/ssh-tunnel-manager/og-en.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.6/" />
+    <link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.6/" />
+    <link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.6/" />
+    <link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.6/" />
+    <link rel="icon" type="image/png" href="../../assets/appicon.png" />
+    <link rel="stylesheet" href="../../styles.css?v=20261104.2" />
+    <script defer src="https://statystyki.justcode.ac/script.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script defer src="https://statystyki.justcode.ac/recorder.js" data-website-id="adb5be85-1f83-44a8-a215-6954adf36a93"></script>
+    <script src="../../changelog.js?v=20261104.3" defer></script>
+    <script src="../../lightbox.js?v=20261103.1" defer></script>
+    <title>v1.2.0-beta.6: Screen sharing over VNC, for a Mac behind a tunnel · News · SSH Tunnel Manager</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="../../" aria-label="SSH Tunnel Manager — home page">
+        <img src="../../assets/appicon.png" alt="" width="40" height="40" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+
+      <nav aria-label="Main navigation">
+        <a href="../../features/">Features</a>
+        <a href="../../#download">Download</a>
+        <a href="../../#releases">Releases</a>
+        <a href="../../#faq">FAQ</a>
+        <a href="../../compare/">Compare</a>
+        <a href="../../changelog/" aria-current="page">News</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Choose language">
+          <span aria-current="page">EN</span>
+          <a href="../../pl/changelog/v1.2.0-beta.6/" lang="pl" hreflang="pl">PL</a>
+        </div>
+        <a
+          class="button button-small button-ghost github-link"
+          href="https://github.com/JustCodePL/ssh-tunnel-manager"
+          data-umami-event="github-click"
+          data-umami-event-location="header"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="github-mark" aria-hidden="true"></span>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section">
+        <div class="section-intro">
+          <p class="kicker">// SSH TUNNEL MANAGER</p>
+          <h2>News</h2>
+        </div>
+
+        <div class="changelog-layout">
+          <nav class="changelog-history" aria-label="Release history">
+            <a href="../../changelog/v1.2.0-beta.6/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.6</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Screen sharing over VNC, for a Mac behind a tunnel</span></a>
+            <a href="../../changelog/v1.2.0-beta.5/"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Security fixes: host keys, saved passwords and links</span></a>
+            <a href="../../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">The system title bar on macOS</span></a>
+            <a href="../../changelog/v1.2.0-beta.3/"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Separate tool windows and a new tunnel list</span></a>
+            <a href="../../changelog/v1.2.0-beta.2/"><span class="changelog-history-version">v1.2.0-beta.2</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Failed tunnels stop retrying and report errors in the app</span></a>
+            <a href="../../changelog/v1.2.0-beta.1/"><span class="changelog-history-version">v1.2.0-beta.1</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Built-in remote desktop and actions on port forwards</span></a>
+            <a href="../../changelog/v1.1.0/"><span class="changelog-history-version">v1.1.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Persistent Portless on macOS and a notarized app inside the DMG</span></a>
+            <a href="../../changelog/v1.0.36/"><span class="changelog-history-version">v1.0.36</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Reliable Portless, updates, and background operation</span></a>
+            <a href="../../changelog/v1.0.31/"><span class="changelog-history-version">v1.0.31</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Stable and Beta update channels</span></a>
+            <a href="../../changelog/v1.0.30/"><span class="changelog-history-version">v1.0.30</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Richer Docker and htop monitoring</span></a>
+            <a href="../../changelog/v1.0.29/"><span class="changelog-history-version">v1.0.29</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Live remote host monitoring</span></a>
+            <a href="../../changelog/v1.0.28/"><span class="changelog-history-version">v1.0.28</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Safer Portless defaults and reliable Linux updates</span></a>
+            <a href="../../changelog/v1.0.27/"><span class="changelog-history-version">v1.0.27</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Privileged Portless ports on Linux</span></a>
+            <a href="../../changelog/v1.0.26/"><span class="changelog-history-version">v1.0.26</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Built-in SFTP file editing</span></a>
+            <a href="../../changelog/v1.0.25/"><span class="changelog-history-version">v1.0.25</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Host header overrides for Portless forwards</span></a>
+            <a href="../../changelog/v1.0.24/"><span class="changelog-history-version">v1.0.24</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Reliable Linux auto-updates</span></a>
+            <a href="../../changelog/v1.0.23/"><span class="changelog-history-version">v1.0.23</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Portless .ssh-local domains</span></a>
+            <a href="../../changelog/v1.0.22/"><span class="changelog-history-version">v1.0.22</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">SFTP browser and unified overlay windows</span></a>
+            <a href="../../changelog/v1.0.21/"><span class="changelog-history-version">v1.0.21</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Better terminal clipboard and minimization</span></a>
+            <a href="../../changelog/v1.0.20/"><span class="changelog-history-version">v1.0.20</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">New app logo and hidden startup</span></a>
+            <a href="../../changelog/v1.0.19/"><span class="changelog-history-version">v1.0.19</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Signed and notarized macOS builds</span></a>
+            <a href="../../changelog/v1.0.18/"><span class="changelog-history-version">v1.0.18</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Remembered window size and tray bulk actions</span></a>
+            <a href="../../changelog/v1.0.17/"><span class="changelog-history-version">v1.0.17</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Tunnel groups, pinned hosts, and refined UI</span></a>
+            <a href="../../changelog/v1.0.16/"><span class="changelog-history-version">v1.0.16</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">SSH config includes and better startup behavior</span></a>
+            <a href="../../changelog/v1.0.15/"><span class="changelog-history-version">v1.0.15</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Clearer ProxyCommand handshake errors</span></a>
+            <a href="../../changelog/v1.0.14/"><span class="changelog-history-version">v1.0.14</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Interactive SSH terminal</span></a>
+            <a href="../../changelog/v1.0.13/"><span class="changelog-history-version">v1.0.13</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">New cyberpunk interface</span></a>
+            <a href="../../changelog/v1.0.12/"><span class="changelog-history-version">v1.0.12</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Reliable Windows tray interactions</span></a>
+            <a href="../../changelog/v1.0.11/"><span class="changelog-history-version">v1.0.11</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Fixed Windows tray menu icons</span></a>
+            <a href="../../changelog/v1.0.10/"><span class="changelog-history-version">v1.0.10</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Fixed Windows tray icon</span></a>
+            <a href="../../changelog/v1.0.9/"><span class="changelog-history-version">v1.0.9</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Elevated Windows updates</span></a>
+            <a href="../../changelog/v1.0.8/"><span class="changelog-history-version">v1.0.8</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Faster DNS failures and simpler Windows tray icon</span></a>
+            <a href="../../changelog/v1.0.7/"><span class="changelog-history-version">v1.0.7</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Native macOS DMG updates</span></a>
+            <a href="../../changelog/v1.0.6/"><span class="changelog-history-version">v1.0.6</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Tunnel logs and safer authentication failures</span></a>
+            <a href="../../changelog/v1.0.5/"><span class="changelog-history-version">v1.0.5</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Reliable macOS system tray startup</span></a>
+            <a href="../../changelog/v1.0.4/"><span class="changelog-history-version">v1.0.4</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Fixed macOS AppKit startup crash</span></a>
+            <a href="../../changelog/v1.0.3/"><span class="changelog-history-version">v1.0.3</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Intel Mac support</span></a>
+            <a href="../../changelog/v1.0.2/"><span class="changelog-history-version">v1.0.2</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">macOS DMG installer</span></a>
+            <a href="../../changelog/v1.0.1/"><span class="changelog-history-version">v1.0.1</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Reliable update checks and release builds</span></a>
+            <a href="../../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">First public release</span></a>
+          </nav>
+          <div class="changelog-content">
+        <article class="changelog-entry" id="v1.2.0-beta.6">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="../../changelog/v1.2.0-beta.6/">v1.2.0-beta.6</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-24">24 November 2026</time></p>
+            <h3>Screen sharing over VNC, for a Mac behind a tunnel</h3>
+            <p>The screen of a Mac (macOS Screen Sharing) or of another VNC server now opens in a window of the app, through the SSH tunnel, like the built-in remote desktop.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>VNC forwards and detection</h4>
+              <p>A forward to port 5900, or one whose type is set to <code>vnc</code>, gets a VNC tag and an <strong>Attach</strong> button that opens the screen behind it. After connecting, the app also looks for a VNC server on the host's own port 5900; when it finds one, <strong>Screen sharing (VNC)</strong> appears under Attach, in the tray menu and in the command palette, and <kbd>V</kbd> opens it from the list.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.6/vnc-forward.png"><img src="../../assets/changelog/v1.2.0-beta.6/vnc-forward.png" alt="An expanded tunnel whose forwards include one to port 5900 with a VNC tag and an Attach button" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Signing in to a Mac</h4>
+              <p>A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication). Other servers take a VNC password, or nothing. The app signs in itself and gives the viewer a session that needs no password, so a saved password never reaches the viewer. A login that worked can be saved in the system keychain, and the form offers every saved login. A rejected login says so, with the server's reason when it gives one, and a server that only accepts encryption the app does not support is named as such. The screen fits the window or shows at its real size, and the shared clipboard carries text in the direction set for the tunnel.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.6/vnc-login.png"><img src="../../assets/changelog/v1.2.0-beta.6/vnc-login.png" alt="The screen sharing login form with a saved login choice, a user name and a password" width="900" height="640" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>VNC in the tunnel's settings</h4>
+              <p>The Credentials page of a tunnel has a VNC section: screen sharing on the host can be turned on or off whatever the detection found, and each target can have its own saved login. A login saved from a remote desktop or screen sharing window no longer overwrites a login the tunnel also uses for SSH; a new one is saved instead.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.6/vnc-settings.png"><img src="../../assets/changelog/v1.2.0-beta.6/vnc-settings.png" alt="Tunnel settings, Credentials page, with the SSH, RDP and VNC sections" width="900" height="860" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>On the Mac, turn on <strong>Screen Sharing</strong> in System Settings → General → Sharing, and allow your account.</li>
+                <li>Connect the tunnel to that Mac, then choose <strong>Attach</strong> → <strong>Screen sharing (VNC)</strong>. For a Mac behind a bastion, add a forward to its port 5900 and use the forward's <strong>Attach</strong>.</li>
+                <li>Sign in with the Mac's account name and password. For a server with only a VNC password, leave the user empty.</li>
+                <li>Use <strong>actual size</strong> or <strong>fit to window</strong> in the window's bar to change the scale.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>Not yet tested against a real Mac with Screen Sharing. It was tested only against a test VNC server in the automated tests: the login, the password check and the picture. The Mac login, the keyboard (⌘, ⌥ and Polish letters), the clipboard and loading the viewer in the macOS desktop window are waiting for a manual test.</li>
+                <li>Servers that require encryption (VeNCrypt, TLS, RA2) are not supported.</li>
+                <li>Only port 5900 is checked on the host itself. A server on another port needs a forward of type <code>vnc</code>.</li>
+                <li>The screenshots come from the test build in a browser, not from the desktop window.</li>
+                <li>The limits of the previous beta still apply.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+        </article>
+            <nav class="changelog-pager" aria-label="Older and newer releases">
+              <span class="changelog-pager-newer"></span>
+              <a href="../../changelog/v1.2.0-beta.5/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.5</span></a>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="../../">
+        <img src="../../assets/appicon.png" alt="" width="34" height="34" />
+        <span>SSH Tunnel <b>Manager</b></span>
+      </a>
+      <p>Open source · MIT License · © 2026 JustCode</p>
+      <div>
+        <a href="https://github.com/JustCodePL/ssh-tunnel-manager" data-umami-event="github-click" data-umami-event-location="footer">GitHub</a>
+        <a data-umami-event="github-click" data-umami-event-location="footer" href="https://github.com/JustCodePL/ssh-tunnel-manager/releases">Releases</a>
+        <a href="../../features/">Features</a>
+        <a href="../../compare/">Which one to use</a>
+        <a href="mailto:kontakt.justcode@gmail.com">Contact</a>
+      </div>
+    </footer>
+  </body>
+</html>
