@@ -62,10 +62,11 @@ type PortForward struct {
 }
 
 // Forward protocols. ForwardProtocolNone marks a forward whose port would
-// otherwise be inferred as RDP or SSH.
+// otherwise be inferred as RDP, SSH or VNC.
 const (
 	ForwardProtocolRDP  = "rdp"
 	ForwardProtocolSSH  = "ssh"
+	ForwardProtocolVNC  = "vnc"
 	ForwardProtocolNone = "none"
 )
 
@@ -80,6 +81,8 @@ func (pf PortForward) EffectiveProtocol() string {
 		return ForwardProtocolRDP
 	case 22:
 		return ForwardProtocolSSH
+	case 5900:
+		return ForwardProtocolVNC
 	}
 	return ForwardProtocolNone
 }

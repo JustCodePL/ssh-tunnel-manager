@@ -11,13 +11,14 @@ const state = {
       portForwards: [
         { localPort: 15432, remoteHost: "127.0.0.1", remotePort: 5432 },
         { localPort: 13389, remoteHost: "10.0.0.1", remotePort: 3389 },
+        { localPort: 15900, remoteHost: "10.0.0.2", remotePort: 5900 },
       ],
     },
     { id: "lap", name: "laptop" },
   ],
   statusOf: (id) => (id === "g146" ? "connected" : "disconnected"),
   capabilities: { g146: { docker: true, htop: false } },
-  attachOptions: (id) => (id === "g146" ? [{ protocol: "ssh" }, { protocol: "rdp" }] : [{ protocol: "ssh" }]),
+  attachOptions: (id) => (id === "g146" ? [{ protocol: "ssh" }, { protocol: "rdp" }, { protocol: "vnc" }] : [{ protocol: "ssh" }]),
 };
 
 test("actions follow the state", () => {
@@ -31,6 +32,8 @@ test("actions follow the state", () => {
   assert.ok(!labels.includes("htop on mikrus-g146"), "not detected");
   assert.ok(labels.includes("Copy 127.0.0.1:15432"));
   assert.ok(labels.includes("Remote desktop on 10.0.0.1:3389"));
+  assert.ok(labels.includes("Screen sharing on mikrus-g146"));
+  assert.ok(labels.includes("Screen sharing on 10.0.0.2:5900"));
   assert.ok(labels.includes("Disconnect group Mikrus"));
   assert.equal(new Set(actions.map((a) => a.id)).size, actions.length, "ids are unique");
 });
@@ -47,4 +50,6 @@ test("every word must match, earlier matches first", () => {
 test("a forward's Attach carries its target", () => {
   const run = searchActions(buildActions(state), "desktop 10.0.0.1")[0].run;
   assert.deepEqual(run.spec, { tool: "rdp", tunnelId: "g146", remoteHost: "10.0.0.1", remotePort: 3389 });
+  const vnc = searchActions(buildActions(state), "sharing mikrus")[0].run;
+  assert.deepEqual(vnc.spec, { tool: "vnc", tunnelId: "g146" });
 });

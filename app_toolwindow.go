@@ -20,6 +20,7 @@ const (
 	sessionTerminal = "terminal"
 	sessionSFTP     = "sftp"
 	sessionRDP      = "rdp"
+	sessionVNC      = "vnc"
 )
 
 const (
@@ -76,7 +77,7 @@ func (a *App) validateToolSpec(spec windows.Spec) error {
 	switch spec.Tool {
 	case windows.ToolSettings:
 		return nil
-	case windows.ToolTerminal, windows.ToolRDP, windows.ToolFiles, windows.ToolEditor, windows.ToolDocker,
+	case windows.ToolTerminal, windows.ToolRDP, windows.ToolVNC, windows.ToolFiles, windows.ToolEditor, windows.ToolDocker,
 		windows.ToolHtop, windows.ToolDisk, windows.ToolLogs, windows.ToolTunnelSettings:
 	default:
 		return fmt.Errorf("unknown tool %q", spec.Tool)
@@ -90,8 +91,11 @@ func (a *App) validateToolSpec(spec windows.Spec) error {
 	}
 	target := ForwardTarget{RemoteHost: spec.RemoteHost, RemotePort: spec.RemotePort}
 	protocol := config.ForwardProtocolSSH
-	if spec.Tool == windows.ToolRDP {
+	switch spec.Tool {
+	case windows.ToolRDP:
 		protocol = config.ForwardProtocolRDP
+	case windows.ToolVNC:
+		protocol = config.ForwardProtocolVNC
 	}
 	_, err := findForward(cfg, target, protocol)
 	return err
@@ -111,7 +115,7 @@ func (a *App) toolNeedsConnection(spec windows.Spec) bool {
 
 func defaultToolSize(tool windows.Tool) (int, int) {
 	switch tool {
-	case windows.ToolRDP:
+	case windows.ToolRDP, windows.ToolVNC:
 		return 1100, 720
 	case windows.ToolDocker, windows.ToolFiles, windows.ToolEditor:
 		return 960, 620
@@ -131,6 +135,7 @@ func toolTitle(spec windows.Spec) string {
 	names := map[windows.Tool]string{
 		windows.ToolTerminal:       "Terminal",
 		windows.ToolRDP:            "Remote desktop",
+		windows.ToolVNC:            "Screen sharing",
 		windows.ToolFiles:          "Files",
 		windows.ToolEditor:         "Editor",
 		windows.ToolDocker:         "Docker",
@@ -280,6 +285,8 @@ func (a *App) closeSessions(sessions []windows.Session) {
 			}
 		case sessionRDP:
 			a.CloseRDP(session.ID)
+		case sessionVNC:
+			a.CloseVNC(session.ID)
 		}
 	}
 }

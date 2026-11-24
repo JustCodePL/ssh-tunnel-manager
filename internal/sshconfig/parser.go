@@ -215,7 +215,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 				pendingFwdHostHeaderOn = val == "true"
 			case "forward-protocol":
 				pendingFwdProtocol = ""
-				if val == "rdp" || val == "ssh" || val == "none" {
+				if val == "rdp" || val == "ssh" || val == "vnc" || val == "none" {
 					pendingFwdProtocol = val
 				}
 			case "forward-ssh-user":

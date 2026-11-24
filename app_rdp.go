@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"ssh-tunnel-manager/internal/config"
@@ -117,11 +115,11 @@ func (a *App) resolveRDPTarget(tunnelID string, target ForwardTarget) (string, s
 	if _, err := findForward(cfg, target, config.ForwardProtocolRDP); err != nil {
 		return "", "", err
 	}
-	return rdpForwardKey(tunnelID, target), target.address(), nil
+	return forwardStateKey(tunnelID, target), target.address(), nil
 }
 
-// rdpForwardKey is the storage key of a forward target's login and certificate.
-func rdpForwardKey(tunnelID string, target ForwardTarget) string {
+// forwardStateKey is the storage key of a forward target's login and certificate.
+func forwardStateKey(tunnelID string, target ForwardTarget) string {
 	return tunnelID + ">" + target.address()
 }
 
@@ -131,7 +129,7 @@ func (a *App) GetRDPLogin(tunnelID string, target ForwardTarget) (RDPSavedLogin,
 	if err != nil {
 		return RDPSavedLogin{}, err
 	}
-	id, login, found, err := a.boundRDPLogin(key)
+	id, login, found, err := a.boundLogin(config.ForwardProtocolRDP, key)
 	if err != nil {
 		return RDPSavedLogin{}, err
 	}
@@ -155,26 +153,8 @@ func (a *App) SaveRDPLogin(tunnelID string, target ForwardTarget, login RDPLogin
 	if err != nil {
 		return err
 	}
-	id := a.prefs.Get().CredentialBindings[bindingKey(config.ForwardProtocolRDP, key)]
-	name := a.credentialName(id)
-	if name == "" {
-		id = ""
-		name = strings.Replace(key, ">", " to ", 1)
-	}
-	saved, err := a.SaveCredential(CredentialInput{
-		ID: id, Name: name, Username: login.Username, Domain: login.Domain, Password: login.Password,
-		Protocols: []string{config.ForwardProtocolRDP},
-	})
-	if err != nil {
-		return err
-	}
-	a.credentialsMu.Lock()
-	defer a.credentialsMu.Unlock()
-	if err := a.setBinding(bindingKey(config.ForwardProtocolRDP, key), saved.ID); err != nil {
-		return err
-	}
-	a.emit(eventSettingsChange)
-	return nil
+	return a.saveTargetLogin(config.ForwardProtocolRDP, key,
+		keychain.Login{Username: login.Username, Domain: login.Domain, Password: login.Password})
 }
 
 // ForgetRDPLogin removes the assignment of a login to a target. The login itself
@@ -198,7 +178,7 @@ func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*R
 		return nil, err
 	}
 	if login.Password == "" {
-		stored, err := a.storedRDPLogin(key, login.CredentialID)
+		stored, err := a.storedLogin(config.ForwardProtocolRDP, key, login.CredentialID)
 		if err != nil {
 			return nil, err
 		}
@@ -227,32 +207,6 @@ func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*R
 		Domain:       login.Domain,
 		Password:     login.Password,
 	}, nil
-}
-
-// storedRDPLogin returns the saved login a session should use: the chosen one,
-// or the one assigned to the target.
-func (a *App) storedRDPLogin(key, credentialID string) (keychain.Login, error) {
-	if credentialID == "" {
-		_, stored, found, err := a.boundRDPLogin(key)
-		if err != nil {
-			return keychain.Login{}, err
-		}
-		if !found {
-			return keychain.Login{}, errors.New("no login assigned to this target")
-		}
-		return stored, nil
-	}
-	if a.credentialName(credentialID) == "" {
-		return keychain.Login{}, fmt.Errorf("no login %s", credentialID)
-	}
-	stored, found, err := keychain.GetLogin(credentialID)
-	if err != nil {
-		return keychain.Login{}, err
-	}
-	if !found {
-		return keychain.Login{}, fmt.Errorf("the login %s has no password in the keychain", a.credentialName(credentialID))
-	}
-	return stored, nil
 }
 
 // CloseRDP ends a bridge session.
@@ -328,7 +282,7 @@ func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
 	moves := map[string]string{oldID: newID}
 	for _, pf := range forwards {
 		target := ForwardTarget{RemoteHost: pf.RemoteHost, RemotePort: pf.RemotePort}
-		moves[rdpForwardKey(oldID, target)] = rdpForwardKey(newID, target)
+		moves[forwardStateKey(oldID, target)] = forwardStateKey(newID, target)
 	}
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
@@ -366,7 +320,7 @@ func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
 func (a *App) removeRDPState(tunnelID string, forwards []config.PortForward) {
 	keys := []string{tunnelID}
 	for _, pf := range forwards {
-		keys = append(keys, rdpForwardKey(tunnelID, ForwardTarget{RemoteHost: pf.RemoteHost, RemotePort: pf.RemotePort}))
+		keys = append(keys, forwardStateKey(tunnelID, ForwardTarget{RemoteHost: pf.RemoteHost, RemotePort: pf.RemotePort}))
 	}
 	for _, key := range keys {
 		if err := keychain.DeleteRDPCredentials(key); err != nil {

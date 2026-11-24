@@ -6,6 +6,7 @@
   import { shortError } from "../lib/rowLayout.js";
   import TerminalWindow from "../components/TerminalWindow.svelte";
   import RDPWindow from "../components/RDPWindow.svelte";
+  import VNCWindow from "../components/VNCWindow.svelte";
   import FileBrowserWindow from "../components/FileBrowserWindow.svelte";
   import EditorTool from "./EditorTool.svelte";
   import DockerWindow from "../components/DockerWindow.svelte";
@@ -83,6 +84,8 @@
           <TerminalWindow {tunnel} {forward} {tabId} {visible} on:ended={sessionEnded} />
         {:else if spec.tool === "rdp"}
           <RDPWindow {tunnel} {forward} {tabId} clipboardMode={settings.clipboard} />
+        {:else if spec.tool === "vnc"}
+          <VNCWindow {tunnel} {forward} {tabId} {visible} clipboardMode={settings.clipboard} />
         {:else if spec.tool === "files"}
           <FileBrowserWindow {tunnel} {forward} {tabId} />
         {:else if spec.tool === "editor"}

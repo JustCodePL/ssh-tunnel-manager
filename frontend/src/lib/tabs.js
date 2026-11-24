@@ -1,6 +1,7 @@
 const NAMES = {
   terminal: "Terminal",
   rdp: "Remote desktop",
+  vnc: "Screen sharing",
   files: "Files",
   editor: "Editor",
   docker: "Docker",

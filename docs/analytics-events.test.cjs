@@ -70,6 +70,7 @@ const FEATURE_SECTIONS = [
   "attach-windows",
   "command-palette",
   "credentials",
+  "screen-sharing",
   "tunnel-settings",
   "resources",
   "docker",

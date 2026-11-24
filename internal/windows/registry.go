@@ -16,6 +16,7 @@ type Tool string
 const (
 	ToolTerminal       Tool = "terminal"
 	ToolRDP            Tool = "rdp"
+	ToolVNC            Tool = "vnc"
 	ToolFiles          Tool = "files"
 	ToolEditor         Tool = "editor"
 	ToolDocker         Tool = "docker"

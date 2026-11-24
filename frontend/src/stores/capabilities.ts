@@ -1,8 +1,8 @@
 import { writable } from "svelte/store";
 import { GetSavedCapabilities, GetServerCapabilities, VerifyTool } from "../../bindings/ssh-tunnel-manager/app";
 
-export type ToolName = "docker" | "htop" | "rdp";
-export type ToolCaps = { docker: boolean; htop: boolean; rdp: boolean };
+export type ToolName = "docker" | "htop" | "rdp" | "vnc";
+export type ToolCaps = { docker: boolean; htop: boolean; rdp: boolean; vnc: boolean };
 
 // capabilities maps a tunnel ID to the optional tools known on its host. It is
 // seeded from persisted prefs at startup, filled on first connect, and updated
@@ -15,7 +15,7 @@ export async function loadSavedCapabilities(): Promise<void> {
     const saved = await GetSavedCapabilities();
     const m: Record<string, ToolCaps> = {};
     for (const [id, c] of Object.entries(saved ?? {})) {
-      m[id] = { docker: !!(c as any).docker, htop: !!(c as any).htop, rdp: !!(c as any).rdp };
+      m[id] = { docker: !!(c as any).docker, htop: !!(c as any).htop, rdp: !!(c as any).rdp, vnc: !!(c as any).vnc };
     }
     capabilities.set(m);
   } catch (e) {
@@ -32,7 +32,7 @@ export async function loadSavedCapabilities(): Promise<void> {
 export async function refreshCapabilities(tunnelId: string): Promise<void> {
   try {
     const c = await GetServerCapabilities(tunnelId);
-    capabilities.update((m) => ({ ...m, [tunnelId]: { docker: c.docker, htop: c.htop, rdp: c.rdp } }));
+    capabilities.update((m) => ({ ...m, [tunnelId]: { docker: c.docker, htop: c.htop, rdp: c.rdp, vnc: c.vnc } }));
   } catch (e) {
     // Connection still settling — keep any existing record; we'll try next connect.
   }
@@ -50,7 +50,7 @@ export async function verifyTool(tunnelId: string, tool: ToolName): Promise<Veri
   try {
     const present = await VerifyTool(tunnelId, tool);
     capabilities.update((m) => {
-      const rec: ToolCaps = { ...(m[tunnelId] ?? { docker: false, htop: false, rdp: false }) };
+      const rec: ToolCaps = { ...(m[tunnelId] ?? { docker: false, htop: false, rdp: false, vnc: false }) };
       rec[tool] = present;
       return { ...m, [tunnelId]: rec };
     });

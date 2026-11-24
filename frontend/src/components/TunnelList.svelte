@@ -192,6 +192,8 @@
       void openTool({ tool: "terminal", tunnelId: tunnel.id });
     } else if (key === "r" && attachOptions[tunnel.id]?.some((o) => o.protocol === "rdp")) {
       void openTool({ tool: "rdp", tunnelId: tunnel.id });
+    } else if (key === "v" && attachOptions[tunnel.id]?.some((o) => o.protocol === "vnc")) {
+      void openTool({ tool: "vnc", tunnelId: tunnel.id });
     } else if (key === "s") {
       void openTool({ tool: "tunnel-settings", tunnelId: tunnel.id });
     } else {

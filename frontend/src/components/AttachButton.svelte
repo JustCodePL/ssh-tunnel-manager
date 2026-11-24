@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { openTool } from "../lib/openTool";
-  import { attachExpands, toolForProtocol } from "../lib/forwards.js";
+  import { attachExpands, attachKey, toolForProtocol, toolIcon } from "../lib/forwards.js";
 
   export let tunnelId: string;
   export let options: { protocol: string; label: string }[] = [];
@@ -29,7 +29,7 @@
     open = false;
   }
 
-  $: icon = options[0]?.protocol === "rdp" ? "rdp" : "terminal";
+  $: icon = toolIcon(toolForProtocol(options[0]?.protocol ?? ""));
 </script>
 
 <svelte:window on:click={closeOnOutside} />
@@ -56,8 +56,8 @@
           role="menuitem"
           on:click|stopPropagation={() => attach(option.protocol)}
         >
-          <Icon name={option.protocol === "rdp" ? "rdp" : "terminal"} />{option.label}
-          <kbd>{option.protocol === "rdp" ? "R" : "T"}</kbd>
+          <Icon name={toolIcon(toolForProtocol(option.protocol))} />{option.label}
+          <kbd>{attachKey(option.protocol)}</kbd>
         </button>
       {/each}
     </div>

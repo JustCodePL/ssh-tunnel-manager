@@ -27,6 +27,7 @@
   export let tunnel: TunnelConfig;
 
   const dispatch = createEventDispatcher<{ close: void }>();
+  const CLIPBOARD_MODES = [["both", "Both ways"], ["to", "To remote"], ["from", "From remote"], ["off", "Off"]];
   const MONITORS = [
     { key: "stats", label: "CPU and RAM" },
     { key: "htop", label: "htop" },
@@ -48,7 +49,7 @@
   let saving = false;
 
   // Everything here is a draft until Save.
-  let overrides: { afterDisconnect?: string; refresh?: Record<string, number>; row?: Record<string, string>; clipboard?: string; rdp?: string } = {};
+  let overrides: { afterDisconnect?: string; refresh?: Record<string, number>; row?: Record<string, string>; clipboard?: string; rdp?: string; vnc?: string } = {};
   let logins: { id: string; name: string; username: string }[] = [];
   let loginMethod = "key";
   let sshLogin = "";
@@ -65,16 +66,27 @@
   $: detected = !!$capabilities[tunnel.id]?.rdp;
   // Detection decides until the user turns it on or off here.
   $: rdpOn = overrides.rdp ? overrides.rdp === "on" : detected;
-  $: forwardTargets = (tunnel.portForwards ?? [])
-    .filter((pf) => effectiveForwardProtocol(pf) === "rdp")
-    .map((pf) => ({
-      key: `${pf.remoteHost}:${pf.remotePort}`,
-      label: pf.description || `${pf.remoteHost}:${pf.remotePort}`,
-      remoteHost: pf.remoteHost,
-      remotePort: pf.remotePort,
-    }));
-  $: hostTarget = { key: "", label: "this host", remoteHost: "", remotePort: 0 };
-  $: rdpTargets = [...(rdpOn ? [hostTarget] : []), ...forwardTargets];
+  $: vncDetected = !!$capabilities[tunnel.id]?.vnc;
+  $: vncOn = overrides.vnc ? overrides.vnc === "on" : vncDetected;
+  type Target = { key: string; label: string; remoteHost: string; remotePort: number };
+  function forwardTargetsOf(forwards: TunnelConfig["portForwards"], protocol: string): Target[] {
+    return (forwards ?? [])
+      .filter((pf) => effectiveForwardProtocol(pf) === protocol)
+      .map((pf) => ({
+        key: `${pf.remoteHost}:${pf.remotePort}`,
+        label: pf.description || `${pf.remoteHost}:${pf.remotePort}`,
+        remoteHost: pf.remoteHost,
+        remotePort: pf.remotePort,
+      }));
+  }
+  const hostTarget: Target = { key: "", label: "this host", remoteHost: "", remotePort: 0 };
+  $: forwardTargets = { rdp: forwardTargetsOf(tunnel.portForwards, "rdp"), vnc: forwardTargetsOf(tunnel.portForwards, "vnc") };
+  $: rdpTargets = [...(rdpOn ? [hostTarget] : []), ...forwardTargets.rdp];
+  $: vncTargets = [...(vncOn ? [hostTarget] : []), ...forwardTargets.vnc];
+  // Every target that can hold a login, by protocol, whether it is shown now or not.
+  $: bindingTargets = (["rdp", "vnc"] as const).flatMap((protocol) =>
+    [hostTarget, ...forwardTargets[protocol]].map((target) => ({ protocol, target, id: `${protocol}|${target.key}` })),
+  );
   $: loginOptions = logins.map((login) => ({ value: login.id, label: login.name }));
   $: chosenLogin = logins.find((login) => login.id === sshLogin);
 
@@ -98,8 +110,8 @@
 
   async function loadBindings() {
     const next: Record<string, string> = {};
-    for (const target of [hostTarget, ...forwardTargets]) {
-      next[target.key] = await GetCredentialBinding("rdp", tunnel.id, { remoteHost: target.remoteHost, remotePort: target.remotePort } as any).catch(() => "");
+    for (const { protocol, target, id } of bindingTargets) {
+      next[id] = await GetCredentialBinding(protocol, tunnel.id, { remoteHost: target.remoteHost, remotePort: target.remotePort } as any).catch(() => "");
     }
     bindings = next;
     savedBindings = { ...next };
@@ -135,10 +147,10 @@
     saving = true;
     try {
       await SetTunnelSettings(tunnel.id, overrides as any);
-      for (const target of [hostTarget, ...forwardTargets]) {
-        const id = bindings[target.key] ?? "";
-        if (id !== (savedBindings[target.key] ?? "")) {
-          await BindCredential("rdp", tunnel.id, { remoteHost: target.remoteHost, remotePort: target.remotePort } as any, id);
+      for (const { protocol, target, id: key } of bindingTargets) {
+        const id = bindings[key] ?? "";
+        if (id !== (savedBindings[key] ?? "")) {
+          await BindCredential(protocol, tunnel.id, { remoteHost: target.remoteHost, remotePort: target.remotePort } as any, id);
         }
       }
       savedBindings = { ...bindings };
@@ -206,12 +218,12 @@
 
         <div class="credentials">
           <nav class="sub-nav" aria-label="Filter credentials">
-            {#each [["all", "All"], ["ssh", "SSH"], ["rdp", "RDP"]] as [id, label]}
+            {#each [["all", "All"], ["ssh", "SSH"], ["rdp", "RDP"], ["vnc", "VNC"]] as [id, label]}
               <button type="button" class:on={credentialsView === id} data-testid={`credentials-${id}`} on:click={() => (credentialsView = id)}>{label}</button>
             {/each}
           </nav>
           <div class="sections">
-            {#if credentialsView !== "rdp"}
+            {#if credentialsView === "all" || credentialsView === "ssh"}
               <section class="section" data-testid="credentials-ssh-section">
                 <h3>SSH</h3>
                 <div class="field">
@@ -257,7 +269,7 @@
               </section>
             {/if}
 
-            {#if credentialsView !== "ssh"}
+            {#if credentialsView === "all" || credentialsView === "rdp"}
               <section class="section" data-testid="credentials-rdp-section">
                 <h3>RDP</h3>
                 <div class="field">
@@ -286,7 +298,7 @@
                   <div class="field">
                     <span title={target.label}>{target.key ? `Forward ${target.label}` : "Credentials"}</span>
                     <Select
-                      bind:value={bindings[target.key]}
+                      bind:value={bindings[`rdp|${target.key}`]}
                       testid="rdp-login"
                       ariaLabel={`Credentials for ${target.label}`}
                       options={[{ value: "", label: "Ask when connecting" }, ...loginOptions]}
@@ -294,15 +306,62 @@
                   </div>
                 {/each}
                 {#if rdpTargets.length}
+                  {@const value = overrides.clipboard || "both"}
                   <div class="field">
                     <span>Shared clipboard</span>
                     <span class="segmented" data-testid="clipboard-mode">
-                      {#each [["both", "Both ways"], ["to", "To remote"], ["from", "From remote"], ["off", "Off"]] as [value, label]}
-                        <button type="button" class:on={(overrides.clipboard || "both") === value} on:click={() => (overrides = { ...overrides, clipboard: value })}>{label}</button>
+                      {#each CLIPBOARD_MODES as [mode, label]}
+                        <button type="button" class:on={value === mode} on:click={() => (overrides = { ...overrides, clipboard: mode })}>{label}</button>
                       {/each}
                     </span>
                   </div>
                   <p class="note">Text, pictures and files. Anything you copy can reach the remote machine, so turn this off for machines you do not trust.</p>
+                {/if}
+              </section>
+            {/if}
+
+            {#if credentialsView === "all" || credentialsView === "vnc"}
+              <section class="section" data-testid="credentials-vnc-section">
+                <h3>VNC</h3>
+                <div class="field">
+                  <span>Screen sharing</span>
+                  <span class="switch-line">
+                    <button
+                      type="button"
+                      class="switch"
+                      class:on={vncOn}
+                      role="switch"
+                      aria-checked={vncOn}
+                      aria-label="Screen sharing on this host"
+                      data-testid="vnc-enabled"
+                      on:click={() => (overrides = { ...overrides, vnc: vncOn ? "off" : "on" })}
+                    ></button>
+                    <small>{vncDetected ? "Found on port 5900" : "Not found on port 5900"}</small>
+                  </span>
+                </div>
+                {#each vncTargets as target (target.key)}
+                  <div class="field">
+                    <span title={target.label}>{target.key ? `Forward ${target.label}` : "Credentials"}</span>
+                    <Select
+                      bind:value={bindings[`vnc|${target.key}`]}
+                      testid="vnc-login"
+                      ariaLabel={`Credentials for ${target.label}`}
+                      options={[{ value: "", label: "Ask when needed" }, ...loginOptions]}
+                    />
+                  </div>
+                {/each}
+                <p class="note">For a Mac, use the user name and password of an account on it. For other servers, a login with only a password is the VNC password. The app signs in itself, so the password never reaches the viewer.</p>
+                {#if vncTargets.length && (credentialsView === "vnc" || !rdpTargets.length)}
+                  {@const value = overrides.clipboard || "both"}
+                  <div class="field">
+                    <span>Shared clipboard</span>
+                    <span class="segmented" data-testid="vnc-clipboard-mode">
+                      {#each CLIPBOARD_MODES as [mode, label]}
+                        <button type="button" class:on={value === mode} on:click={() => (overrides = { ...overrides, clipboard: mode })}>{label}</button>
+                      {/each}
+                    </span>
+                  </div>
+                  <p class="note">Text only. Anything you copy can reach the remote machine, so turn this off for machines you do not trust.</p>
                 {/if}
               </section>
             {/if}

@@ -273,7 +273,10 @@ func TestEachServerBehindABastionHasItsOwnLogin(t *testing.T) {
 		t.Error("binding a missing login was accepted")
 	}
 	if err := app.BindCredential("vnc", "nas", a, ""); err == nil {
-		t.Error("binding for a protocol without a client was accepted")
+		t.Error("binding a VNC login to an RDP forward was accepted")
+	}
+	if err := app.BindCredential("telnet", "nas", a, ""); err == nil {
+		t.Error("binding for an unknown protocol was accepted")
 	}
 }
 
@@ -490,19 +493,19 @@ func TestRemoteDesktopCanUseASavedSSHLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := rdpForwardKey("host", target)
+	key := forwardStateKey("host", target)
 
-	if _, err := app.storedRDPLogin(key, ""); err == nil {
+	if _, err := app.storedLogin(config.ForwardProtocolRDP, key, ""); err == nil {
 		t.Error("a target without an assigned login found one")
 	}
-	login, err := app.storedRDPLogin(key, saved.ID)
+	login, err := app.storedLogin(config.ForwardProtocolRDP, key, saved.ID)
 	if err != nil || login.Password != "s3cret" || login.Username != "admin" {
 		t.Fatalf("chosen login = %+v err=%v", login, err)
 	}
 	if id, _ := app.GetCredentialBinding("rdp", "host", target); id != "" {
 		t.Error("using a login once must not assign it")
 	}
-	if _, err := app.storedRDPLogin(key, "missing"); err == nil {
+	if _, err := app.storedLogin(config.ForwardProtocolRDP, key, "missing"); err == nil {
 		t.Error("an unknown login was accepted")
 	}
 
@@ -513,7 +516,7 @@ func TestRemoteDesktopCanUseASavedSSHLogin(t *testing.T) {
 	if err != nil || len(views) != 1 || strings.Join(views[0].Protocols, ",") != "ssh,rdp" {
 		t.Fatalf("views = %+v err=%v", views, err)
 	}
-	if _, err := app.storedRDPLogin(key, ""); err != nil {
+	if _, err := app.storedLogin(config.ForwardProtocolRDP, key, ""); err != nil {
 		t.Errorf("assigned login: %v", err)
 	}
 

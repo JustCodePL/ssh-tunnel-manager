@@ -94,6 +94,8 @@ Go backend + Wails 3 + Svelte frontend. Single binary, no Electron.
 - `internal/keychain/` — OS keychain for passphrases and saved logins (SSH, RDP, VNC)
 - `internal/rdp/` — Loopback WebSocket bridge between the IronRDP web client and RDP servers, plus RDP detection
 - `frontend/vendor/ironrdp/` — Built IronRDP web client, pinned; rebuild with `scripts/build-ironrdp.sh`
+- `internal/vnc/` — RFB handshake with VNC and Apple Remote Desktop authentication done in Go, and the loopback WebSocket bridge for the noVNC client. The bridge dials through an injected `Target.Dial`
+- `frontend/vendor/novnc/` — noVNC core library, unmodified and pinned; update with `scripts/update-novnc.sh`
 - `frontend/src/` — Svelte + TypeScript + Tailwind. `App.svelte` is the main window, `ToolApp.svelte` a tool window (`/?window=<name>`)
 
 ### Key Decisions
@@ -108,7 +110,8 @@ Go backend + Wails 3 + Svelte frontend. Single binary, no Electron.
 - Use `127.0.0.1` not `localhost` for port forwarding (avoids IPv6 issues)
 - Wails runtime events for tunnel status updates: `tunnel:status-changed`, `tunnel:error`
 - `window.confirm` and `prompt` do nothing in the macOS webview: use `askConfirm` or an in-app dialog
-- The RDP bridge checks the page origin; Wails 3 serves pages from `wails://localhost` on macOS
+- The RDP and VNC bridges check the page origin (`internal/webview`); Wails 3 serves pages from `wails://localhost` on macOS
+- VNC passwords stay in Go: the app authenticates to the server and offers noVNC a session without authentication
 
 ### Implementation Phases
 

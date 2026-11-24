@@ -23,6 +23,7 @@ export function forwardAddress(pf) {
 export function forwardAttach(pf) {
   const protocol = effectiveForwardProtocol(pf);
   if (protocol === "rdp") return { tool: "rdp", label: "Remote desktop" };
+  if (protocol === "vnc") return { tool: "vnc", label: "Screen sharing" };
   if (protocol === "ssh") return { tool: "terminal", label: "Terminal" };
   return null;
 }
@@ -33,6 +34,7 @@ export function forwardTags(pf) {
   if (pf.portless) tags.push("portless");
   const protocol = effectiveForwardProtocol(pf);
   if (protocol === "rdp") tags.push("RDP");
+  if (protocol === "vnc") tags.push("VNC");
   if (protocol === "ssh") tags.push("SSH");
   return tags;
 }
@@ -47,5 +49,17 @@ export function attachExpands(options) {
 
 /** @param {string} protocol @returns {string} the tool that serves it */
 export function toolForProtocol(protocol) {
-  return protocol === "rdp" ? "rdp" : "terminal";
+  return protocol === "rdp" || protocol === "vnc" ? protocol : "terminal";
+}
+
+/** @param {string} tool @returns {string} the icon shown for it */
+export function toolIcon(tool) {
+  return tool === "rdp" || tool === "vnc" ? "rdp" : "terminal";
+}
+
+/** @param {string} protocol @returns {string} the key that opens it from a tunnel row */
+export function attachKey(protocol) {
+  if (protocol === "rdp") return "R";
+  if (protocol === "vnc") return "V";
+  return "T";
 }

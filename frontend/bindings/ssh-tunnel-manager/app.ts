@@ -86,7 +86,7 @@ export function AuthorizePrivilegedBind(): $CancellablePromise<void> {
 
 /**
  * BindCredential assigns a login to a target for one protocol, and marks the
- * login as used for it. An empty ID removes the assignment: an RDP target then
+ * login as used for it. An empty ID removes the assignment: an RDP or VNC target then
  * asks at connect time, and a tunnel uses only its key or agent.
  */
 export function BindCredential(protocol: string, tunnelID: string, target: $models.ForwardTarget, credentialID: string): $CancellablePromise<void> {
@@ -152,6 +152,13 @@ export function CloseTab(windowName: string, tabID: string): $CancellablePromise
  */
 export function CloseTerminal(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(2702963191, sessionID);
+}
+
+/**
+ * CloseVNC ends a bridge session.
+ */
+export function CloseVNC(sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(334328840, sessionID);
 }
 
 /**
@@ -248,7 +255,7 @@ export function GetAppSettings(): $CancellablePromise<$models.AppSettings> {
 
 /**
  * GetAttachOptions lists the sessions a tunnel itself can open: its shell, and
- * its remote desktop once one was detected.
+ * its remote desktop or screen sharing once one was detected.
  */
 export function GetAttachOptions(tunnelID: string): $CancellablePromise<$models.AttachOption[]> {
     return $Call.ByID(2805947988, tunnelID).then(($result: any) => {
@@ -424,7 +431,7 @@ export function GetSavedCapabilities(): $CancellablePromise<{ [_ in string]?: sy
 }
 
 /**
- * GetServerCapabilities detects which optional tools (docker, htop) are present
+ * GetServerCapabilities detects which optional tools (docker, htop, RDP, VNC) are present
  * on the remote host and its OS, and persists the result so the buttons can be
  * shown immediately on future connections. The frontend calls this on every
  * connect so tools installed (or removed) since last time are detected.
@@ -506,6 +513,15 @@ export function GetUpdateChannel(): $CancellablePromise<string> {
 }
 
 /**
+ * GetVNCLogin returns the login assigned to a target, without its password.
+ */
+export function GetVNCLogin(tunnelID: string, target: $models.ForwardTarget): $CancellablePromise<$models.VNCSavedLogin> {
+    return $Call.ByID(693130777, tunnelID, target).then(($result: any) => {
+        return $$createType35($result);
+    });
+}
+
+/**
  * ImportPreview parses an SSH config file and returns the host entries found
  * without importing them. The frontend uses this to show a preview.
  */
@@ -542,7 +558,7 @@ export function InstallUpdate(): $CancellablePromise<void> {
  */
 export function ListCredentials(): $CancellablePromise<$models.CredentialView[]> {
     return $Call.ByID(1708936845).then(($result: any) => {
-        return $$createType36($result);
+        return $$createType37($result);
     });
 }
 
@@ -557,7 +573,7 @@ export function ListCredentials(): $CancellablePromise<$models.CredentialView[]>
  */
 export function ListDockerContainers(tunnelID: string, withStats: boolean): $CancellablePromise<sysstats$0.DockerContainer[]> {
     return $Call.ByID(3393532525, tunnelID, withStats).then(($result: any) => {
-        return $$createType38($result);
+        return $$createType39($result);
     });
 }
 
@@ -575,7 +591,7 @@ export function OpenCommandTerminal(tunnelID: string, command: string): $Cancell
  */
 export function OpenForwardSFTP(tunnelID: string, target: $models.ForwardTarget): $CancellablePromise<$models.SFTPOpenResult | null> {
     return $Call.ByID(267798687, tunnelID, target).then(($result: any) => {
-        return $$createType40($result);
+        return $$createType41($result);
     });
 }
 
@@ -605,7 +621,7 @@ export function OpenPortlessServiceSettings(): $CancellablePromise<void> {
  */
 export function OpenRDP(tunnelID: string, target: $models.ForwardTarget, login: $models.RDPLogin): $CancellablePromise<$models.RDPSession | null> {
     return $Call.ByID(2527362709, tunnelID, target, login).then(($result: any) => {
-        return $$createType42($result);
+        return $$createType43($result);
     });
 }
 
@@ -614,7 +630,7 @@ export function OpenRDP(tunnelID: string, target: $models.ForwardTarget, login: 
  */
 export function OpenSFTP(tunnelID: string): $CancellablePromise<$models.SFTPOpenResult | null> {
     return $Call.ByID(1020096580, tunnelID).then(($result: any) => {
-        return $$createType40($result);
+        return $$createType41($result);
     });
 }
 
@@ -630,7 +646,19 @@ export function OpenTerminal(tunnelID: string): $CancellablePromise<string> {
  */
 export function OpenTool(spec: windows$0.Spec): $CancellablePromise<$models.ToolOpenResult> {
     return $Call.ByID(3221487091, spec).then(($result: any) => {
-        return $$createType43($result);
+        return $$createType44($result);
+    });
+}
+
+/**
+ * OpenVNC connects to a VNC server, the host's own or the one behind a
+ * forward, and authenticates in the app, so the password never reaches the
+ * webview. It then registers a bridge session for the web client. The tunnel
+ * must be connected; the session uses its SSH connection.
+ */
+export function OpenVNC(tunnelID: string, target: $models.ForwardTarget, login: $models.VNCLogin): $CancellablePromise<$models.VNCConnection | null> {
+    return $Call.ByID(1309130230, tunnelID, target, login).then(($result: any) => {
+        return $$createType46($result);
     });
 }
 
@@ -648,7 +676,7 @@ export function PingEvents(token: string): $CancellablePromise<void> {
  */
 export function ReadClipboard(includeImage: boolean): $CancellablePromise<$models.ClipboardContent> {
     return $Call.ByID(3110812313, includeImage).then(($result: any) => {
-        return $$createType44($result);
+        return $$createType47($result);
     });
 }
 
@@ -727,7 +755,7 @@ export function SFTPDownloadDir(sessionID: string, remotePath: string): $Cancell
  */
 export function SFTPListDir(sessionID: string, remotePath: string): $CancellablePromise<ssh$0.FileEntry[]> {
     return $Call.ByID(3485056463, sessionID, remotePath).then(($result: any) => {
-        return $$createType46($result);
+        return $$createType49($result);
     });
 }
 
@@ -744,7 +772,7 @@ export function SFTPMkdir(sessionID: string, remotePath: string): $CancellablePr
  */
 export function SFTPPickUploadFiles(sessionID: string, remoteDir: string): $CancellablePromise<$models.SFTPUploadPick | null> {
     return $Call.ByID(4245866255, sessionID, remoteDir).then(($result: any) => {
-        return $$createType48($result);
+        return $$createType51($result);
     });
 }
 
@@ -756,7 +784,7 @@ export function SFTPPickUploadFiles(sessionID: string, remoteDir: string): $Canc
  */
 export function SFTPReadText(sessionID: string, remotePath: string, force: boolean): $CancellablePromise<ssh$0.TextFileResult | null> {
     return $Call.ByID(1763411251, sessionID, remotePath, force).then(($result: any) => {
-        return $$createType50($result);
+        return $$createType53($result);
     });
 }
 
@@ -783,7 +811,7 @@ export function SFTPUploadFiles(sessionID: string, paths: string[], remoteDir: s
  */
 export function SFTPWriteText(sessionID: string, remotePath: string, content: string, expectModTimeMs: number): $CancellablePromise<$models.SFTPWriteResult | null> {
     return $Call.ByID(1931182056, sessionID, remotePath, content, expectModTimeMs).then(($result: any) => {
-        return $$createType52($result);
+        return $$createType55($result);
     });
 }
 
@@ -792,7 +820,7 @@ export function SFTPWriteText(sessionID: string, remotePath: string, content: st
  */
 export function SaveCredential(input: $models.CredentialInput): $CancellablePromise<$models.CredentialView> {
     return $Call.ByID(3204725985, input).then(($result: any) => {
-        return $$createType35($result);
+        return $$createType36($result);
     });
 }
 
@@ -980,21 +1008,24 @@ const $$createType31 = ssh$0.StatusEvent.createFrom;
 const $$createType32 = $Create.Map($Create.Any, $$createType31);
 const $$createType33 = config$0.TunnelConfig.createFrom;
 const $$createType34 = $Create.Array($$createType33);
-const $$createType35 = $models.CredentialView.createFrom;
-const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = sysstats$0.DockerContainer.createFrom;
-const $$createType38 = $Create.Array($$createType37);
-const $$createType39 = $models.SFTPOpenResult.createFrom;
-const $$createType40 = $Create.Nullable($$createType39);
-const $$createType41 = $models.RDPSession.createFrom;
-const $$createType42 = $Create.Nullable($$createType41);
-const $$createType43 = $models.ToolOpenResult.createFrom;
-const $$createType44 = $models.ClipboardContent.createFrom;
-const $$createType45 = ssh$0.FileEntry.createFrom;
-const $$createType46 = $Create.Array($$createType45);
-const $$createType47 = $models.SFTPUploadPick.createFrom;
-const $$createType48 = $Create.Nullable($$createType47);
-const $$createType49 = ssh$0.TextFileResult.createFrom;
-const $$createType50 = $Create.Nullable($$createType49);
-const $$createType51 = $models.SFTPWriteResult.createFrom;
-const $$createType52 = $Create.Nullable($$createType51);
+const $$createType35 = $models.VNCSavedLogin.createFrom;
+const $$createType36 = $models.CredentialView.createFrom;
+const $$createType37 = $Create.Array($$createType36);
+const $$createType38 = sysstats$0.DockerContainer.createFrom;
+const $$createType39 = $Create.Array($$createType38);
+const $$createType40 = $models.SFTPOpenResult.createFrom;
+const $$createType41 = $Create.Nullable($$createType40);
+const $$createType42 = $models.RDPSession.createFrom;
+const $$createType43 = $Create.Nullable($$createType42);
+const $$createType44 = $models.ToolOpenResult.createFrom;
+const $$createType45 = $models.VNCConnection.createFrom;
+const $$createType46 = $Create.Nullable($$createType45);
+const $$createType47 = $models.ClipboardContent.createFrom;
+const $$createType48 = ssh$0.FileEntry.createFrom;
+const $$createType49 = $Create.Array($$createType48);
+const $$createType50 = $models.SFTPUploadPick.createFrom;
+const $$createType51 = $Create.Nullable($$createType50);
+const $$createType52 = ssh$0.TextFileResult.createFrom;
+const $$createType53 = $Create.Nullable($$createType52);
+const $$createType54 = $models.SFTPWriteResult.createFrom;
+const $$createType55 = $Create.Nullable($$createType54);

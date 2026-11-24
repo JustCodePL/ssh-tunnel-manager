@@ -47,6 +47,11 @@ export class Capabilities {
     "rdp": boolean;
 
     /**
+     * a VNC server answers on the host's loopback
+     */
+    "vnc": boolean;
+
+    /**
      * uname -s, e.g. "Linux", "Darwin"
      */
     "os": string;
@@ -61,6 +66,9 @@ export class Capabilities {
         }
         if (!("rdp" in $$source)) {
             this["rdp"] = false;
+        }
+        if (!("vnc" in $$source)) {
+            this["vnc"] = false;
         }
         if (!("os" in $$source)) {
             this["os"] = "";

@@ -1,5 +1,6 @@
 import { ROW_TOOLS, toolAvailable, isOn } from "./rowLayout.js";
-import { forwardAddress, forwardAttach } from "./forwards.js";
+import { forwardAddress, forwardAttach, toolForProtocol } from "./forwards.js";
+import { tabTitle } from "./tabs.js";
 
 /**
  * Builds every palette action from the current state. Actions carry plain data
@@ -30,12 +31,12 @@ export function buildActions({ tunnels, statusOf, capabilities, attachOptions })
       run: { kind: on ? "disconnect" : "connect", id: t.id },
     });
     for (const option of attachOptions(t.id)) {
-      const rdp = option.protocol === "rdp";
+      const tool = toolForProtocol(option.protocol);
       actions.push({
         id: `attach:${t.id}:${option.protocol}`,
-        label: `${rdp ? "Remote desktop on" : "Terminal on"} ${t.name}`,
+        label: `${tabTitle({ tool })} on ${t.name}`,
         hint: "term attach",
-        run: { kind: "tool", spec: { tool: rdp ? "rdp" : "terminal", tunnelId: t.id } },
+        run: { kind: "tool", spec: { tool, tunnelId: t.id } },
       });
     }
     for (const tool of ROW_TOOLS) {

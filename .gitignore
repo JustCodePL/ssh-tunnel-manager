@@ -13,8 +13,7 @@ build/windows/installer/tmp/
 *.dylib
 *.test
 *.out
-vendor/
-!frontend/vendor/
+/vendor/
 
 # IDE
 .idea/

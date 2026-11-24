@@ -101,10 +101,12 @@ func (a *App) SetTunnelSettings(tunnelID string, s prefs.TunnelSettings) error {
 	default:
 		return fmt.Errorf("unknown clipboard mode %q", s.Clipboard)
 	}
-	switch s.RDP {
-	case "", rdpModeOn, rdpModeOff:
-	default:
-		return fmt.Errorf("unknown remote desktop mode %q", s.RDP)
+	for _, mode := range []string{s.RDP, s.VNC} {
+		switch mode {
+		case "", rdpModeOn, rdpModeOff:
+		default:
+			return fmt.Errorf("unknown remote desktop mode %q", mode)
+		}
 	}
 	p := a.prefs.Get()
 	tunnels := make(map[string]prefs.TunnelSettings, len(p.Tunnels)+1)
@@ -238,15 +240,23 @@ type AttachOption struct {
 }
 
 // GetAttachOptions lists the sessions a tunnel itself can open: its shell, and
-// its remote desktop once one was detected.
+// its remote desktop or screen sharing once one was detected.
 func (a *App) GetAttachOptions(tunnelID string) []AttachOption {
 	options := []AttachOption{{Protocol: config.ForwardProtocolSSH, Label: "Terminal"}}
 	p := a.prefs.Get()
-	mode := p.Tunnels[tunnelID].RDP
-	if mode == rdpModeOn || (mode != rdpModeOff && p.HostTools[tunnelID].RDP) {
+	settings, tools := p.Tunnels[tunnelID], p.HostTools[tunnelID]
+	if offered(settings.RDP, tools.RDP) {
 		options = append(options, AttachOption{Protocol: config.ForwardProtocolRDP, Label: "Remote desktop (RDP)"})
 	}
+	if offered(settings.VNC, tools.VNC) {
+		options = append(options, AttachOption{Protocol: config.ForwardProtocolVNC, Label: "Screen sharing (VNC)"})
+	}
 	return options
+}
+
+// offered applies a tunnel's override to whether a server was detected.
+func offered(mode string, detected bool) bool {
+	return mode == rdpModeOn || (mode != rdpModeOff && detected)
 }
 
 // trayAttachOptions adds the tunnel's forwards to what the tray can open.
@@ -269,6 +279,8 @@ func (a *App) trayAttachOptions(tunnelID string) []tray.AttachOption {
 			label = "Remote desktop: " + label
 		case config.ForwardProtocolSSH:
 			label = "Terminal: " + label
+		case config.ForwardProtocolVNC:
+			label = "Screen sharing: " + label
 		default:
 			continue
 		}
@@ -281,8 +293,11 @@ func (a *App) trayAttachOptions(tunnelID string) []tray.AttachOption {
 
 func (a *App) trayAttach(tunnelID string, option tray.AttachOption) error {
 	tool := windows.ToolTerminal
-	if option.Protocol == config.ForwardProtocolRDP {
+	switch option.Protocol {
+	case config.ForwardProtocolRDP:
 		tool = windows.ToolRDP
+	case config.ForwardProtocolVNC:
+		tool = windows.ToolVNC
 	}
 	_, err := a.OpenTool(windows.Spec{
 		Tool: tool, TunnelID: tunnelID, RemoteHost: option.RemoteHost, RemotePort: option.RemotePort,
@@ -290,7 +305,7 @@ func (a *App) trayAttach(tunnelID string, option tray.AttachOption) error {
 	return err
 }
 
-// A tunnel's override of remote desktop detection.
+// A tunnel's override of remote desktop and screen sharing detection.
 const (
 	rdpModeOn  = "on"
 	rdpModeOff = "off"
