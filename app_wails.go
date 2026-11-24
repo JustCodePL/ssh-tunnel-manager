@@ -188,6 +188,26 @@ const smokeTimeout = 60 * time.Second
 
 func isSmokeTest() bool { return os.Getenv("STM_SMOKE_TEST") == "1" }
 
+// singleInstanceID returns the app's single-instance lock name. The smoke test
+// takes its own lock, so it starts and tests the app even while the user's copy
+// runs on the same Mac, as on the self-hosted release runner.
+func singleInstanceID(smokeTest bool) string {
+	if smokeTest {
+		return "com.wails.ssh-tunnel-manager.smoke-test"
+	}
+	return "com.wails.ssh-tunnel-manager"
+}
+
+// secondInstanceExitCode is the status a launch exits with when another
+// instance holds the lock. A smoke test that hands over to another one has
+// tested nothing, so it fails, with a code runSmokeTest does not use.
+func secondInstanceExitCode(smokeTest bool) int {
+	if smokeTest {
+		return 20
+	}
+	return 0
+}
+
 func (a *App) runSmokeTest() {
 	fail := func(code int, message string, args ...any) {
 		slog.Error("smoke test: "+message, args...)
