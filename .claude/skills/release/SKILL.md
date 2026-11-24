@@ -43,7 +43,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
 3. **Read what ships.** `git log <previous-tag>..HEAD --no-merges --pretty='%h %s'`
 4. **Write the notes** to `/tmp/release-notes/<version>.md`, in the format below.
 5. **Write the changelog entry** with the `changelog` skill, unless the release has no user-visible change.
-6. **Get approval.** Show the version, notes and the changelog preview to Artur, and wait.
+6. **Get approval.** Show the version, notes and the changelog entry (its pull request, or a local preview if he asks) to Artur, and wait.
 7. **Merge the entry to `beta`** and pull. Pages deploy on the merge, so the link in the notes works once the release is out.
 8. **Tag and push.** The tag must be annotated, because CI reads the release title and body from its message.
    ```
@@ -51,7 +51,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
    git push origin <version>
    ```
 9. **Watch CI and verify** as described below.
-10. **Check the dev preview** as described under After publishing.
+10. **Check the entry on the site** as described under After publishing.
 
 ## Publish production
 
@@ -114,6 +114,6 @@ To fix a body afterwards: `gh release edit <version> --notes-file <file>`. That 
 
 ## After publishing
 
-The dev preview updates itself: merging to `main` or `beta` runs `dev.yml`, so it shows the same site as production. Nothing to run by hand. Check `https://ssh-tunnel-manager.justcode.ovh/changelog/<version>/` once `gh run list --workflow=dev.yml --limit 1` shows the run succeeded.
+The site updates itself: merging to `main` or `beta` runs `pages.yml`. Check `https://justcodepl.github.io/ssh-tunnel-manager/changelog/<version>/` once `gh run list --workflow=pages.yml --limit 1` shows the run succeeded.
 
 Update tracking as `AGENTS.md` describes, keeping implemented, beta and production as separate states. Describe something as released only after the release and its assets exist.
