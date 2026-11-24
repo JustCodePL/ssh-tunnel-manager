@@ -110,7 +110,7 @@ func runApplication(app *App, p prefs.Prefs, startHidden bool) error {
 		SingleInstance: &application.SingleInstanceOptions{
 			// Stable and beta builds deliberately share one lock so switching
 			// channels can never leave both variants running side by side.
-			UniqueID: "com.wails.ssh-tunnel-manager",
+			UniqueID: singleInstanceID(isSmokeTest()),
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
 				app.showWindow()
 			},

@@ -188,6 +188,16 @@ const smokeTimeout = 60 * time.Second
 
 func isSmokeTest() bool { return os.Getenv("STM_SMOKE_TEST") == "1" }
 
+// singleInstanceID returns the app's single-instance lock name. The smoke test
+// takes its own lock, so it starts and tests the app even while the user's copy
+// runs on the same Mac, as on the self-hosted release runner.
+func singleInstanceID(smokeTest bool) string {
+	if smokeTest {
+		return "com.wails.ssh-tunnel-manager.smoke-test"
+	}
+	return "com.wails.ssh-tunnel-manager"
+}
+
 func (a *App) runSmokeTest() {
 	fail := func(code int, message string, args ...any) {
 		slog.Error("smoke test: "+message, args...)
