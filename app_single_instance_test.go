@@ -7,7 +7,17 @@ func TestSingleInstanceIDSeparatesTheSmokeTest(t *testing.T) {
 	if got := singleInstanceID(false); got != "com.wails.ssh-tunnel-manager" {
 		t.Fatalf("app lock = %q", got)
 	}
-	if got := singleInstanceID(true); got == singleInstanceID(false) {
-		t.Fatalf("smoke test shares the app's lock %q", got)
+	// build.yml looks for this name to know the smoke test has its own lock.
+	if got := singleInstanceID(true); got != "com.wails.ssh-tunnel-manager.smoke-test" {
+		t.Fatalf("smoke test lock = %q", got)
+	}
+}
+
+func TestSecondInstanceExitCodeFailsOnlyTheSmokeTest(t *testing.T) {
+	if got := secondInstanceExitCode(false); got != 0 {
+		t.Fatalf("second app launch exits %d", got)
+	}
+	if got := secondInstanceExitCode(true); got == 0 {
+		t.Fatal("a smoke test that hands over to another instance exits 0")
 	}
 }

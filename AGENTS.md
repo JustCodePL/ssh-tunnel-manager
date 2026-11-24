@@ -79,7 +79,7 @@ Go backend + Wails 3 + Svelte frontend. Single binary, no Electron.
 - `go test ./...` — unit and integration tests
 - `cd frontend && npm run check && npm test` — types and frontend unit tests
 - `cd frontend && npm run test:e2e` — real backend and frontend against a fake SSH server. All of these block a release.
-- `STM_SMOKE_TEST=1 <app binary>` — starts the real webviews and exits 0 if they reach the backend
+- `STM_SMOKE_TEST=1 HOME=$(mktemp -d) <app binary>` — starts the real webviews and exits 0 if they reach the backend. Give it an empty `HOME`, as CI does: it saves window positions to the prefs of the `HOME` it runs with. It takes its own single-instance lock, so it also runs while the app is open
 - `golangci-lint run ./...` — lint
 
 ### Architecture

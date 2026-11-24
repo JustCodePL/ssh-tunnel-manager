@@ -250,6 +250,18 @@ func (a *App) ServiceShutdown() error {
 	return nil
 }
 
+// refreshAutostart rewrites the start-on-login entry with this executable's
+// path when start-on-login is on.
+func (a *App) refreshAutostart() {
+	if enabled, err := autostart.IsEnabled(); err != nil {
+		slog.Warn("checking autostart configuration failed", "error", err)
+	} else if enabled {
+		if err := autostart.Enable(a.prefs.Get().StartMinimized); err != nil {
+			slog.Warn("refreshing autostart configuration failed", "error", err)
+		}
+	}
+}
+
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.startTray()
@@ -258,13 +270,10 @@ func (a *App) startup(ctx context.Context) {
 
 	// Refresh the executable path recorded by the platform's autostart
 	// mechanism. This keeps start-on-login working when an update renames or
-	// relocates the application bundle.
-	if enabled, err := autostart.IsEnabled(); err != nil {
-		slog.Warn("checking autostart configuration failed", "error", err)
-	} else if enabled {
-		if err := autostart.Enable(a.prefs.Get().StartMinimized); err != nil {
-			slog.Warn("refreshing autostart configuration failed", "error", err)
-		}
+	// relocates the application bundle. The smoke test skips it: run beside the
+	// user's own copy, it would point start-on-login at the test binary.
+	if !isSmokeTest() {
+		a.refreshAutostart()
 	}
 
 	if a.startHidden && a.wails != nil {

@@ -198,6 +198,16 @@ func singleInstanceID(smokeTest bool) string {
 	return "com.wails.ssh-tunnel-manager"
 }
 
+// secondInstanceExitCode is the status a launch exits with when another
+// instance holds the lock. A smoke test that hands over to another one has
+// tested nothing, so it fails.
+func secondInstanceExitCode(smokeTest bool) int {
+	if smokeTest {
+		return 10
+	}
+	return 0
+}
+
 func (a *App) runSmokeTest() {
 	fail := func(code int, message string, args ...any) {
 		slog.Error("smoke test: "+message, args...)

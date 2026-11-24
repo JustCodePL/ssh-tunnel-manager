@@ -111,6 +111,7 @@ func runApplication(app *App, p prefs.Prefs, startHidden bool) error {
 			// Stable and beta builds deliberately share one lock so switching
 			// channels can never leave both variants running side by side.
 			UniqueID: singleInstanceID(isSmokeTest()),
+			ExitCode: secondInstanceExitCode(isSmokeTest()),
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
 				app.showWindow()
 			},
