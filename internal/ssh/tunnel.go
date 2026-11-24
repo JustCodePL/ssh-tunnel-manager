@@ -398,22 +398,10 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 
 	// Capture stderr so we can surface proxy errors to the user
 	var stderrBuf bytes.Buffer
-	cmd.Stderr = &stderrBuf
-
-	stdin, err := cmd.StdinPipe()
+	conn, err := startProxyConn(cmd, &stderrBuf)
 	if err != nil {
-		return nil, fmt.Errorf("creating stdin pipe for ProxyCommand: %w", err)
+		return nil, fmt.Errorf("ProxyCommand %q: %w", cmdStr, err)
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("creating stdout pipe for ProxyCommand: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("starting ProxyCommand %q: %w", cmdStr, err)
-	}
-
-	conn := &proxyConn{cmd: cmd, stdin: stdin, stdout: stdout}
 
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
 	if err != nil {
