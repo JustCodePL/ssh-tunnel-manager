@@ -40,6 +40,9 @@ jobs:
   build:
     name: build (${{ matrix.platform }}, ${{ matrix.arch }})
     needs: test
+    # Bounds a stuck notarization queue, which would otherwise hold the only
+    # self-hosted Mac.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -64,8 +67,9 @@ jobs:
     # The macOS builds of release tags and manual runs go to Artur's Mac in the
     # "Private macOS Builders" group, because GitHub's hosted macOS runners were
     # repeatedly not available. This workflow has no pull_request or branch
-    # trigger, and the explicit event check keeps it that way should one be
-    # added: code from a fork must never run on that Mac.
+    # trigger, and the event check keeps this workflow off the Mac should one be
+    # added. It does not stop a fork pull request from bringing its own
+    # workflow that targets the group; repository and group settings do that.
     runs-on: ${{ matrix.platform == 'darwin' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && inputs.macos_runner != 'github-hosted' && fromJSON('{"group":"Private macOS Builders","labels":"justcode"}') || matrix.os }}
 
     steps:
@@ -76,14 +80,13 @@ jobs:
         if: runner.environment == 'self-hosted'
         run: |
           STM_TMP="$RUNNER_TEMP/stm"
-          rm -rf "$STM_TMP"
+          if [ -d "$STM_TMP" ]; then chmod -R u+w "$STM_TMP" && rm -rf "$STM_TMP"; fi
           mkdir -p "$STM_TMP/go" "$STM_TMP/go-build" "$STM_TMP/npm" "$STM_TMP/tmp"
           {
             echo "STM_TMP=$STM_TMP"
             echo "GOPATH=$STM_TMP/go"
             echo "GOMODCACHE=$STM_TMP/go/pkg/mod"
             echo "GOCACHE=$STM_TMP/go-build"
-            echo "GOTELEMETRY=off"
             echo "npm_config_cache=$STM_TMP/npm"
             echo "TMPDIR=$STM_TMP/tmp"
           } >> "$GITHUB_ENV"
@@ -182,9 +185,8 @@ jobs:
           security import "$RUNNER_TEMP/certificate.p12" \
             -k "$KEYCHAIN_PATH" \
             -P "$DEVELOPER_ID_APPLICATION_P12_PASSWORD" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security
-          rm -P "$RUNNER_TEMP/certificate.p12"
+            -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/certificate.p12"
 
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
@@ -254,7 +256,7 @@ jobs:
             --apple-id artur.czuba.94@gmail.com \
             --password "$APPLE_APP_SPECIFIC_PASSWORD" \
             --team-id 4VWT253QFF \
-            --wait --output-format json > "$RUNNER_TEMP/app-notarize.json"
+            --wait --timeout 30m --output-format json > "$RUNNER_TEMP/app-notarize.json"
           STATUS=$(jq -r .status "$RUNNER_TEMP/app-notarize.json")
           echo "App notarization status: $STATUS"
           if [ "$STATUS" != "Accepted" ]; then
@@ -278,7 +280,7 @@ jobs:
           ln -s /Applications "$STAGE/Applications"
           cp build/darwin/dmg.DS_Store "$STAGE/.DS_Store"
           hdiutil create -volname "SSH Tunnel Manager" -srcfolder "$STAGE" \
-            -fs HFS+ -format UDZO -ov "build/bin/ssh-tunnel-manager.dmg"
+            -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "build/bin/ssh-tunnel-manager.dmg"
           rm -rf "$STAGE"
 
           codesign --force --timestamp --keychain "$KEYCHAIN_PATH" --sign "$SIGNING_IDENTITY" \
@@ -294,7 +296,7 @@ jobs:
             --apple-id artur.czuba.94@gmail.com \
             --password "$APPLE_APP_SPECIFIC_PASSWORD" \
             --team-id 4VWT253QFF \
-            --wait --output-format json > "$RUNNER_TEMP/dmg-notarize.json"
+            --wait --timeout 30m --output-format json > "$RUNNER_TEMP/dmg-notarize.json"
           STATUS=$(jq -r .status "$RUNNER_TEMP/dmg-notarize.json")
           echo "DMG notarization status: $STATUS"
           if [ "$STATUS" != "Accepted" ]; then
@@ -358,13 +360,14 @@ jobs:
             path=$(printf '%s\n' "$line" | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')
             if [ -n "$path" ] && [ "$path" != "$KEYCHAIN_PATH" ]; then KEYCHAINS+=("$path"); fi
           done < <(security list-keychains -d user)
-          security list-keychains -d user -s ${KEYCHAINS[@]+"${KEYCHAINS[@]}"} || true
+          # An empty list would drop the login keychain from the search list.
+          if [ ${#KEYCHAINS[@]} -gt 0 ]; then security list-keychains -d user -s "${KEYCHAINS[@]}" || true; fi
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
           rm -f "$KEYCHAIN_PATH"
-          if [ -e "$RUNNER_TEMP/certificate.p12" ]; then rm -P "$RUNNER_TEMP/certificate.p12"; fi
+          rm -f "$RUNNER_TEMP/certificate.p12"
           rm -rf "$RUNNER_TEMP/app-notarize.zip" "$RUNNER_TEMP/app-notarize.json" \
             "$RUNNER_TEMP/dmg-notarize.json" "$RUNNER_TEMP/dmg-stage" "$RUNNER_TEMP/smoke-home"
-          if security list-keychains -d user | grep -Fq "app-signing.keychain-db"; then
+          if security list-keychains -d user | grep -Fq "$KEYCHAIN_PATH"; then
             echo "The signing keychain is still in the search list" >&2
             exit 1
           fi
