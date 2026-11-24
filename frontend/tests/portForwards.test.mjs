@@ -49,6 +49,8 @@ test("the protocol is inferred from standard ports", () => {
   assert.equal(inferForwardProtocol(3389), "rdp");
   assert.equal(inferForwardProtocol("3389"), "rdp");
   assert.equal(inferForwardProtocol(22), "ssh");
+  assert.equal(inferForwardProtocol(5900), "vnc");
+  assert.equal(inferForwardProtocol(5901), "none");
   assert.equal(inferForwardProtocol(8080), "none");
   assert.equal(inferForwardProtocol(undefined), "none");
 });
@@ -68,6 +70,8 @@ test("saving keeps only a protocol that differs from the port", () => {
   assert.equal(save({ remotePort: 3389, protocol: "none" }).protocol, "none");
   assert.equal(save({ remotePort: 8080, protocol: "rdp" }).protocol, "rdp");
   assert.equal(save({ remotePort: 2222, protocol: "ssh" }).protocol, "ssh");
+  assert.equal(save({ remotePort: 5900, protocol: "vnc" }).protocol, undefined);
+  assert.equal(save({ remotePort: 5901, protocol: "vnc" }).protocol, "vnc");
 });
 
 test("the SSH user is kept only on SSH forwards", () => {

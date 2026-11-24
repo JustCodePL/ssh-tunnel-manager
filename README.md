@@ -15,16 +15,17 @@ Built with Go + [Wails 3](https://wails.io) + Svelte. Ships as a single binary (
 - **Port forwarding** — multiple local→remote mappings per tunnel, with one-click clipboard copy from the tray
 - **Key authentication** — RSA, ECDSA, Ed25519 key files or a running `ssh-agent`; encrypted keys prompt for a passphrase once and store it in the OS keychain
 - **ProxyCommand / ProxyJump** — full support for bastion hosts
-- **Tool windows** — terminal, files, Docker, processes, disk, logs and remote desktop open in their own windows, which can sit on any screen; how they group into tabs is a setting
-- **Attach** — one button opens a session; it shows a menu only when a tunnel offers more than one, such as a terminal and a remote desktop
-- **Credentials** — named RDP and VNC logins saved in the OS keychain and reusable across tunnels and forwards
+- **Tool windows** — terminal, files, Docker, processes, disk, logs, remote desktop and screen sharing open in their own windows, which can sit on any screen; how they group into tabs is a setting
+- **Attach** — one button opens a session; it shows a menu only when a tunnel offers more than one, such as a terminal and a remote desktop or screen sharing
+- **Credentials** — named SSH, RDP and VNC logins saved in the OS keychain and reusable across tunnels and forwards
 - **Host key verification** — every connection checks the server against `~/.ssh/known_hosts` and the keys you accepted in the app. An unknown server shows its fingerprint and connects only after you trust it; a changed key stops the connection
-- **Saved logins** — one login for SSH and remote desktops, in the system keychain. A tunnel with a saved SSH login tries its key and agent first, and sends the password only after the server's host key is verified. A jump host never receives it and needs its own key or the agent
+- **Saved logins** — one login for SSH, remote desktops and screen sharing, in the system keychain. A tunnel with a saved SSH login tries its key and agent first, and sends the password only after the server's host key is verified. A jump host never receives it and needs its own key or the agent
 - **Shared clipboard** — text, pictures and files between your computer and a remote desktop, with a direction setting per tunnel. Tested with GNOME Remote Desktop. xrdp 0.9.12 does not exchange pictures, and Windows has not been tested yet
 - **Per-tunnel settings** — what a row shows, refresh intervals, clipboard and what happens after a disconnect can each be overridden on one tunnel
 - **Command palette** — `⌘K` or `Ctrl+K` finds tunnels and runs actions; the list works from the keyboard
 - **Built-in remote desktop** — RDP is detected on connected hosts and opens in the app, through the SSH connection, with no external client (no remote audio). Only the default port, 3389, is checked unless you set another one under the host's advanced options
-- **Actions on forwards** — a forward can be typed `rdp` or `ssh`, inferred from ports 3389 and 22, which adds a remote desktop, terminal or file browser button that opens on the forward's target, for example a machine behind a bastion
+- **Built-in screen sharing** — a Mac's screen (macOS Screen Sharing) or another VNC server opens in the app through the SSH connection, in a pinned noVNC viewer. A VNC server on the host's port 5900 is detected after connecting. A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication), other servers a VNC password or none. The app signs in itself, so the password never reaches the viewer. Text clipboard, fit to window or real size
+- **Actions on forwards** — a forward can be typed `rdp`, `vnc` or `ssh`, inferred from ports 3389, 5900 and 22, which adds a remote desktop, screen sharing, terminal or file browser button that opens on the forward's target, for example a machine behind a bastion
 - **Groups** — organise tunnels into named groups with Connect All / Disconnect All
 - **Import from SSH config** — parse `~/.ssh/config` and import selected hosts in one step
 - **Export to SSH config** — write selected tunnels back to a standard SSH config file
@@ -153,6 +154,7 @@ The app uses public-key authentication. It tries, in order: the key in the *Key 
 - Local port forwarding only: no SOCKS (`-D`) and no remote forwards (`-R`) yet.
 - Password and keyboard-interactive logins are not supported.
 - `IdentityAgent` from `~/.ssh/config` is not read yet; the agent is found through `SSH_AUTH_SOCK` or the platform default.
+- Screen sharing: VNC servers that require encryption (VeNCrypt, TLS, RA2) are not supported, and only port 5900 is detected on a host; use a forward typed `vnc` for another port. It has been checked against a test server, not yet against a real Mac.
 
 ### Auto-Update
 
@@ -308,3 +310,8 @@ as GitHub prereleases without replacing the latest stable release.
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
+
+The app bundles third-party web clients, kept unmodified with their licences in this repository:
+
+- [noVNC](https://github.com/novnc/noVNC) 1.7.0 core library, MPL-2.0, in [`frontend/vendor/novnc/`](frontend/vendor/novnc/), with [pako](https://github.com/nodeca/pako), MIT. The source of the version in the app is that directory.
+- [IronRDP](https://github.com/Devolutions/IronRDP) web client, MIT or Apache-2.0, in [`frontend/vendor/ironrdp/`](frontend/vendor/ironrdp/).

@@ -27,12 +27,14 @@ import (
 	"ssh-tunnel-manager/internal/sysstats"
 	"ssh-tunnel-manager/internal/tray"
 	"ssh-tunnel-manager/internal/updater"
+	"ssh-tunnel-manager/internal/vnc"
 	"ssh-tunnel-manager/internal/windows"
 )
 
 // App is the Wails application struct, bridging Go backend and frontend.
 type App struct {
 	rdpBridge   *rdp.Bridge
+	vncBridge   *vnc.Bridge
 	rdpMu       sync.Mutex // guards read-modify-write of pinned RDP certificates
 	ctx         context.Context
 	wails       *application.App
@@ -252,6 +254,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.startTray()
 	a.rdpBridge = rdp.NewBridge(a.wails != nil && a.wails.Env.Info().Debug)
+	a.vncBridge = vnc.NewBridge(a.wails != nil && a.wails.Env.Info().Debug)
 
 	// Refresh the executable path recorded by the platform's autostart
 	// mechanism. This keeps start-on-login working when an update renames or
@@ -315,6 +318,9 @@ func (a *App) shutdown() {
 	a.closeHostKeyPrompts()
 	a.termMgr.CloseAll()
 	a.sftpMgr.CloseAll()
+	if a.vncBridge != nil {
+		a.vncBridge.Close()
+	}
 	if a.rdpBridge != nil {
 		a.rdpBridge.Close()
 	}
@@ -1689,7 +1695,7 @@ func (a *App) GetProcessStats(tunnelID string) (sysstats.ProcessStats, error) {
 	return sysstats.BuildProcessStats(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]), nil
 }
 
-// GetServerCapabilities detects which optional tools (docker, htop) are present
+// GetServerCapabilities detects which optional tools (docker, htop, RDP, VNC) are present
 // on the remote host and its OS, and persists the result so the buttons can be
 // shown immediately on future connections. The frontend calls this on every
 // connect so tools installed (or removed) since last time are detected.
@@ -1701,18 +1707,31 @@ func (a *App) GetServerCapabilities(tunnelID string) (sysstats.Capabilities, err
 		return sysstats.Capabilities{}, err
 	}
 	c := sysstats.ParseCapabilities(out)
-	if present, err := a.probeRDP(tunnelID); err != nil {
-		// The probe could not run, which says nothing about the host. Keep what
-		// we knew so the button does not disappear on a transient failure.
-		c.RDP = a.prefs.Get().HostTools[tunnelID].RDP
-		slog.Debug("RDP probe failed", "tunnel", tunnelID, "error", err)
-	} else {
-		c.RDP = present
-	}
+	saved := a.prefs.Get().HostTools[tunnelID]
+	// The probes wait on the network, so they run side by side.
+	vncDone := make(chan struct{})
+	go func() {
+		defer close(vncDone)
+		c.VNC = probeOrKeep("VNC", tunnelID, saved.VNC, a.probeVNC)
+	}()
+	c.RDP = probeOrKeep("RDP", tunnelID, saved.RDP, a.probeRDP)
+	<-vncDone
 	if err := a.saveCapabilities(tunnelID, c); err != nil {
 		slog.Warn("failed to persist host capabilities", "tunnel", tunnelID, "error", err)
 	}
 	return c, nil
+}
+
+// probeOrKeep runs a server probe. When the probe could not run, which says
+// nothing about the host, it keeps what was known, so a button does not
+// disappear on a transient failure.
+func probeOrKeep(name, tunnelID string, known bool, probe func(string) (bool, error)) bool {
+	present, err := probe(tunnelID)
+	if err != nil {
+		slog.Debug(name+" probe failed", "tunnel", tunnelID, "error", err)
+		return known
+	}
+	return present
 }
 
 // GetSavedCapabilities returns the persisted per-tunnel tool capabilities so
@@ -1721,7 +1740,7 @@ func (a *App) GetSavedCapabilities() map[string]sysstats.Capabilities {
 	p := a.prefs.Get()
 	out := make(map[string]sysstats.Capabilities, len(p.HostTools))
 	for id, t := range p.HostTools {
-		out[id] = sysstats.Capabilities{Docker: t.Docker, Htop: t.Htop, RDP: t.RDP, OS: t.OS}
+		out[id] = sysstats.Capabilities{Docker: t.Docker, Htop: t.Htop, RDP: t.RDP, VNC: t.VNC, OS: t.OS}
 	}
 	return out
 }
@@ -1735,8 +1754,12 @@ func (a *App) GetSavedCapabilities() map[string]sysstats.Capabilities {
 func (a *App) VerifyTool(tunnelID, tool string) (bool, error) {
 	switch tool {
 	case "docker", "htop":
-	case "rdp":
-		present, err := a.probeRDP(tunnelID)
+	case "rdp", "vnc":
+		probe := a.probeRDP
+		if tool == "vnc" {
+			probe = a.probeVNC
+		}
+		present, err := probe(tunnelID)
 		if err != nil {
 			return false, err
 		}
@@ -1759,7 +1782,7 @@ func (a *App) VerifyTool(tunnelID, tool string) (bool, error) {
 func (a *App) saveCapabilities(tunnelID string, c sysstats.Capabilities) error {
 	p := a.prefs.Get()
 	p.HostTools = cloneHostTools(p.HostTools)
-	p.HostTools[tunnelID] = prefs.HostTools{Docker: c.Docker, Htop: c.Htop, RDP: c.RDP, OS: c.OS}
+	p.HostTools[tunnelID] = prefs.HostTools{Docker: c.Docker, Htop: c.Htop, RDP: c.RDP, VNC: c.VNC, OS: c.OS}
 	return a.prefs.Set(p)
 }
 
@@ -1775,6 +1798,8 @@ func (a *App) updateSavedTool(tunnelID, tool string, present bool) {
 		rec.Htop = present
 	case "rdp":
 		rec.RDP = present
+	case "vnc":
+		rec.VNC = present
 	}
 	p.HostTools[tunnelID] = rec
 	if err := a.prefs.Set(p); err != nil {

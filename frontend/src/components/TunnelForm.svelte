@@ -98,13 +98,14 @@
     portForwards = [...portForwards, { localPort: 0, remoteHost: "127.0.0.1", remotePort: 0, description: "" }];
   }
 
-  const FORWARD_PROTOCOLS: { value: "rdp" | "ssh" | "none"; label: string }[] = [
+  const FORWARD_PROTOCOLS: { value: "rdp" | "ssh" | "vnc" | "none"; label: string }[] = [
     { value: "rdp", label: "rdp" },
+    { value: "vnc", label: "vnc" },
     { value: "ssh", label: "ssh" },
     { value: "none", label: "undefined" },
   ];
 
-  function setForwardProtocol(index: number, protocol: "rdp" | "ssh" | "none") {
+  function setForwardProtocol(index: number, protocol: "rdp" | "ssh" | "vnc" | "none") {
     portForwards[index].protocol = protocol;
     portForwards = portForwards;
   }

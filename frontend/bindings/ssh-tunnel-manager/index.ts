@@ -27,5 +27,8 @@ export {
     SFTPUploadPick,
     SFTPWriteResult,
     SSHHostKey,
-    ToolOpenResult
+    ToolOpenResult,
+    VNCConnection,
+    VNCLogin,
+    VNCSavedLogin
 } from "./models.js";

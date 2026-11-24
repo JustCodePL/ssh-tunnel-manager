@@ -15,8 +15,6 @@ import (
 	"ssh-tunnel-manager/internal/ssh"
 )
 
-const protocolVNC = "vnc"
-
 // CredentialView is a saved login as the frontend sees it. The password never
 // leaves the backend here.
 type CredentialView struct {
@@ -48,7 +46,7 @@ func validateCredentialInput(input CredentialInput) error {
 		return errors.New("choose at least one protocol")
 	}
 	for _, protocol := range input.Protocols {
-		if protocol != config.ForwardProtocolRDP && protocol != config.ForwardProtocolSSH && protocol != protocolVNC {
+		if protocol != config.ForwardProtocolRDP && protocol != config.ForwardProtocolSSH && protocol != config.ForwardProtocolVNC {
 			return fmt.Errorf("unknown protocol %q", protocol)
 		}
 	}
@@ -163,7 +161,7 @@ func bindingKey(protocol, stateKey string) string {
 }
 
 // bindingTarget returns the key a protocol's login is assigned under. An SSH
-// login belongs to the tunnel, an RDP login to the tunnel or one forward.
+// login belongs to the tunnel, an RDP or VNC login to the tunnel or one forward.
 func (a *App) bindingTarget(protocol, tunnelID string, target ForwardTarget) (string, error) {
 	switch protocol {
 	case config.ForwardProtocolSSH:
@@ -177,12 +175,18 @@ func (a *App) bindingTarget(protocol, tunnelID string, target ForwardTarget) (st
 			return "", err
 		}
 		return bindingKey(protocol, key), nil
+	case config.ForwardProtocolVNC:
+		key, _, err := a.resolveVNCTarget(tunnelID, target)
+		if err != nil {
+			return "", err
+		}
+		return bindingKey(protocol, key), nil
 	}
 	return "", fmt.Errorf("binding is not available for %q yet", protocol)
 }
 
 // BindCredential assigns a login to a target for one protocol, and marks the
-// login as used for it. An empty ID removes the assignment: an RDP target then
+// login as used for it. An empty ID removes the assignment: an RDP or VNC target then
 // asks at connect time, and a tunnel uses only its key or agent.
 func (a *App) BindCredential(protocol, tunnelID string, target ForwardTarget, credentialID string) error {
 	key, err := a.bindingTarget(protocol, tunnelID, target)
@@ -316,9 +320,10 @@ func withSSHHostKeys(pins map[string]map[string]string, tunnelID string, keys ma
 	return updated
 }
 
-// boundRDPLogin returns the login assigned to an RDP target.
-func (a *App) boundRDPLogin(stateKey string) (string, keychain.Login, bool, error) {
-	id := a.prefs.Get().CredentialBindings[bindingKey(config.ForwardProtocolRDP, stateKey)]
+// boundLogin returns the login assigned to a remote desktop target for one
+// protocol.
+func (a *App) boundLogin(protocol, stateKey string) (string, keychain.Login, bool, error) {
+	id := a.prefs.Get().CredentialBindings[bindingKey(protocol, stateKey)]
 	if id == "" {
 		return "", keychain.Login{}, false, nil
 	}
@@ -327,6 +332,100 @@ func (a *App) boundRDPLogin(stateKey string) (string, keychain.Login, bool, erro
 		return id, keychain.Login{}, false, err
 	}
 	return id, login, true, nil
+}
+
+// storedLogin returns the saved login a remote desktop session should use: the
+// chosen one, or the one assigned to the target for the protocol.
+func (a *App) storedLogin(protocol, key, credentialID string) (keychain.Login, error) {
+	if credentialID == "" {
+		_, stored, found, err := a.boundLogin(protocol, key)
+		if err != nil {
+			return keychain.Login{}, err
+		}
+		if !found {
+			return keychain.Login{}, errors.New("no login assigned to this target")
+		}
+		return stored, nil
+	}
+	if a.credentialName(credentialID) == "" {
+		return keychain.Login{}, fmt.Errorf("no login %s", credentialID)
+	}
+	stored, found, err := keychain.GetLogin(credentialID)
+	if err != nil {
+		return keychain.Login{}, err
+	}
+	if !found {
+		return keychain.Login{}, fmt.Errorf("the login %s has no password in the keychain", a.credentialName(credentialID))
+	}
+	return stored, nil
+}
+
+// saveTargetLogin stores a login that has just worked for a remote desktop
+// target. It updates the login assigned to the target for the protocol, unless
+// that login is also assigned under another protocol, such as the tunnel's SSH
+// login: then it saves a new one, so the other uses keep working. A new login
+// is named after the target and assigned to it.
+func (a *App) saveTargetLogin(protocol, key string, login keychain.Login) error {
+	id := a.prefs.Get().CredentialBindings[bindingKey(protocol, key)]
+	protocols := a.credentialProtocols(id)
+	if protocols == nil || a.boundBeyond(id, protocol) {
+		id = ""
+		protocols = nil
+	}
+	name := a.credentialName(id)
+	if id == "" {
+		name = targetLoginName(protocol, key)
+	}
+	if !slices.Contains(protocols, protocol) {
+		protocols = append(slices.Clone(protocols), protocol)
+	}
+	saved, err := a.SaveCredential(CredentialInput{
+		ID: id, Name: name, Username: login.Username, Domain: login.Domain, Password: login.Password,
+		Protocols: protocols,
+	})
+	if err != nil {
+		return err
+	}
+	a.credentialsMu.Lock()
+	defer a.credentialsMu.Unlock()
+	if err := a.setBinding(bindingKey(protocol, key), saved.ID); err != nil {
+		return err
+	}
+	a.emit(eventSettingsChange)
+	return nil
+}
+
+// targetLoginName names a login saved for a target. RDP logins keep the names
+// earlier versions gave them; others say their protocol, so a host's RDP and
+// VNC logins can be told apart.
+func targetLoginName(protocol, key string) string {
+	name := strings.Replace(key, ">", " to ", 1)
+	if protocol == config.ForwardProtocolRDP {
+		return name
+	}
+	return name + " (" + strings.ToUpper(protocol) + ")"
+}
+
+// credentialProtocols returns what a saved login is marked for, or nil when
+// there is no such login.
+func (a *App) credentialProtocols(id string) []string {
+	for _, c := range a.prefs.Get().Credentials {
+		if c.ID == id {
+			return append([]string{}, c.Protocols...)
+		}
+	}
+	return nil
+}
+
+// boundBeyond reports whether a login is assigned under a protocol other than
+// the given one.
+func (a *App) boundBeyond(id, protocol string) bool {
+	for key, value := range a.prefs.Get().CredentialBindings {
+		if value == id && !strings.HasPrefix(key, protocol+":") {
+			return true
+		}
+	}
+	return false
 }
 
 // credentialName returns the display name of a login.
@@ -339,15 +438,15 @@ func (a *App) credentialName(id string) string {
 	return ""
 }
 
-// moveCredentialBindings follows a rename of a target's key, for its RDP login
-// and, when the key is the tunnel's own, its SSH login.
+// moveCredentialBindings follows a rename of a target's key, for its RDP and VNC
+// logins and, when the key is the tunnel's own, its SSH login.
 func moveCredentialBindings(bindings map[string]string, moves map[string]string) map[string]string {
 	updated := make(map[string]string, len(bindings))
 	for key, value := range bindings {
 		updated[key] = value
 	}
 	for from, to := range moves {
-		for _, protocol := range []string{config.ForwardProtocolRDP, config.ForwardProtocolSSH} {
+		for _, protocol := range []string{config.ForwardProtocolRDP, config.ForwardProtocolSSH, config.ForwardProtocolVNC} {
 			fromKey, toKey := bindingKey(protocol, from), bindingKey(protocol, to)
 			if value, ok := updated[fromKey]; ok {
 				delete(updated, fromKey)
@@ -365,7 +464,7 @@ func removeCredentialBindings(bindings map[string]string, stateKeys []string) (m
 	}
 	changed := false
 	for _, stateKey := range stateKeys {
-		for _, protocol := range []string{config.ForwardProtocolRDP, config.ForwardProtocolSSH} {
+		for _, protocol := range []string{config.ForwardProtocolRDP, config.ForwardProtocolSSH, config.ForwardProtocolVNC} {
 			key := bindingKey(protocol, stateKey)
 			if _, ok := updated[key]; ok {
 				delete(updated, key)

@@ -87,6 +87,7 @@ export enum Tool {
      */
     ToolTerminal = "terminal",
     ToolRDP = "rdp",
+    ToolVNC = "vnc",
     ToolFiles = "files",
     ToolEditor = "editor",
     ToolDocker = "docker",

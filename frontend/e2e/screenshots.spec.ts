@@ -108,6 +108,11 @@ test.describe("screenshots", () => {
       await expect(rdp.locator(".rdp-form")).toBeVisible();
       await shot(rdp, "36-rdp-login");
 
+      const vnc = await toolWindow(context, () => tunnel(page, "prod-web").getByTestId("forward").nth(4).getByRole("button", { name: "Attach" }).click());
+      await vnc.setViewportSize({ width: 900, height: 640 });
+      await expect(vnc.locator(".vnc-form")).toBeVisible();
+      await shot(vnc, "37-vnc-login");
+
       await page.getByTestId("new-menu").click();
       await page.getByTestId("new-tunnel").click();
       await expect(page.getByTestId("tunnel-form")).toBeVisible();

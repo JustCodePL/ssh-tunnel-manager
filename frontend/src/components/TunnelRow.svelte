@@ -6,7 +6,7 @@
   import { showToast } from "../stores/toast";
   import { openTool } from "../lib/openTool";
   import { toolsIn, shortError, isOn } from "../lib/rowLayout.js";
-  import { forwardAddress, forwardAttach, forwardTags } from "../lib/forwards.js";
+  import { forwardAddress, forwardAttach, forwardTags, toolIcon } from "../lib/forwards.js";
   import { effectiveForwardProtocol } from "../lib/portForwards.js";
   import type { EffectiveSettings } from "../stores/settings";
   import Icon from "./Icon.svelte";
@@ -164,7 +164,7 @@
             </button>
             {#if attach}
               <button type="button" class="btn small" title={attach.label} on:click={() => forwardTool(attach.tool, pf)}>
-                <Icon name={attach.tool === "rdp" ? "rdp" : "terminal"} />Attach
+                <Icon name={toolIcon(attach.tool)} />Attach
               </button>
               {#if effectiveForwardProtocol(pf) === "ssh"}
                 <button type="button" class="btn small" on:click={() => forwardTool("files", pf)}>Files</button>

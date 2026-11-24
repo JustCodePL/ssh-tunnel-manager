@@ -52,12 +52,12 @@ func TestForwardSSHConfig(t *testing.T) {
 }
 
 func TestValidateForwardProtocols(t *testing.T) {
-	for _, pf := range []config.PortForward{{}, {Protocol: "rdp"}, {Protocol: "ssh", SSHUser: "inner"}, {Protocol: "none"}} {
+	for _, pf := range []config.PortForward{{}, {Protocol: "rdp"}, {Protocol: "ssh", SSHUser: "inner"}, {Protocol: "vnc"}, {Protocol: "none"}} {
 		if err := validateForwardProtocols([]config.PortForward{pf}); err != nil {
 			t.Errorf("%+v: %v", pf, err)
 		}
 	}
-	for _, pf := range []config.PortForward{{Protocol: "vnc"}, {SSHUser: "a b"}, {SSHUser: "a\nHost evil"}} {
+	for _, pf := range []config.PortForward{{Protocol: "telnet"}, {SSHUser: "a b"}, {SSHUser: "a\nHost evil"}} {
 		if err := validateForwardProtocols([]config.PortForward{pf}); err == nil {
 			t.Errorf("%+v should be rejected", pf)
 		}
@@ -65,8 +65,8 @@ func TestValidateForwardProtocols(t *testing.T) {
 }
 
 func TestRDPForwardKeyDiffersFromHostKey(t *testing.T) {
-	first := rdpForwardKey("bastion", ForwardTarget{RemoteHost: "10.0.0.5", RemotePort: 3389})
-	second := rdpForwardKey("bastion", ForwardTarget{RemoteHost: "10.0.0.6", RemotePort: 3389})
+	first := forwardStateKey("bastion", ForwardTarget{RemoteHost: "10.0.0.5", RemotePort: 3389})
+	second := forwardStateKey("bastion", ForwardTarget{RemoteHost: "10.0.0.6", RemotePort: 3389})
 	if first == "bastion" || first == second {
 		t.Fatalf("keys must not collide: %q %q", first, second)
 	}

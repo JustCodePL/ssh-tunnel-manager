@@ -20,6 +20,12 @@ export class TunnelSettings {
      */
     "rdp"?: string;
 
+    /**
+     * VNC does the same for a VNC server on the host's port 5900, such as
+     * macOS Screen Sharing.
+     */
+    "vnc"?: string;
+
     /** Creates a new TunnelSettings instance. */
     constructor($$source: Partial<TunnelSettings> = {}) {
 

@@ -57,7 +57,7 @@ func forwardSSHConfig(cfg config.TunnelConfig, pf config.PortForward) config.Tun
 func validateForwardProtocols(forwards []config.PortForward) error {
 	for _, pf := range forwards {
 		switch pf.Protocol {
-		case "", config.ForwardProtocolRDP, config.ForwardProtocolSSH, config.ForwardProtocolNone:
+		case "", config.ForwardProtocolRDP, config.ForwardProtocolSSH, config.ForwardProtocolVNC, config.ForwardProtocolNone:
 		default:
 			return fmt.Errorf("unknown forward protocol %q", pf.Protocol)
 		}

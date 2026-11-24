@@ -584,6 +584,9 @@ func TestEffectiveProtocol(t *testing.T) {
 		{PortForward{RemotePort: 3389, Protocol: ForwardProtocolNone}, ForwardProtocolNone},
 		{PortForward{RemotePort: 8080, Protocol: ForwardProtocolRDP}, ForwardProtocolRDP},
 		{PortForward{RemotePort: 2222, Protocol: ForwardProtocolSSH}, ForwardProtocolSSH},
+		{PortForward{RemotePort: 5900}, ForwardProtocolVNC},
+		{PortForward{RemotePort: 5901, Protocol: ForwardProtocolVNC}, ForwardProtocolVNC},
+		{PortForward{RemotePort: 5900, Protocol: ForwardProtocolNone}, ForwardProtocolNone},
 	}
 	for _, c := range cases {
 		if got := c.pf.EffectiveProtocol(); got != c.want {

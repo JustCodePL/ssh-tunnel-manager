@@ -15,12 +15,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"ssh-tunnel-manager/internal/webview"
 )
 
 const (
@@ -93,20 +94,7 @@ func NewBridge(allowDevOrigins bool) *Bridge {
 // originAllowed accepts only the webview's own origin, so a web page opened in
 // a browser cannot reach the bridge even if it learned the port.
 func (b *Bridge) originAllowed(origin string) bool {
-	parsed, err := url.Parse(origin)
-	if err != nil {
-		return false
-	}
-	switch {
-	case parsed.Scheme == "wails" && (parsed.Host == "localhost" || parsed.Host == "wails.localhost" || parsed.Host == "wails"):
-		// The page origin under Wails 3's custom scheme.
-		return true
-	case (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Hostname() == "wails.localhost":
-		return true
-	case b.allowDevOrigins && parsed.Scheme == "http":
-		return parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1"
-	}
-	return false
+	return webview.OriginAllowed(origin, b.allowDevOrigins)
 }
 
 func randomHex(bytes int) (string, error) {

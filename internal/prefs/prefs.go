@@ -18,6 +18,7 @@ type HostTools struct {
 	Docker bool   `json:"docker"`
 	Htop   bool   `json:"htop"`
 	RDP    bool   `json:"rdp,omitempty"`
+	VNC    bool   `json:"vnc,omitempty"`
 	OS     string `json:"os,omitempty"`
 }
 
@@ -74,6 +75,9 @@ type TunnelSettings struct {
 	// RDP overrides detection for the host's own remote desktop: "on" offers it
 	// without a detected server, "off" hides it, and empty follows detection.
 	RDP string `json:"rdp,omitempty"`
+	// VNC does the same for a VNC server on the host's port 5900, such as
+	// macOS Screen Sharing.
+	VNC string `json:"vnc,omitempty"`
 }
 
 // WindowBounds is a saved window position and size.

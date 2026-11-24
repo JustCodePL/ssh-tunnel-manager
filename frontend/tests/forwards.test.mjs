@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attachExpands, forwardAddress, forwardAttach, forwardTags, toolForProtocol } from "../src/lib/forwards.js";
+import { attachExpands, attachKey, forwardAddress, forwardAttach, forwardTags, toolForProtocol, toolIcon } from "../src/lib/forwards.js";
 
 test("a forward's local address", () => {
   assert.equal(forwardAddress({ localPort: 15432 }), "127.0.0.1:15432");
@@ -16,11 +16,14 @@ test("Attach on a forward follows its type, also when portless", () => {
   assert.equal(forwardAttach({ remotePort: 5432 }), null);
   assert.equal(forwardAttach({ remotePort: 8080, protocol: "rdp" }).tool, "rdp");
   assert.equal(forwardAttach({ remotePort: 3389, protocol: "none" }), null);
+  assert.deepEqual(forwardAttach({ remotePort: 5900 }), { tool: "vnc", label: "Screen sharing" });
+  assert.equal(forwardAttach({ remotePort: 5901, protocol: "vnc" }).tool, "vnc");
 });
 
 test("tags name portless and the type", () => {
   assert.deepEqual(forwardTags({ remotePort: 3389, portless: true }), ["portless", "RDP"]);
   assert.deepEqual(forwardTags({ remotePort: 22 }), ["SSH"]);
+  assert.deepEqual(forwardTags({ remotePort: 5900 }), ["VNC"]);
   assert.deepEqual(forwardTags({ remotePort: 80 }), []);
 });
 
@@ -30,4 +33,12 @@ test("Attach expands only with more than one protocol", () => {
   assert.equal(attachExpands([{ protocol: "ssh", label: "Terminal" }, { protocol: "rdp", label: "RDP" }]), true);
   assert.equal(toolForProtocol("rdp"), "rdp");
   assert.equal(toolForProtocol("ssh"), "terminal");
+  assert.equal(toolForProtocol("vnc"), "vnc");
+});
+
+test("each session has its icon and key", () => {
+  assert.equal(toolIcon("vnc"), "rdp");
+  assert.equal(toolIcon("rdp"), "rdp");
+  assert.equal(toolIcon("terminal"), "terminal");
+  assert.deepEqual(["ssh", "rdp", "vnc"].map(attachKey), ["T", "R", "V"]);
 });

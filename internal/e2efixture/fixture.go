@@ -22,6 +22,8 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	"ssh-tunnel-manager/internal/vnc"
 )
 
 // Server is a running fixture.
@@ -235,6 +237,12 @@ func (s *Server) directTCPIP(newChannel ssh.NewChannel) {
 		_ = newChannel.Reject(ssh.ConnectionFailed, "bad target")
 		return
 	}
+	// No VNC server runs on the hosts themselves, so screen sharing is detected
+	// only behind forwards.
+	if target.Port == vncPort && (target.Host == "127.0.0.1" || target.Host == "localhost") {
+		_ = newChannel.Reject(ssh.ConnectionFailed, "connection refused")
+		return
+	}
 	channel, requests, err := newChannel.Accept()
 	if err != nil {
 		return
@@ -250,6 +258,10 @@ func (s *Server) directTCPIP(newChannel ssh.NewChannel) {
 
 	if target.Port == 3389 {
 		answerX224(channel)
+		return
+	}
+	if target.Port == vncPort {
+		serveRFB(channel)
 		return
 	}
 	// Anything else behaves as an echo service.
@@ -270,6 +282,127 @@ func answerX224(channel ssh.Channel) {
 		}
 	}
 	_, _ = channel.Write([]byte{0x03, 0x00, 0x00, 0x0b, 0x06, 0xd0, 0x00, 0x00, 0x12, 0x34, 0x00})
+}
+
+const (
+	vncPort = 5900
+	// VNCDesktopName is what the fake VNC server calls its screen.
+	VNCDesktopName = "fixture-mac"
+	vncWidth       = 64
+	vncHeight      = 48
+)
+
+// serveRFB is a VNC server that asks for Password, then shows a small screen
+// in one colour. It is enough for the web client to connect and draw.
+func serveRFB(channel io.ReadWriter) {
+	if _, err := io.WriteString(channel, "RFB 003.008\n"); err != nil {
+		return
+	}
+	version := make([]byte, 12)
+	if _, err := io.ReadFull(channel, version); err != nil {
+		return
+	}
+	// VNC authentication only.
+	if _, err := channel.Write([]byte{1, 2}); err != nil {
+		return
+	}
+	choice := make([]byte, 1)
+	if _, err := io.ReadFull(channel, choice); err != nil || choice[0] != 2 {
+		return
+	}
+	challenge := make([]byte, 16)
+	_, _ = rand.Read(challenge)
+	if _, err := channel.Write(challenge); err != nil {
+		return
+	}
+	response := make([]byte, 16)
+	if _, err := io.ReadFull(channel, response); err != nil {
+		return
+	}
+	expected, err := vnc.ChallengeResponse(Password, challenge)
+	if err != nil || !bytes.Equal(response, expected) {
+		reason := "Authentication failed"
+		failure := binary.BigEndian.AppendUint32(nil, 1)
+		failure = binary.BigEndian.AppendUint32(failure, uint32(len(reason)))
+		_, _ = channel.Write(append(failure, reason...))
+		return
+	}
+	if _, err := channel.Write(binary.BigEndian.AppendUint32(nil, 0)); err != nil {
+		return
+	}
+
+	if _, err := io.ReadFull(channel, make([]byte, 1)); err != nil { // ClientInit
+		return
+	}
+	init := binary.BigEndian.AppendUint16(nil, vncWidth)
+	init = binary.BigEndian.AppendUint16(init, vncHeight)
+	// 32 bits per pixel, depth 24, little endian, true colour, 8 bits per channel.
+	init = append(init, 32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0)
+	init = binary.BigEndian.AppendUint32(init, uint32(len(VNCDesktopName)))
+	init = append(init, VNCDesktopName...)
+	if _, err := channel.Write(init); err != nil {
+		return
+	}
+	answerRFBClient(channel)
+}
+
+// answerRFBClient reads the client's messages and answers a request for the
+// whole screen with one raw rectangle.
+func answerRFBClient(channel io.ReadWriter) {
+	for {
+		kind := make([]byte, 1)
+		if _, err := io.ReadFull(channel, kind); err != nil {
+			return
+		}
+		var skip int
+		switch kind[0] {
+		case 0: // SetPixelFormat
+			skip = 19
+		case 2: // SetEncodings
+			header := make([]byte, 3)
+			if _, err := io.ReadFull(channel, header); err != nil {
+				return
+			}
+			skip = 4 * int(binary.BigEndian.Uint16(header[1:]))
+		case 3: // FramebufferUpdateRequest
+			request := make([]byte, 9)
+			if _, err := io.ReadFull(channel, request); err != nil {
+				return
+			}
+			if request[0] == 0 && !writeRFBScreen(channel) {
+				return
+			}
+		case 4: // KeyEvent
+			skip = 7
+		case 5: // PointerEvent
+			skip = 5
+		case 6: // ClientCutText
+			header := make([]byte, 7)
+			if _, err := io.ReadFull(channel, header); err != nil {
+				return
+			}
+			skip = int(binary.BigEndian.Uint32(header[3:]))
+		default:
+			return
+		}
+		if skip > 0 {
+			if _, err := io.CopyN(io.Discard, channel, int64(skip)); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func writeRFBScreen(w io.Writer) bool {
+	update := []byte{0, 0, 0, 1}
+	update = binary.BigEndian.AppendUint16(update, 0)
+	update = binary.BigEndian.AppendUint16(update, 0)
+	update = binary.BigEndian.AppendUint16(update, vncWidth)
+	update = binary.BigEndian.AppendUint16(update, vncHeight)
+	update = binary.BigEndian.AppendUint32(update, 0) // raw encoding
+	update = append(update, bytes.Repeat([]byte{0x30, 0x90, 0xd0, 0xff}, vncWidth*vncHeight)...)
+	_, err := w.Write(update)
+	return err == nil
 }
 
 const procStat = `cpu  100 0 100 800 0 0 0 0 0 0
@@ -407,6 +540,7 @@ func SSHConfig(port, closedPort int, keyPath string) string {
 		"    # stm:forward-protocol=rdp\n    LocalForward 13389 10.0.0.1:3389\n",
 		"    # stm:forward-protocol=rdp\n    LocalForward 13390 10.0.0.2:3389\n",
 		"    # stm:forward-protocol=ssh\n    LocalForward 12222 10.0.0.3:22\n",
+		"    LocalForward 15900 10.0.0.4:5900\n",
 	) + host([]string{"group=Production"}, "prod-db", port) +
 		host([]string{"group=Staging"}, "stage-a", port) +
 		host(nil, "broken-host", closedPort) +

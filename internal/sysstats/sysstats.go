@@ -62,6 +62,7 @@ type Capabilities struct {
 	Docker bool   `json:"docker"`
 	Htop   bool   `json:"htop"`
 	RDP    bool   `json:"rdp"` // an RDP server answers on the host's loopback
+	VNC    bool   `json:"vnc"` // a VNC server answers on the host's loopback
 	OS     string `json:"os"`  // uname -s, e.g. "Linux", "Darwin"
 }
 

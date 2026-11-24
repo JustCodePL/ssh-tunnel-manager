@@ -31,11 +31,11 @@ test.describe("main window", () => {
     await expect(page.locator('[data-testid="group"][data-group="Unassigned"]')).toContainText("laptop");
 
     const row = tunnel(page, "prod-web");
-    await expect(row).toContainText("4 forwards");
+    await expect(row).toContainText("5 forwards");
     await expect(row).not.toContainText("127.0.0.1:15432");
 
     await expand(page, "prod-web");
-    await expect(row.getByTestId("forward")).toHaveCount(4);
+    await expect(row.getByTestId("forward")).toHaveCount(5);
     await expect(row).toContainText("127.0.0.1:15432");
     await expect(row).toContainText("to 10.0.0.1:3389");
   });

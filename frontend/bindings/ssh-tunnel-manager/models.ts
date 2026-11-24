@@ -828,6 +828,126 @@ export class ToolOpenResult {
     }
 }
 
+/**
+ * VNCConnection is the outcome of OpenVNC. Status is "connected" with a
+ * session, or asks for a login. Other failures are returned as errors.
+ */
+export class VNCConnection {
+    "status": string;
+
+    /**
+     * Message explains a rejected login, in the server's words when it gave any.
+     */
+    "message"?: string;
+
+    /**
+     * NeedsUsername is true when the server accepts only Apple Remote Desktop
+     * authentication, which takes the Mac's account name and password.
+     */
+    "needsUsername"?: boolean;
+    "sessionId"?: string;
+    "proxyAddress"?: string;
+
+    /** Creates a new VNCConnection instance. */
+    constructor($$source: Partial<VNCConnection> = {}) {
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new VNCConnection instance from a string or object.
+     */
+    static createFrom($$source: any = {}): VNCConnection {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new VNCConnection($$parsedSource as Partial<VNCConnection>);
+    }
+}
+
+/**
+ * VNCLogin is the login a viewer connects with. An empty Password means "use
+ * the chosen saved login", or the one assigned to the target, or none.
+ */
+export class VNCLogin {
+    /**
+     * Username is the macOS account for Apple Remote Desktop authentication.
+     * Leave it empty for a server that asks only for a VNC password.
+     */
+    "username": string;
+    "password": string;
+    "credentialId": string;
+
+    /**
+     * Save keeps a typed login in the credentials, or assigns the chosen saved
+     * login to the target, once the server has accepted it.
+     */
+    "save": boolean;
+
+    /** Creates a new VNCLogin instance. */
+    constructor($$source: Partial<VNCLogin> = {}) {
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("password" in $$source)) {
+            this["password"] = "";
+        }
+        if (!("credentialId" in $$source)) {
+            this["credentialId"] = "";
+        }
+        if (!("save" in $$source)) {
+            this["save"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new VNCLogin instance from a string or object.
+     */
+    static createFrom($$source: any = {}): VNCLogin {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new VNCLogin($$parsedSource as Partial<VNCLogin>);
+    }
+}
+
+/**
+ * VNCSavedLogin describes the login assigned to a target without its password.
+ */
+export class VNCSavedLogin {
+    "username": string;
+    "hasPassword": boolean;
+    "credentialId": string;
+    "credentialName": string;
+
+    /** Creates a new VNCSavedLogin instance. */
+    constructor($$source: Partial<VNCSavedLogin> = {}) {
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("hasPassword" in $$source)) {
+            this["hasPassword"] = false;
+        }
+        if (!("credentialId" in $$source)) {
+            this["credentialId"] = "";
+        }
+        if (!("credentialName" in $$source)) {
+            this["credentialName"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new VNCSavedLogin instance from a string or object.
+     */
+    static createFrom($$source: any = {}): VNCSavedLogin {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new VNCSavedLogin($$parsedSource as Partial<VNCSavedLogin>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = LogEntry.createFrom;
 const $$createType1 = $Create.Array($$createType0);

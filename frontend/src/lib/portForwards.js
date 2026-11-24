@@ -2,12 +2,13 @@
 
 /**
  * @param {number | string | undefined} remotePort
- * @returns {"rdp" | "ssh" | "none"} the protocol implied by a standard port
+ * @returns {"rdp" | "ssh" | "vnc" | "none"} the protocol implied by a standard port
  */
 export function inferForwardProtocol(remotePort) {
   const port = Number(remotePort);
   if (port === 3389) return "rdp";
   if (port === 22) return "ssh";
+  if (port === 5900) return "vnc";
   return "none";
 }
 
