@@ -40,6 +40,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
    go test ./... -count=1
    (cd frontend && npm run test:e2e)
    ```
+   If Playwright's own Chromium is missing, as on the agent Mac, run the end-to-end tests with the system Chrome instead of downloading a browser: `STM_E2E_CHROMIUM="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:e2e`.
 3. **Read what ships.** `git log <previous-tag>..HEAD --no-merges --pretty='%h %s'`
 4. **Write the notes** to `/tmp/release-notes/<version>.md`, in the format below.
 5. **Write the changelog entry** with the `changelog` skill, unless the release has no user-visible change.
@@ -114,6 +115,6 @@ To fix a body afterwards: `gh release edit <version> --notes-file <file>`. That 
 
 ## After publishing
 
-The site updates itself: merging to `main` or `beta` runs `pages.yml`. Check `https://justcodepl.github.io/ssh-tunnel-manager/changelog/<version>/` once `gh run list --workflow=pages.yml --limit 1` shows the run succeeded.
+The site updates itself: merging to `main` or `beta` runs `pages.yml`. Check `https://justcodepl.github.io/ssh-tunnel-manager/changelog/<version>/` once `gh run list --workflow=pages.yml --limit 1` shows the run succeeded. If the run fails in Deploy with `No artifacts named "github-pages"` although Upload succeeded, GitHub lost the artifact: rerun it with `gh run rerun <id>` and check again.
 
 Update tracking as `AGENTS.md` describes, keeping implemented, beta and production as separate states. Describe something as released only after the release and its assets exist.
