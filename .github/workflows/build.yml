@@ -18,6 +18,11 @@ on:
 permissions:
   contents: write
 
+# A fallback run dispatched on a tag must not publish next to the tag push.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -316,7 +321,7 @@ jobs:
           xcrun stapler validate "build/bin/ssh-tunnel-manager.dmg"
           spctl --assess --type open --context context:primary-signature --verbose=2 "build/bin/ssh-tunnel-manager.dmg"
 
-          MOUNT_DIR=$(mktemp -d)
+          MOUNT_DIR=$(mktemp -d "$RUNNER_TEMP/dmg-mount.XXXXXX")
           trap 'hdiutil detach -force "$MOUNT_DIR" >/dev/null 2>&1 || true' EXIT
           hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT_DIR" "build/bin/ssh-tunnel-manager.dmg"
           xcrun stapler validate "$MOUNT_DIR/SSH Tunnel Manager.app"
@@ -380,7 +385,7 @@ jobs:
           cd "$RUNNER_TEMP"
           find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
           if [ -n "${STM_TMP:-}" ] && [ -d "$STM_TMP" ]; then
-            chmod -R u+w "$STM_TMP"
+            chmod -R u+w "$STM_TMP" || true
             rm -rf "$STM_TMP"
           fi
 

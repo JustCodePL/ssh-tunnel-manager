@@ -105,7 +105,7 @@ Find the run with `gh run list --workflow=build.yml --limit 1`, then wait with `
 The macOS builds of a tag run on Artur's Mac, the self-hosted runner `macbook-pro-artur` in the "Private macOS Builders" group, one after the other. Check that it is online before tagging: `gh api orgs/JustCodePL/actions/runner-groups/3/runners --jq '.runners[]|{name,status,busy}'`. Two things stop it:
 
 - **Runner offline:** the macOS jobs wait in the queue. Ask Artur to bring the Mac online, or cancel the run and publish from GitHub's runners instead: `gh workflow run build.yml --ref <version> -f macos_runner=github-hosted`. A manual run on a tag ref publishes the release just as the tag push does.
-- **SSH Tunnel Manager open on that Mac:** the smoke test fails with "SSH Tunnel Manager is running on this runner". Ask Artur to quit the app, then rerun the failed job with `gh run rerun <id> --failed`.
+- **SSH Tunnel Manager open on that Mac:** only for a tag whose source predates the smoke test's own single-instance lock (stable tags on `main` until `v1.2.0`), the smoke test fails with "SSH Tunnel Manager is running on this runner". Ask Artur to quit the app, then rerun the failed job with `gh run rerun <id> --failed`.
 
 ```
 gh release view <version> --json name,isPrerelease,assets --jq '{name,isPrerelease,assets:[.assets[].name]}'
