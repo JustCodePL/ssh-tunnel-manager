@@ -135,10 +135,12 @@ jobs:
       - name: Smoke test (macOS)
         if: matrix.platform == 'darwin' && matrix.arch == 'arm64'
         run: |
-          # The app allows one instance per user. A copy already running on the
-          # runner would take the launch and exit 0, which proves nothing.
+          # The app allows one instance per user. Builds whose smoke test has no
+          # lock of its own hand the launch to a copy already running on the
+          # runner, which exits 0 and proves nothing, so they refuse to run then.
           LOCK="$(getconf DARWIN_USER_TEMP_DIR)com.wails.ssh-tunnel-manager.lock"
-          if [ -e "$LOCK" ] && lsof -t "$LOCK" >/dev/null 2>&1; then
+          if ! grep -q 'ssh-tunnel-manager.smoke-test' app_wails.go &&
+            [ -e "$LOCK" ] && lsof -t "$LOCK" >/dev/null 2>&1; then
             echo "SSH Tunnel Manager is running on this runner; quit it and rerun the job." >&2
             exit 1
           fi
