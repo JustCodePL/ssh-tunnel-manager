@@ -1,0 +1,56 @@
+<article class="changelog-entry" id="v1.2.0-beta.6">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.6/">v1.2.0-beta.6</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-24">24 November 2026</time></p>
+            <h3>Screen sharing over VNC, for a Mac behind a tunnel</h3>
+            <p>The screen of a Mac (macOS Screen Sharing) or of another VNC server now opens in a window of the app, through the SSH tunnel, like the built-in remote desktop.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>VNC forwards and detection</h4>
+              <p>A forward to port 5900, or one whose type is set to <code>vnc</code>, gets a VNC tag and an <strong>Attach</strong> button that opens the screen behind it. After connecting, the app also looks for a VNC server on the host's own port 5900; when it finds one, <strong>Screen sharing (VNC)</strong> appears under Attach, in the tray menu and in the command palette, and <kbd>V</kbd> opens it from the list.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-forward.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-forward.png" alt="An expanded tunnel whose forwards include one to port 5900 with a VNC tag and an Attach button" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Signing in to a Mac</h4>
+              <p>A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication). Other servers take a VNC password, or nothing. The app signs in itself and gives the viewer a session that needs no password, so a saved password never reaches the viewer. A login that worked can be saved in the system keychain, and the form offers every saved login. A rejected login says so, with the server's reason when it gives one, and a server that only accepts encryption the app does not support is named as such. The screen fits the window or shows at its real size, and the shared clipboard carries text in the direction set for the tunnel.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-login.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-login.png" alt="The screen sharing login form with a saved login choice, a user name and a password" width="900" height="640" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>VNC in the tunnel's settings</h4>
+              <p>The Credentials page of a tunnel has a VNC section: screen sharing on the host can be turned on or off whatever the detection found, and each target can have its own saved login. A login saved from a remote desktop or screen sharing window no longer overwrites a login the tunnel also uses for SSH; a new one is saved instead.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-settings.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-settings.png" alt="Tunnel settings, Credentials page, with the SSH, RDP and VNC sections" width="900" height="860" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>On the Mac, turn on <strong>Screen Sharing</strong> in System Settings → General → Sharing, and allow your account.</li>
+                <li>Connect the tunnel to that Mac, then choose <strong>Attach</strong> → <strong>Screen sharing (VNC)</strong>. For a Mac behind a bastion, add a forward to its port 5900 and use the forward's <strong>Attach</strong>.</li>
+                <li>Sign in with the Mac's account name and password. For a server with only a VNC password, leave the user empty.</li>
+                <li>Use <strong>actual size</strong> or <strong>fit to window</strong> in the window's bar to change the scale.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>Not yet tested against a real Mac with Screen Sharing. It was tested only against a test VNC server in the automated tests: the login, the password check and the picture. The Mac login, the keyboard (⌘, ⌥ and Polish letters), the clipboard and loading the viewer in the macOS desktop window are waiting for a manual test.</li>
+                <li>Servers that require encryption (VeNCrypt, TLS, RA2) are not supported.</li>
+                <li>Only port 5900 is checked on the host itself. A server on another port needs a forward of type <code>vnc</code>.</li>
+                <li>The screenshots come from the test build in a browser, not from the desktop window.</li>
+                <li>The limits of the previous beta still apply.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+        </article>

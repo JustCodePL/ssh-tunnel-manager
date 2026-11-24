@@ -1,0 +1,56 @@
+<article class="changelog-entry" id="v1.2.0-beta.6">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.6/">v1.2.0-beta.6</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-24">24 listopada 2026</time></p>
+            <h3>Udostępnianie ekranu przez VNC, dla Maca za tunelem</h3>
+            <p>Ekran Maca (Udostępnianie ekranu w macOS) albo innego serwera VNC otwiera się teraz w oknie aplikacji, przez tunel SSH, tak jak wbudowany pulpit zdalny.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Forwardy VNC i wykrywanie</h4>
+              <p>Forward na port 5900 albo forward z typem ustawionym na <code>vnc</code> dostaje oznaczenie VNC i przycisk <strong>Attach</strong>, który otwiera ekran za nim. Po połączeniu aplikacja szuka też serwera VNC na porcie 5900 samego hosta; gdy go znajdzie, <strong>Screen sharing (VNC)</strong> pojawia się w Attach, w menu w trayu i w palecie poleceń, a <kbd>V</kbd> otwiera go z listy.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-forward.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-forward.png" alt="Rozwinięty tunel, którego forwardy obejmują forward na port 5900 z oznaczeniem VNC i przyciskiem Attach" width="1100" height="760" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Logowanie do Maca</h4>
+              <p>Mac przyjmuje nazwę i hasło konta na nim (uwierzytelnianie Apple Remote Desktop). Inne serwery przyjmują hasło VNC albo nic. Aplikacja loguje się sama i daje podglądowi sesję bez hasła, więc zapisane hasło nigdy nie trafia do podglądu. Login, który zadziałał, można zapisać w systemowym keychainie, a formularz pokazuje wszystkie zapisane loginy. Odrzucony login jest zgłaszany, z powodem podanym przez serwer, jeśli go poda, a serwer, który przyjmuje tylko nieobsługiwane szyfrowanie, jest tak opisany. Ekran dopasowuje się do okna albo pokazuje się w prawdziwym rozmiarze, a wspólny schowek przenosi tekst w kierunku ustawionym dla tunelu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-login.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-login.png" alt="Formularz logowania do udostępniania ekranu z wyborem zapisanego loginu, nazwą użytkownika i hasłem" width="900" height="640" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>VNC w ustawieniach tunelu</h4>
+              <p>Strona Credentials w ustawieniach tunelu ma sekcję VNC: udostępnianie ekranu na hoście można włączyć albo wyłączyć niezależnie od wykrywania, a każdy cel może mieć własny zapisany login. Login zapisany z okna pulpitu zdalnego albo udostępniania ekranu nie nadpisuje już loginu, którego tunel używa też do SSH; zamiast tego zapisuje się nowy.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-settings.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.6/vnc-settings.png" alt="Ustawienia tunelu, strona Credentials, z sekcjami SSH, RDP i VNC" width="900" height="860" loading="lazy" /></a>
+            </figure>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Na Macu włącz <strong>Udostępnianie ekranu</strong> w Ustawieniach systemowych → Ogólne → Udostępnianie i dopuść swoje konto.</li>
+                <li>Połącz tunel do tego Maca i wybierz <strong>Attach</strong> → <strong>Screen sharing (VNC)</strong>. Dla Maca za bastionem dodaj forward na jego port 5900 i użyj <strong>Attach</strong> przy forwardzie.</li>
+                <li>Zaloguj się nazwą i hasłem konta na Macu. Dla serwera z samym hasłem VNC zostaw użytkownika pustego.</li>
+                <li>Przyciskami <strong>actual size</strong> i <strong>fit to window</strong> na pasku okna zmieniasz skalę.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Jeszcze niesprawdzone z prawdziwym Makiem z włączonym Udostępnianiem ekranu. Sprawdzone tylko z testowym serwerem VNC w testach automatycznych: logowanie, sprawdzenie hasła i obraz. Logowanie kontem Maca, klawiatura (⌘, ⌥ i polskie znaki), schowek i ładowanie podglądu w oknie aplikacji na macOS czekają na ręczny test.</li>
+                <li>Serwery wymagające szyfrowania (VeNCrypt, TLS, RA2) nie są obsługiwane.</li>
+                <li>Na samym hoście sprawdzany jest tylko port 5900. Serwer na innym porcie wymaga forwardu typu <code>vnc</code>.</li>
+                <li>Zrzuty pochodzą z buildu testowego w przeglądarce, nie z okna aplikacji.</li>
+                <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>

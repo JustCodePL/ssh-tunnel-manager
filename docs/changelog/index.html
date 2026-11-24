@@ -76,7 +76,8 @@
 
         <div class="changelog-layout">
           <nav class="changelog-history" aria-label="Release history">
-            <a href="../changelog/v1.2.0-beta.5/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Security fixes: host keys, saved passwords and links</span></a>
+            <a href="../changelog/v1.2.0-beta.6/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.6</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Screen sharing over VNC, for a Mac behind a tunnel</span></a>
+            <a href="../changelog/v1.2.0-beta.5/"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Security fixes: host keys, saved passwords and links</span></a>
             <a href="../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">The system title bar on macOS</span></a>
             <a href="../changelog/v1.2.0-beta.3/"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Separate tool windows and a new tunnel list</span></a>
             <a href="../changelog/v1.2.0-beta.2/"><span class="changelog-history-version">v1.2.0-beta.2</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Failed tunnels stop retrying and report errors in the app</span></a>
@@ -117,58 +118,65 @@
             <a href="../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">First public release</span></a>
           </nav>
           <div class="changelog-content">
-        <article class="changelog-entry" id="v1.2.0-beta.5">
+        <article class="changelog-entry" id="v1.2.0-beta.6">
           <header class="changelog-entry-head">
-            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.5/">v1.2.0-beta.5</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-08">8 November 2026</time></p>
-            <h3>Security fixes: host keys, saved passwords and links</h3>
-            <p>Three fixes from a security review of the code. Every SSH connection now verifies the server, a saved password no longer goes to a jump host, and deleting a link no longer touches what it points to.</p>
+            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.6/">v1.2.0-beta.6</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-24">24 November 2026</time></p>
+            <h3>Screen sharing over VNC, for a Mac behind a tunnel</h3>
+            <p>The screen of a Mac (macOS Screen Sharing) or of another VNC server now opens in a window of the app, through the SSH tunnel, like the built-in remote desktop.</p>
           </header>
           <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>Every connection verifies the server</h4>
-              <p>Until now only tunnels with a saved password checked the server's host key, and <code>~/.ssh/known_hosts</code> was not read. Now every connection is checked: tunnels, the terminal, Files, jump hosts and ProxyCommand. A server in <code>known_hosts</code>, or one whose key you accepted, connects as before. An unknown server opens the main window with its fingerprint and connects only after you trust it. A changed key stops the connection and it is not retried.</p>
+              <h4>VNC forwards and detection</h4>
+              <p>A forward to port 5900, or one whose type is set to <code>vnc</code>, gets a VNC tag and an <strong>Attach</strong> button that opens the screen behind it. After connecting, the app also looks for a VNC server on the host's own port 5900; when it finds one, <strong>Screen sharing (VNC)</strong> appears under Attach, in the tray menu and in the command palette, and <kbd>V</kbd> opens it from the list.</p>
             </div>
             <figure class="feature-detail-shots">
-              <a href="../assets/changelog/v1.2.0-beta.5/host-key-prompt.png"><img src="../assets/changelog/v1.2.0-beta.5/host-key-prompt.png" alt="The Unknown server dialog with the tunnel, the server address and the SHA-256 fingerprint" width="900" height="620" loading="lazy" /></a>
+              <a href="../assets/changelog/v1.2.0-beta.6/vnc-forward.png"><img src="../assets/changelog/v1.2.0-beta.6/vnc-forward.png" alt="An expanded tunnel whose forwards include one to port 5900 with a VNC tag and an Attach button" width="1100" height="760" loading="lazy" /></a>
             </figure>
           </section>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>A saved password stays away from the jump host</h4>
-              <p>A tunnel's saved password was also offered to its ProxyJump host. The jump host now gets only keys and the agent, and the password goes only to the server behind it.</p>
+              <h4>Signing in to a Mac</h4>
+              <p>A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication). Other servers take a VNC password, or nothing. The app signs in itself and gives the viewer a session that needs no password, so a saved password never reaches the viewer. A login that worked can be saved in the system keychain, and the form offers every saved login. A rejected login says so, with the server's reason when it gives one, and a server that only accepts encryption the app does not support is named as such. The screen fits the window or shows at its real size, and the shared clipboard carries text in the direction set for the tunnel.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../assets/changelog/v1.2.0-beta.6/vnc-login.png"><img src="../assets/changelog/v1.2.0-beta.6/vnc-login.png" alt="The screen sharing login form with a saved login choice, a user name and a password" width="900" height="640" loading="lazy" /></a>
+            </figure>
           </section>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>Deleting a link deletes only the link</h4>
-              <p>In the Files window, deleting a symbolic link to a folder used to remove the contents of that folder. Now only the link goes, and the confirmation says so. Links whose target no longer exists can be deleted too.</p>
+              <h4>VNC in the tunnel's settings</h4>
+              <p>The Credentials page of a tunnel has a VNC section: screen sharing on the host can be turned on or off whatever the detection found, and each target can have its own saved login. A login saved from a remote desktop or screen sharing window no longer overwrites a login the tunnel also uses for SSH; a new one is saved instead.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../assets/changelog/v1.2.0-beta.6/vnc-settings.png"><img src="../assets/changelog/v1.2.0-beta.6/vnc-settings.png" alt="Tunnel settings, Credentials page, with the SSH, RDP and VNC sections" width="900" height="860" loading="lazy" /></a>
+            </figure>
           </section>
           <div class="changelog-notes">
             <div>
               <h4>How to use it</h4>
               <ul>
-                <li>When the <strong>Unknown server</strong> dialog appears, compare the fingerprint with the one from the server's administrator, then choose <strong>Trust this server</strong> or <strong>Cancel</strong>.</li>
-                <li>To see or remove accepted keys, open the tunnel's settings, go to its credentials and use <strong>Forget host keys</strong>.</li>
-                <li>If a key changed for a good reason, forget the old key there, or update <code>known_hosts</code> if that is where it is listed.</li>
+                <li>On the Mac, turn on <strong>Screen Sharing</strong> in System Settings → General → Sharing, and allow your account.</li>
+                <li>Connect the tunnel to that Mac, then choose <strong>Attach</strong> → <strong>Screen sharing (VNC)</strong>. For a Mac behind a bastion, add a forward to its port 5900 and use the forward's <strong>Attach</strong>.</li>
+                <li>Sign in with the Mac's account name and password. For a server with only a VNC password, leave the user empty.</li>
+                <li>Use <strong>actual size</strong> or <strong>fit to window</strong> in the window's bar to change the scale.</li>
               </ul>
             </div>
             <div>
               <h4>Known limits</h4>
               <ul>
-                <li>A server missing from <code>known_hosts</code> asks once per tunnel and address, also during auto-connect. With no answer within 90 seconds the tunnel stops with an error, and you connect it again by hand.</li>
-                <li>A jump host that accepts only passwords no longer works with a saved login. It needs a key or the agent.</li>
-                <li>A saved password still reaches a server behind an SSH forward when you open Terminal, Files or the Editor on that forward.</li>
-                <li>The screenshot comes from the test build in a browser. The dialog was tested there and not by hand in the desktop window.</li>
+                <li>Not yet tested against a real Mac with Screen Sharing. It was tested only against a test VNC server in the automated tests: the login, the password check and the picture. The Mac login, the keyboard (⌘, ⌥ and Polish letters), the clipboard and loading the viewer in the macOS desktop window are waiting for a manual test.</li>
+                <li>Servers that require encryption (VeNCrypt, TLS, RA2) are not supported.</li>
+                <li>Only port 5900 is checked on the host itself. A server on another port needs a forward of type <code>vnc</code>.</li>
+                <li>The screenshots come from the test build in a browser, not from the desktop window.</li>
                 <li>The limits of the previous beta still apply.</li>
               </ul>
             </div>
           </div>
-          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.5" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
         </article>
             <nav class="changelog-pager" aria-label="Older and newer releases">
               <span class="changelog-pager-newer"></span>
-              <a href="../changelog/v1.2.0-beta.4/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.4</span></a>
+              <a href="../changelog/v1.2.0-beta.5/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.5</span></a>
             </nav>
           </div>
         </div>
