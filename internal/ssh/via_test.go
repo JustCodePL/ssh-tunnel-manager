@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -104,5 +105,36 @@ func TestDialViaReportsDialError(t *testing.T) {
 	}
 	if _, err := tun.dial(context.Background(), &ssh.ClientConfig{HostKeyCallback: ssh.InsecureIgnoreHostKey()}); !errors.Is(err, want) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The host key callback also runs on every key exchange later in the session;
+// it must not bring back the handshake limit and close a working connection.
+func TestHandshakeWithinRekeyDoesNotRestartTheLimit(t *testing.T) {
+	conn, _ := startInnerServer(t)
+	var calls atomic.Int32
+	config := &ssh.ClientConfig{
+		User: "inner",
+		HostKeyCallback: func(string, net.Addr, ssh.PublicKey) error {
+			calls.Add(1)
+			return nil
+		},
+	}
+	config.RekeyThreshold = 256
+	c, _, reqs, err := handshakeWithin(context.Background(), conn, "10.0.0.8:22", config, 300*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	go ssh.DiscardRequests(reqs)
+	for range 20 {
+		_, _, _ = c.SendRequest("ping@test", true, make([]byte, 100))
+	}
+	if calls.Load() < 2 {
+		t.Fatalf("no key exchange after login (host key checks: %d)", calls.Load())
+	}
+	time.Sleep(time.Second)
+	if _, _, err := c.SendRequest("ping@test", true, nil); err != nil {
+		t.Fatalf("connection closed after a key exchange: %v", err)
 	}
 }

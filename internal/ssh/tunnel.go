@@ -1,7 +1,6 @@
 package ssh
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -40,6 +39,13 @@ const (
 	// viaHandshakeTimeout bounds an SSH handshake carried over a tunnel when the
 	// client config sets no timeout of its own.
 	viaHandshakeTimeout = 15 * time.Second
+	// proxyCommandHandshakeTimeout bounds the SSH handshake through a
+	// ProxyCommand, from starting the command to logging in, not counting a
+	// host key question. It is much longer than the TCP connect timeout
+	// because the command first opens its own connection (an SSM session, an
+	// `ssh -W` login), may wait for a browser sign-in (`cloudflared access
+	// ssh`), and the SSH agent may wait for the user to approve a signature.
+	proxyCommandHandshakeTimeout = 2 * time.Minute
 )
 
 // PassphraseFunc is called when an encrypted key needs a passphrase.
@@ -327,26 +333,79 @@ func (t *Tunnel) dialVia(ctx context.Context, addr string, sshConfig *ssh.Client
 	if err != nil {
 		return nil, err
 	}
-	timer := time.AfterFunc(timeout, func() { _ = conn.Close() })
+	c, chans, reqs, err := handshakeWithin(ctx, conn, addr, sshConfig, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("SSH handshake with %s through tunnel: %w", addr, err)
+	}
+	return ssh.NewClient(c, chans, reqs), nil
+}
+
+// handshakeWithin runs the SSH client handshake over conn, which may not
+// support deadlines: conn is closed when timeout passes or ctx ends, which
+// ends the handshake. The host key check may wait for the user, so its time
+// does not count. conn is closed when the handshake fails.
+func handshakeWithin(ctx context.Context, conn net.Conn, addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (ssh.Conn, <-chan ssh.NewChannel, <-chan *ssh.Request, error) {
+	// done is set once the handshake has returned. The host key callback
+	// also runs on every later key exchange of the session, and must not
+	// restart the limit then.
+	var (
+		mu       sync.Mutex
+		done     bool
+		timedOut bool
+	)
+	timer := time.AfterFunc(timeout, func() {
+		mu.Lock()
+		if done {
+			mu.Unlock()
+			return
+		}
+		timedOut = true
+		mu.Unlock()
+		_ = conn.Close()
+	})
 	defer timer.Stop()
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 
-	// The host key check may wait for the user, so its time does not count.
 	handshakeConfig := *sshConfig
 	check := sshConfig.HostKeyCallback
 	handshakeConfig.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		timer.Stop()
-		defer timer.Reset(timeout)
-		return check(hostname, remote, key)
+		mu.Lock()
+		paused := !done && timer.Stop()
+		mu.Unlock()
+		err := check(hostname, remote, key)
+		if paused {
+			mu.Lock()
+			if !done {
+				timer.Reset(timeout)
+			}
+			mu.Unlock()
+		}
+		return err
 	}
 
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, &handshakeConfig)
+	mu.Lock()
+	done = true
+	expired := timedOut
+	mu.Unlock()
+	if err == nil && (expired || !stop()) {
+		// The limit or the context ended just as the handshake finished and
+		// has closed, or is closing, the connection.
+		_ = c.Close()
+		err = errors.New("connection closed")
+	}
 	if err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("SSH handshake with %s through tunnel: %w", addr, err)
+		switch {
+		case ctx.Err() != nil:
+			return nil, nil, nil, fmt.Errorf("%w (%w)", ctx.Err(), err)
+		case expired:
+			return nil, nil, nil, fmt.Errorf("no answer within %s (%w)", timeout, err)
+		}
+		return nil, nil, nil, err
 	}
-	return ssh.NewClient(c, chans, reqs), nil
+	return c, chans, reqs, nil
 }
 
 // IsRemoteDialRefused reports whether DialRemote failed because the SSH server
@@ -390,22 +449,25 @@ func (t *Tunnel) dialViaProxyCommand(ctx context.Context, addr string, sshConfig
 	slog.Info("connecting via ProxyCommand", "tunnel", t.Config.Name, "command", cmdStr, "path", effectivePath)
 
 	cmd := proxyCommandExec(ctx, cmdStr)
-	applySysProcAttr(cmd)
 
 	// Ensure PATH and SSH_AUTH_SOCK are usable from GUI launches, where macOS
 	// provides a much smaller environment than an interactive shell.
 	cmd.Env = proxyEnv
 
-	// Capture stderr so we can surface proxy errors to the user
-	var stderrBuf bytes.Buffer
-	conn, err := startProxyConn(cmd, &stderrBuf)
+	// Capture stderr so we can surface proxy errors to the user. The command
+	// runs for the whole session, so only its latest output is kept.
+	stderrBuf := newTailBuffer(proxyCommandStderrLimit)
+	conn, err := startProxyConn(cmd, stderrBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ProxyCommand %q: %w", cmdStr, err)
 	}
 
-	c, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
+	c, chans, reqs, err := handshakeWithin(ctx, conn, addr, sshConfig, proxyCommandHandshakeTimeout)
 	if err != nil {
-		conn.Close()
+		if ctx.Err() != nil {
+			// The attempt was cancelled; the command's output is not an error.
+			return nil, fmt.Errorf("SSH handshake via ProxyCommand: %w", err)
+		}
 		proxyErr := strings.TrimSpace(stderrBuf.String())
 		if proxyErr != "" {
 			slog.Error("ProxyCommand stderr", "tunnel", t.Config.Name, "stderr", proxyErr)
