@@ -6,6 +6,7 @@ package e2efixture
 
 import (
 	"bytes"
+	"compress/zlib"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -292,10 +294,15 @@ const (
 	vncHeight      = 48
 )
 
+// vncColour is the colour of the fake VNC server's screen.
+var vncColour = [3]byte{0x30, 0x90, 0xd0}
+
 // serveRFB is a VNC server that asks for Password, then shows a small screen
-// in one colour. It is enough for the web client to connect and draw.
+// in one colour. It is enough for the web client to connect and draw. It
+// announces itself as macOS Screen Sharing does, so the app asks it for
+// 16-bit colour unless full colour is chosen.
 func serveRFB(channel io.ReadWriter) {
-	if _, err := io.WriteString(channel, "RFB 003.008\n"); err != nil {
+	if _, err := io.WriteString(channel, "RFB 003.889\n"); err != nil {
 		return
 	}
 	version := make([]byte, 12)
@@ -347,8 +354,10 @@ func serveRFB(channel io.ReadWriter) {
 }
 
 // answerRFBClient reads the client's messages and answers a request for the
-// whole screen with one raw rectangle.
+// whole screen with one raw rectangle in the pixel format the client asked for.
 func answerRFBClient(channel io.ReadWriter) {
+	format := []byte{32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0}
+	screen := &rfbScreen{}
 	for {
 		kind := make([]byte, 1)
 		if _, err := io.ReadFull(channel, kind); err != nil {
@@ -357,19 +366,32 @@ func answerRFBClient(channel io.ReadWriter) {
 		var skip int
 		switch kind[0] {
 		case 0: // SetPixelFormat
-			skip = 19
+			body := make([]byte, 19)
+			if _, err := io.ReadFull(channel, body); err != nil {
+				return
+			}
+			format = body[3:]
 		case 2: // SetEncodings
 			header := make([]byte, 3)
 			if _, err := io.ReadFull(channel, header); err != nil {
 				return
 			}
-			skip = 4 * int(binary.BigEndian.Uint16(header[1:]))
+			list := make([]byte, 4*int(binary.BigEndian.Uint16(header[1:])))
+			if _, err := io.ReadFull(channel, list); err != nil {
+				return
+			}
+			screen.zrle = false
+			for i := 0; i < len(list); i += 4 {
+				if binary.BigEndian.Uint32(list[i:]) == rfbEncodingZRLE {
+					screen.zrle = true
+				}
+			}
 		case 3: // FramebufferUpdateRequest
 			request := make([]byte, 9)
 			if _, err := io.ReadFull(channel, request); err != nil {
 				return
 			}
-			if request[0] == 0 && !writeRFBScreen(channel) {
+			if request[0] == 0 && !screen.write(channel, format) {
 				return
 			}
 		case 4: // KeyEvent
@@ -393,14 +415,65 @@ func answerRFBClient(channel io.ReadWriter) {
 	}
 }
 
-func writeRFBScreen(w io.Writer) bool {
+// rfbPixel encodes vncColour in a true colour pixel format.
+func rfbPixel(format []byte) []byte {
+	var value uint32
+	for i, channel := range vncColour {
+		maxValue := uint32(binary.BigEndian.Uint16(format[4+2*i:]))
+		value |= (uint32(channel)*maxValue + 127) / 255 << format[10+i]
+	}
+	size := int(format[0]) / 8
+	pixel := binary.LittleEndian.AppendUint32(nil, value)[:size]
+	if format[2] != 0 {
+		slices.Reverse(pixel)
+	}
+	return pixel
+}
+
+const rfbEncodingZRLE = 16
+
+// rfbScreen sends the screen in one rectangle: ZRLE when the client takes it,
+// on a zlib stream kept for the connection as RFB requires, Raw otherwise.
+type rfbScreen struct {
+	zrle       bool
+	compressed bytes.Buffer
+	zlib       *zlib.Writer
+}
+
+func (s *rfbScreen) write(w io.Writer, format []byte) bool {
 	update := []byte{0, 0, 0, 1}
 	update = binary.BigEndian.AppendUint16(update, 0)
 	update = binary.BigEndian.AppendUint16(update, 0)
 	update = binary.BigEndian.AppendUint16(update, vncWidth)
 	update = binary.BigEndian.AppendUint16(update, vncHeight)
-	update = binary.BigEndian.AppendUint32(update, 0) // raw encoding
-	update = append(update, bytes.Repeat([]byte{0x30, 0x90, 0xd0, 0xff}, vncWidth*vncHeight)...)
+	pixel := rfbPixel(format)
+	if !s.zrle {
+		update = binary.BigEndian.AppendUint32(update, 0) // raw encoding
+		update = append(update, bytes.Repeat(pixel, vncWidth*vncHeight)...)
+		_, err := w.Write(update)
+		return err == nil
+	}
+	// A 32-bit pixel goes as its three colour bytes; the fixture's colours
+	// sit in the low three bytes.
+	if len(pixel) == 4 {
+		if format[2] != 0 {
+			pixel = pixel[1:]
+		} else {
+			pixel = pixel[:3]
+		}
+	}
+	if s.zlib == nil {
+		s.zlib = zlib.NewWriter(&s.compressed)
+	}
+	// The screen fits one 64x64 tile, sent with raw pixels.
+	tile := append([]byte{0}, bytes.Repeat(pixel, vncWidth*vncHeight)...)
+	if _, err := s.zlib.Write(tile); err != nil || s.zlib.Flush() != nil {
+		return false
+	}
+	update = binary.BigEndian.AppendUint32(update, rfbEncodingZRLE)
+	update = binary.BigEndian.AppendUint32(update, uint32(s.compressed.Len()))
+	update = append(update, s.compressed.Bytes()...)
+	s.compressed.Reset()
 	_, err := w.Write(update)
 	return err == nil
 }

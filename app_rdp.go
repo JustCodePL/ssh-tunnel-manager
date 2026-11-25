@@ -291,6 +291,9 @@ func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
 		if pinned, ok := p.RDPCertificates[from]; ok {
 			p.RDPCertificates = withRDPCertificate(withRDPCertificate(p.RDPCertificates, from, ""), to, pinned)
 		}
+		if p.VNCFullColor[from] {
+			p.VNCFullColor = withFlag(withFlag(p.VNCFullColor, from, false), to, true)
+		}
 	}
 	if tools, ok := p.HostTools[oldID]; ok {
 		p.HostTools = cloneHostTools(p.HostTools)
@@ -334,6 +337,10 @@ func (a *App) removeRDPState(tunnelID string, forwards []config.PortForward) {
 	for _, key := range keys {
 		if _, ok := p.RDPCertificates[key]; ok {
 			p.RDPCertificates = withRDPCertificate(p.RDPCertificates, key, "")
+			changed = true
+		}
+		if p.VNCFullColor[key] {
+			p.VNCFullColor = withFlag(p.VNCFullColor, key, false)
 			changed = true
 		}
 	}

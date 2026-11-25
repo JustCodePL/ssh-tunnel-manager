@@ -191,19 +191,49 @@ func TestScreenSharingIsOfferedLikeRemoteDesktop(t *testing.T) {
 	}
 }
 
+func TestVNCFullColorIsKeptPerTarget(t *testing.T) {
+	app := newTestApp(t, demoTunnel("mac", "", vncForward("10.0.0.5", 5900, 15900)))
+	forward := ForwardTarget{RemoteHost: "10.0.0.5", RemotePort: 5900}
+	if err := app.SetVNCFullColor("mac", ForwardTarget{}, true); err != nil {
+		t.Fatal(err)
+	}
+	if p := app.prefs.Get(); !p.VNCFullColor["mac"] || p.VNCFullColor["mac>10.0.0.5:5900"] {
+		t.Fatalf("full colour = %v", p.VNCFullColor)
+	}
+	if err := app.SetVNCFullColor("mac", forward, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SetVNCFullColor("mac", ForwardTarget{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if p := app.prefs.Get(); p.VNCFullColor["mac"] || !p.VNCFullColor["mac>10.0.0.5:5900"] {
+		t.Fatalf("full colour = %v", p.VNCFullColor)
+	}
+	if err := app.SetVNCFullColor("mac", ForwardTarget{RemoteHost: "evil.example", RemotePort: 5900}, true); err == nil {
+		t.Error("unknown target accepted")
+	}
+}
+
 func TestVNCLoginFollowsRenameAndDelete(t *testing.T) {
 	forward := vncForward("10.0.0.5", 5900, 15900)
 	app := newTestApp(t, demoTunnel("old", "", forward))
 	app.keepVNCLogin("old", VNCLogin{Username: "a", Password: "p"})
 	app.keepVNCLogin(forwardStateKey("old", ForwardTarget{RemoteHost: "10.0.0.5", RemotePort: 5900}), VNCLogin{Password: "q"})
 
+	if err := app.SetVNCFullColor("old", ForwardTarget{RemoteHost: "10.0.0.5", RemotePort: 5900}, true); err != nil {
+		t.Fatal(err)
+	}
+
 	app.moveRDPState("old", "new", []config.PortForward{forward})
 	p := app.prefs.Get()
 	if p.CredentialBindings["vnc:new"] == "" || p.CredentialBindings["vnc:new>10.0.0.5:5900"] == "" || len(p.CredentialBindings) != 2 {
 		t.Fatalf("bindings = %v", p.CredentialBindings)
 	}
+	if !p.VNCFullColor["new>10.0.0.5:5900"] || len(p.VNCFullColor) != 1 {
+		t.Fatalf("full colour = %v", p.VNCFullColor)
+	}
 	app.removeRDPState("new", []config.PortForward{forward})
-	if p := app.prefs.Get(); len(p.CredentialBindings) != 0 {
-		t.Fatalf("bindings after delete = %v", p.CredentialBindings)
+	if p := app.prefs.Get(); len(p.CredentialBindings) != 0 || len(p.VNCFullColor) != 0 {
+		t.Fatalf("after delete: bindings %v, full colour %v", p.CredentialBindings, p.VNCFullColor)
 	}
 }

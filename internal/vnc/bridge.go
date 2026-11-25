@@ -38,6 +38,9 @@ type Target struct {
 	// Credentials is the login the app authenticates with. The client never
 	// sees it.
 	Credentials Credentials
+	// FullColor keeps 32-bit colour for macOS Screen Sharing, which otherwise
+	// gets 16-bit colour to send half the data.
+	FullColor bool
 }
 
 // ErrHandshakeTimeout means the server did not finish the handshake in time.
@@ -50,12 +53,21 @@ type Session struct {
 	ProxyAddress string `json:"proxyAddress"`
 	// Authenticated is true when the server checked the login.
 	Authenticated bool `json:"authenticated"`
+	// Apple is true for macOS Screen Sharing, the server whose colour depth
+	// the app reduces.
+	Apple bool `json:"apple"`
+	// ReducedColor is true when the session asks the server for 16-bit
+	// colour.
+	ReducedColor bool `json:"reducedColor"`
 }
 
 type pendingSession struct {
 	id     string
 	server net.Conn
 	timer  *time.Timer
+	// reduceColor asks the server for 16-bit colour and converts it for the
+	// client.
+	reduceColor bool
 }
 
 // Bridge serves the loopback WebSocket used by VNC sessions. It connects to
@@ -152,8 +164,11 @@ func (b *Bridge) Open(ctx context.Context, target Target) (Session, error) {
 		server.Close()
 		return Session{}, err
 	}
-	session, err := b.register(server)
+	reduce := result.Apple && !target.FullColor
+	session, err := b.register(server, reduce)
 	session.Authenticated = result.Authenticated
+	session.Apple = result.Apple
+	session.ReducedColor = reduce
 	return session, err
 }
 
@@ -161,7 +176,7 @@ func (b *Bridge) Open(ctx context.Context, target Target) (Session, error) {
 // the client's ClientInit, until the client claims it. The bridge owns server
 // from then on: it is closed when the session ends, or when the client does
 // not connect in time.
-func (b *Bridge) register(server net.Conn) (Session, error) {
+func (b *Bridge) register(server net.Conn, reduceColor bool) (Session, error) {
 	fail := func(err error) (Session, error) {
 		server.Close()
 		return Session{}, err
@@ -181,9 +196,10 @@ func (b *Bridge) register(server net.Conn) (Session, error) {
 		return fail(err)
 	}
 	b.pending[token] = &pendingSession{
-		id:     id,
-		server: server,
-		timer:  time.AfterFunc(tokenLifetime, func() { b.expire(token) }),
+		id:          id,
+		server:      server,
+		timer:       time.AfterFunc(tokenLifetime, func() { b.expire(token) }),
+		reduceColor: reduceColor,
 	}
 	port := b.listener.Addr().(*net.TCPAddr).Port
 	return Session{
@@ -288,7 +304,7 @@ func (b *Bridge) handle(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 	conn.SetReadLimit(maxClientMessage)
 
-	if err := runSession(ctx, conn, session.server); err != nil && ctx.Err() == nil {
+	if err := runSession(ctx, conn, session.server, session.reduceColor); err != nil && ctx.Err() == nil {
 		slog.Warn("VNC session ended with an error", "session", session.id, "error", err)
 	}
 }
@@ -369,7 +385,7 @@ func greetClient(conn *websocket.Conn, reader io.Reader) error {
 	return nil
 }
 
-func runSession(ctx context.Context, conn *websocket.Conn, server net.Conn) error {
+func runSession(ctx context.Context, conn *websocket.Conn, server net.Conn, reduceColor bool) error {
 	stopServer := context.AfterFunc(ctx, func() { server.Close() })
 	defer stopServer()
 	stopClient := context.AfterFunc(ctx, func() { conn.Close() })
@@ -387,8 +403,15 @@ func runSession(ctx context.Context, conn *websocket.Conn, server net.Conn) erro
 	}
 
 	results := make(chan error, 2)
-	go func() { results <- relayServerToClient(server, conn) }()
-	go func() { results <- relayClientToServer(reader, server) }()
+	if reduceColor {
+		reducer := newColourReducer()
+		flush := func(payload []byte) error { return writeBinary(conn, payload) }
+		go func() { results <- relayResult(relayServerReducing(ctx, server, flush, reducer), "VNC server") }()
+		go func() { results <- relayResult(relayClientReducing(reader, server, reducer), "VNC client") }()
+	} else {
+		go func() { results <- relayServerToClient(server, conn) }()
+		go func() { results <- relayClientToServer(reader, server) }()
+	}
 	err := <-results
 	// Closing both ends releases the other relay goroutine.
 	server.Close()
@@ -420,6 +443,17 @@ func relayClientToServer(client io.Reader, server net.Conn) error {
 		return fmt.Errorf("relaying VNC client data: %w", err)
 	}
 	return nil
+}
+
+// relayResult turns the end of a converting relay into the session's result.
+func relayResult(err error, from string) error {
+	// Only a clean end counts: a converting relay that loses its place
+	// reports an unexpected EOF, which must be logged.
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) ||
+		websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) {
+		return nil
+	}
+	return fmt.Errorf("relaying %s data: %w", from, err)
 }
 
 func isExpectedClose(err error) bool {

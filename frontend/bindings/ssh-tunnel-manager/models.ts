@@ -848,6 +848,17 @@ export class VNCConnection {
     "sessionId"?: string;
     "proxyAddress"?: string;
 
+    /**
+     * Apple is true for macOS Screen Sharing, whose colour depth the viewer
+     * can switch.
+     */
+    "apple"?: boolean;
+
+    /**
+     * ReducedColor is true when the session shows 16-bit colour.
+     */
+    "reducedColor"?: boolean;
+
     /** Creates a new VNCConnection instance. */
     constructor($$source: Partial<VNCConnection> = {}) {
         if (!("status" in $$source)) {

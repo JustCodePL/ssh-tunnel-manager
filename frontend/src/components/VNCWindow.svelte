@@ -2,8 +2,9 @@
   import Select from "./Select.svelte";
   import { errorText } from "../lib/runtime";
   import { onDestroy, onMount } from "svelte";
-  import { BindTabSession, CloseVNC, GetCredentialBinding, GetVNCLogin, ListCredentials, OpenVNC, ReadClipboard, WriteClipboardText } from "../../bindings/ssh-tunnel-manager/app";
+  import { BindTabSession, CloseVNC, GetCredentialBinding, GetVNCLogin, ListCredentials, OpenVNC, ReadClipboard, SetVNCFullColor, WriteClipboardText } from "../../bindings/ssh-tunnel-manager/app";
   import { loadNoVnc } from "../lib/novnc";
+  import { showToast } from "../stores/toast";
   import { createVncClipboard } from "../lib/vncClipboard.js";
   import type { PortForward, TunnelConfig } from "../types";
 
@@ -27,6 +28,10 @@
   let screenEl: HTMLDivElement;
   let desktopName = "";
   let fit = true;
+  // macOS Screen Sharing gets 16-bit colour unless full colour is chosen for
+  // the target; other servers always show what they send.
+  let apple = false;
+  let reducedColor = false;
 
   let username = "";
   let password = "";
@@ -107,6 +112,8 @@
         return;
       }
       sessionId = result.sessionId ?? "";
+      apple = !!result.apple;
+      reducedColor = !!result.reducedColor;
       if (tabId) void BindTabSession(tabId, "vnc", sessionId);
       // Saved once is enough; a reconnect from this window reuses the login.
       if (login.save) activeLogin = { ...login, save: false };
@@ -122,6 +129,9 @@
     client.scaleViewport = fit;
     client.resizeSession = false;
     client.focusOnClick = true;
+    // The server sends the pointer's shape only once it moves, and macOS hides
+    // the pointer while typing: show a dot instead of nothing.
+    client.showDotCursor = true;
     client.addEventListener("connect", () => {
       if (current !== attempt) return;
       view = "connected";
@@ -159,6 +169,18 @@
     } catch (e) {
       console.warn("reading the clipboard failed:", e);
     }
+  }
+
+  async function toggleColor() {
+    try {
+      await SetVNCFullColor(tunnel.id, target as any, reducedColor);
+    } catch (e) {
+      // The running session stays as it is.
+      showToast(errorText(e), "error");
+      return;
+    }
+    // The colour depth is set when the session starts.
+    start();
   }
 
   function toggleFit() {
@@ -212,6 +234,9 @@
     <span class="vnc-title">vnc — {targetLabel}{desktopName ? ` (${desktopName})` : ""}</span>
     <div class="vnc-actions">
       {#if view === "connected"}
+        {#if apple}
+          <button class="vnc-text-btn" data-testid="vnc-color" on:click={toggleColor} title={reducedColor ? "Show every color. The Mac sends about twice as much, so the screen follows input more slowly." : "Use 16-bit color. The Mac sends about half as much, so the screen follows input faster."}>{reducedColor ? "full color" : "16-bit color"}</button>
+        {/if}
         <button class="vnc-text-btn" data-testid="vnc-fit" on:click={toggleFit} title={fit ? "Show the screen at its real size" : "Fit the screen to the window"}>{fit ? "actual size" : "fit to window"}</button>
         <button class="vnc-text-btn" on:click={() => rfb?.sendCtrlAltDel()} title="Send Ctrl+Alt+Del">ctrl+alt+del</button>
         <button class="vnc-text-btn" on:click={changeLogin}>change login</button>

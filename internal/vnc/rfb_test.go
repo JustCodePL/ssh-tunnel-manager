@@ -32,6 +32,9 @@ type fakeServer struct {
 	username string // with password, for Apple Remote Desktop
 	reject   string // a reason to fail the security result
 	echo     bool   // echo everything after ServerInit
+	// session, when set, takes over after the ClientInit byte instead of
+	// the "INIT" answer.
+	session func(conn net.Conn) error
 }
 
 // serve runs the server side of the handshake on conn and returns the security
@@ -127,6 +130,9 @@ func (s fakeServer) finish(conn net.Conn) error {
 	if _, err := io.ReadFull(conn, init); err != nil {
 		return err
 	}
+	if s.session != nil {
+		return s.session(conn)
+	}
 	if _, err := io.WriteString(conn, "INIT"); err != nil {
 		return err
 	}
@@ -190,6 +196,7 @@ type serverResult struct {
 type attempt struct {
 	version       Version
 	authenticated bool
+	apple         bool
 	err           error
 	server        serverResult
 	conn          net.Conn
@@ -206,7 +213,7 @@ func handshake(t *testing.T, server fakeServer, login Credentials) attempt {
 		done <- serverResult{chosen, err}
 	}()
 	handshake, err := Handshake(client, login)
-	result := attempt{version: handshake.Version, authenticated: handshake.Authenticated, err: err, conn: client}
+	result := attempt{version: handshake.Version, authenticated: handshake.Authenticated, apple: handshake.Apple, err: err, conn: client}
 	if err != nil {
 		client.Close()
 		select {
@@ -287,6 +294,9 @@ func TestHandshakeAppleRemoteDesktop(t *testing.T) {
 	}
 	if v != Version38 {
 		t.Errorf("version %d", v)
+	}
+	if !a.apple {
+		t.Error("macOS Screen Sharing not recognised")
 	}
 	finishInit(t, conn)
 
