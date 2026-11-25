@@ -33,10 +33,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # GitHub no longer offers an Intel macOS runner under the labels this
+          # used (macos-13 never starts, macos-14 is unsupported), so only the
+          # arm64 DMG is tested.
           - arch: arm64
-            runner: macos-14
-          - arch: amd64
-            runner: macos-13
+            runner: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
