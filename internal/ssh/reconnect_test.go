@@ -32,6 +32,7 @@ func TestServerDropReconnectsAtOnceAndCommandsWork(t *testing.T) {
 			mu.Unlock()
 		}
 	}, nil)
+	m.dialAgent = nil // never the user's own agent
 	m.WithHostKeyCheck(trustAnyHostKey)
 	connections := func() int {
 		mu.Lock()

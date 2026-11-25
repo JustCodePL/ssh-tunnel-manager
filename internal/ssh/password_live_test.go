@@ -33,7 +33,6 @@ func TestSavedPasswordAgainstARealServer(t *testing.T) {
 		t.Fatal("STM_SSH_LIVE_PORT must be a number")
 	}
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SSH_AUTH_SOCK", "")
 	cfg := config.TunnelConfig{ID: "live", Name: "live", Host: host, Port: port}
 	err = dialChecked(t, cfg, func(string) (*PasswordLogin, error) {
 		return &PasswordLogin{

@@ -85,6 +85,7 @@ func TestConnectStopsAfterMaxAttempts(t *testing.T) {
 
 	rec := &recorder{}
 	m := NewManager(rec.emit, nil)
+	m.dialAgent = nil // never the user's own agent
 	m.WithLogEmitter(rec.log)
 
 	if err := m.Connect(cfg); err != nil {

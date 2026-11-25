@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 
 	"ssh-tunnel-manager/internal/config"
 )
@@ -75,6 +72,7 @@ type TerminalManager struct {
 	getPassphrase PassphraseFunc
 	getLogin      LoginFunc
 	checkHostKey  HostKeyFunc
+	dialAgent     AgentDialer // nil offers no agent keys
 }
 
 // WithHostKeyCheck sets how the manager decides whether to trust a server.
@@ -96,6 +94,7 @@ func NewTerminalManager(getPassphrase PassphraseFunc) *TerminalManager {
 	return &TerminalManager{
 		sessions:      make(map[string]*TerminalSession),
 		getPassphrase: getPassphrase,
+		dialAgent:     dialSystemAgent,
 	}
 }
 
@@ -125,13 +124,13 @@ func (tm *TerminalManager) openSession(cfg config.TunnelConfig, command string, 
 	getLogin := tm.getLogin
 	checkHostKey := tm.checkHostKey
 	tm.mu.Unlock()
-	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase, getLogin, checkHostKey)
+	sshConfig, err := buildClientConfig(cfg, tm.getPassphrase, getLogin, checkHostKey, tm.dialAgent)
 	if err != nil {
 		return "", fmt.Errorf("building SSH config for terminal: %w", err)
 	}
 
 	// Dial SSH connection (own connection, separate from tunnel)
-	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, GetLogin: getLogin, CheckHostKey: checkHostKey, Via: via}
+	tun := &Tunnel{Config: cfg, GetPassphrase: tm.getPassphrase, GetLogin: getLogin, CheckHostKey: checkHostKey, DialAgent: tm.dialAgent, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", fmt.Errorf("connecting terminal to %s: %w", cfg.Host, err)
@@ -297,7 +296,7 @@ func (tm *TerminalManager) cleanupSession(sessionID string) {
 //
 // Every connection goes through the host key check, and without one there is
 // no connection: the key is the only proof of which server this is.
-func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, getLogin LoginFunc, checkHostKey HostKeyFunc) (*ssh.ClientConfig, error) {
+func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, getLogin LoginFunc, checkHostKey HostKeyFunc, dialAgent AgentDialer) (*ssh.ClientConfig, error) {
 	if checkHostKey == nil {
 		return nil, fmt.Errorf("no host key check is set for %s", cfg.Name)
 	}
@@ -312,12 +311,19 @@ func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, ge
 		}
 	}
 
+	// The keys come from one source: the explicit key file, else the agent,
+	// else the default key files. They share one publickey method, because
+	// x/crypto tries each method name once, and the one source keeps the number
+	// of rejected keys low enough for a saved password to still get its turn
+	// before the server's MaxAuthTries.
+	var signers []ssh.Signer
+
 	// 1. Explicit key file
 	if cfg.KeyPath != "" {
 		signer, err := loadSigner(cfg.KeyPath, getPassphrase)
 		switch {
 		case err == nil:
-			authMethods = append(authMethods, ssh.PublicKeys(signer))
+			signers = append(signers, signer)
 		case login == nil:
 			return nil, err
 		default:
@@ -326,14 +332,12 @@ func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, ge
 	}
 
 	// 2. SSH agent
-	if agentAuth, err := sshAgentAuth(); err == nil {
-		authMethods = append(authMethods, agentAuth)
-	} else {
-		slog.Debug("SSH agent not available", "error", err)
+	if len(signers) == 0 {
+		signers = agentKeys(dialAgent)
 	}
 
 	// 3. Default key files (only when no explicit key was given)
-	if cfg.KeyPath == "" {
+	if len(signers) == 0 && cfg.KeyPath == "" {
 		home, _ := os.UserHomeDir()
 		if home != "" {
 			defaults := []string{
@@ -346,9 +350,12 @@ func buildClientConfig(cfg config.TunnelConfig, getPassphrase PassphraseFunc, ge
 				if err != nil {
 					continue // skip missing or unreadable keys
 				}
-				authMethods = append(authMethods, ssh.PublicKeys(signer))
+				signers = append(signers, signer)
 			}
 		}
+	}
+	if len(signers) > 0 {
+		authMethods = append(authMethods, ssh.PublicKeys(signers...))
 	}
 
 	// 4. Saved password login
@@ -419,30 +426,4 @@ func loadSigner(keyPath string, getPassphrase PassphraseFunc) (ssh.Signer, error
 		}
 	}
 	return signer, nil
-}
-
-// sshAgentAuth connects to the running SSH agent and returns an AuthMethod.
-func sshAgentAuth() (ssh.AuthMethod, error) {
-	conn, err := dialAgent()
-	if err != nil {
-		return nil, err
-	}
-	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers), nil
-}
-
-// dialAgent connects to the platform-specific SSH agent socket.
-func dialAgent() (net.Conn, error) {
-	if runtime.GOOS == "windows" {
-		return net.Dial("pipe", `\\.\pipe\openssh-ssh-agent`)
-	}
-	sock := os.Getenv("SSH_AUTH_SOCK")
-	if sock == "" && runtime.GOOS == "darwin" {
-		// macOS GUI apps may not inherit SSH_AUTH_SOCK from the shell.
-		// Try the launchd-managed agent socket.
-		sock = findMacOSAgentSocket()
-	}
-	if sock == "" {
-		return nil, fmt.Errorf("SSH_AUTH_SOCK not set")
-	}
-	return net.Dial("unix", sock)
 }

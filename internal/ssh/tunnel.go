@@ -72,7 +72,9 @@ type Tunnel struct {
 	GetLogin LoginFunc
 	// CheckHostKey decides whether to trust each server on the way. Required.
 	CheckHostKey HostKeyFunc
-	LogFunc      func(level, msg string) // optional: called for connection events
+	// DialAgent reaches the SSH agent whose keys are offered. nil offers none.
+	DialAgent AgentDialer
+	LogFunc   func(level, msg string) // optional: called for connection events
 	// OnBindError is called when a portless forward cannot bind its listener.
 	// The App layer surfaces it to the user (banner + tray) — most importantly
 	// the Linux privileged-port case that needs CAP_NET_BIND_SERVICE.
@@ -224,7 +226,7 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 }
 
 func (t *Tunnel) buildSSHConfig() (*ssh.ClientConfig, error) {
-	return buildClientConfig(t.Config, t.GetPassphrase, t.GetLogin, t.CheckHostKey)
+	return buildClientConfig(t.Config, t.GetPassphrase, t.GetLogin, t.CheckHostKey, t.DialAgent)
 }
 
 // runCommandTimeout is a fallback cap for RunCommand callers that pass a
@@ -671,7 +673,7 @@ func (t *Tunnel) dialViaProxyJump(ctx context.Context, addr string, sshConfig *s
 
 	// A saved password belongs to the target. Only keys and the agent, whose
 	// signatures do not reveal anything reusable, are offered to the jump host.
-	jumpConfig, err := buildClientConfig(t.Config, t.GetPassphrase, nil, t.CheckHostKey)
+	jumpConfig, err := buildClientConfig(t.Config, t.GetPassphrase, nil, t.CheckHostKey, t.DialAgent)
 	if err != nil {
 		return nil, fmt.Errorf("logging in to jump host %s, which needs a key or the agent because a saved password only goes to the target: %w", jumpHost, err)
 	}
