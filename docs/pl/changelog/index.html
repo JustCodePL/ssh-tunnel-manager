@@ -76,7 +76,8 @@
 
         <div class="changelog-layout">
           <nav class="changelog-history" aria-label="Historia aktualizacji">
-            <a href="../changelog/v1.2.0-beta.7/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.7</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Poprawki zawieszających się logowań: agent SSH i ProxyCommand</span></a>
+            <a href="../changelog/v1.2.0-beta.8/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.8</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Szybsze udostępnianie ekranu Maca</span></a>
+            <a href="../changelog/v1.2.0-beta.7/"><span class="changelog-history-version">v1.2.0-beta.7</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Poprawki zawieszających się logowań: agent SSH i ProxyCommand</span></a>
             <a href="../changelog/v1.2.0-beta.6/"><span class="changelog-history-version">v1.2.0-beta.6</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Udostępnianie ekranu przez VNC, dla Maca za tunelem</span></a>
             <a href="../changelog/v1.2.0-beta.5/"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Poprawki bezpieczeństwa: klucze hosta, zapisane hasła i dowiązania</span></a>
             <a href="../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Systemowy pasek tytułu na macOS</span></a>
@@ -119,53 +120,49 @@
             <a href="../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">Pierwsze publiczne wydanie</span></a>
           </nav>
           <div class="changelog-content">
-        <article class="changelog-entry" id="v1.2.0-beta.7">
+        <article class="changelog-entry" id="v1.2.0-beta.8">
           <header class="changelog-entry-head">
-            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.7/">v1.2.0-beta.7</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 listopada 2026</time></p>
-            <h3>Poprawki zawieszających się logowań: agent SSH i ProxyCommand</h3>
-            <p>Łączenie nie zapycha już agenta SSH, a połączenie przez ProxyCommand nie może już zawisnąć na zawsze ani zostawić działającego pomocnika. W interfejsie nic się nie zmienia.</p>
+            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.8/">v1.2.0-beta.8</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 listopada 2026</time></p>
+            <h3>Szybsze udostępnianie ekranu Maca</h3>
+            <p>Ekran Maca szybciej nadąża za kliknięciami i pisaniem, bo Mac wysyła go w kolorze 16-bitowym, a wskaźnik myszy już nie znika.</p>
           </header>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>Agent SSH dalej odpowiada</h4>
-              <p>Każde połączenie i ponowne połączenie otwierało nowe połączenie z agentem SSH i nigdy go nie zamykało. Po odpowiednio wielu takich połączeniach agent (na macOS systemowy) przestawał odpowiadać: logowanie w aplikacji wisiało, a razem z nim <code>ssh</code> w terminalu. Aplikacja zamyka teraz każde połączenie z agentem po zakończeniu zapytania i rezygnuje z agenta, który nie odpowiada: przy każdym zapytaniu 5 sekund na połączenie i 5 na listę kluczy, 60 sekund na podpis, bo agent może prosić o potwierdzenie. Milczący agent jest pomijany, a logowanie idzie dalej domyślnymi plikami kluczy i zapisanym hasłem, jeśli tunel je ma. Gdy agent działa, ale nie ma kluczy, oferowane są teraz domyślne pliki kluczy z <code>~/.ssh</code> (<code>id_ed25519</code>, <code>id_ecdsa</code>, <code>id_rsa</code>).</p>
+              <h4>Kolor 16-bitowy dla Maca</h4>
+              <p>Udostępnianie ekranu w macOS przy drobnych zmianach, takich jak migający kursor tekstowy, wysyła od nowa cały ekran Retina, więc o tym, jak szybko ekran nadąża za wejściem, decyduje ilość danych. Aplikacja prosi teraz Maca o kolor 16-bitowy, czyli mniej więcej połowę danych, i przekształca go dla podglądu. Z Makiem na macOS 13.7, przez Wi-Fi i SSH, pełny ekran zmalał z 1,48 MB do 0,68 MB, a ekran odświeżył się 26 razy w 6 sekund zamiast 12. Inne serwery VNC nadal wysyłają pełny kolor. Przycisk <strong>full color</strong> na pasku narzędzi przełącza tego Maca z powrotem na pełny kolor; połączenie zostaje nawiązane od nowa, przycisk zmienia się na <strong>16-bit color</strong>, a wybór jest zapamiętywany dla tego tunelu i forwardu.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../../assets/changelog/v1.2.0-beta.8/vnc-color.png"><img src="../../assets/changelog/v1.2.0-beta.8/vnc-color.png" alt="Okno udostępniania ekranu połączone z serwerem testowym, który przedstawia się jako Mac, z przyciskami full color, actual size, ctrl+alt+del i change login na pasku narzędzi" width="900" height="640" loading="lazy" /></a>
+            </figure>
           </section>
           <section class="feature-detail no-shot">
             <div class="feature-detail-copy">
-              <h4>Połączenia przez ProxyCommand kończą się czysto</h4>
-              <p>Nieudane logowanie przez <code>ProxyCommand</code>, na przykład po odrzuceniu klucza hosta, mogło zawisnąć przy zamykaniu. Uzgadnianie SSH przez ProxyCommand ma teraz limit 2 minut, wystarczający dla polecenia, które samo otwiera połączenie albo czeka na logowanie w przeglądarce; po nim błąd mówi, że nie było odpowiedzi. Czas na pytanie o klucz hosta się nie liczy. Rozłączenie zatrzymuje polecenie razem z uruchomionymi przez nie procesami, jak <code>aws ssm start-session</code>, <code>ssh -W</code> czy <code>cloudflared</code>, a nie tylko otaczającą je powłokę. Z wyjścia błędów polecenia zostaje tylko ostatnie 16 KiB.</p>
-            </div>
-          </section>
-          <section class="feature-detail no-shot">
-            <div class="feature-detail-copy">
-              <h4>Terminal i Pliki na forwardzie nie zamykają się same</h4>
-              <p>Terminal i Pliki otwarte na serwerze za forwardem SSH zamykały się same około 10 sekund po tym, jak połączenie odnowiło klucze, co dzieje się po przesłaniu dużej ilości danych, na przykład przy dużym transferze, albo na niektórych serwerach po określonym czasie. Teraz zostają otwarte.</p>
+              <h4>Wskaźnik, który nie znika</h4>
+              <p>Mac wysyła kształt wskaźnika dopiero, gdy wskaźnik się poruszy, i ukrywa go podczas pisania. Gdy serwer nie pokazuje wskaźnika, podgląd pokazuje teraz kropkę zamiast niczego. Dotyczy to każdego serwera VNC.</p>
             </div>
           </section>
           <div class="changelog-notes">
             <div>
               <h4>Jak z tego korzystać</h4>
               <ul>
-                <li>Nic nie trzeba robić. Jeśli w starszej wersji logowanie wisiało po wielu ponownych połączeniach, po aktualizacji znów działa.</li>
+                <li>Nic nie trzeba robić: udostępnianie ekranu Maca domyślnie używa koloru 16-bitowego.</li>
+                <li>Żeby zobaczyć pełny kolor, kliknij <strong>full color</strong> na pasku narzędzi udostępniania ekranu. <strong>16-bit color</strong> przywraca kolor 16-bitowy.</li>
               </ul>
             </div>
             <div>
               <h4>Znane ograniczenia</h4>
               <ul>
-                <li>Terminal i Pliki na serwerze za forwardem SSH mają na całe logowanie 10 sekund, więc podpis potwierdzany w agencie (<code>ssh-add -c</code>, menedżer haseł) trzeba potwierdzić w tym czasie.</li>
-                <li>Pomocnik, który sam odłącza się od ProxyCommand (na przykład przez <code>setsid</code> albo przechodząc w tryb demona), działa dalej po rozłączeniu.</li>
-                <li>Na Windows proces, który ProxyCommand uruchomi, zanim aplikacja doda polecenie do grupy, działa dalej; jeśli grupy nie da się utworzyć, zatrzymywane jest tylko samo polecenie.</li>
-                <li>Poprawki sprawdzono testami automatycznymi, a nie ręcznie z prawdziwymi pomocnikami ProxyCommand.</li>
+                <li>Aplikacja przekształca obraz na Twoim komputerze, co zajmuje czas procesora: około 77 ms na pełny ekran na Macu z procesorem Intel.</li>
+                <li>Zrzut ekranu pochodzi z wersji testowej i serwera testowego, który zamiast pulpitu pokazuje jeden kolor. Szybkość zmierzono z jednym Makiem na macOS 13.7; przycisk i kropkę zamiast wskaźnika sprawdzono tylko z serwerem testowym.</li>
                 <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
               </ul>
             </div>
           </div>
-          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.7" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.8" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
         </article>
             <nav class="changelog-pager" aria-label="Starsze i nowsze wydania">
               <span class="changelog-pager-newer"></span>
-              <a href="../changelog/v1.2.0-beta.6/" class="changelog-pager-older"><span class="changelog-pager-label">Poprzednia</span><span class="changelog-pager-version">v1.2.0-beta.6</span></a>
+              <a href="../changelog/v1.2.0-beta.7/" class="changelog-pager-older"><span class="changelog-pager-label">Poprzednia</span><span class="changelog-pager-version">v1.2.0-beta.7</span></a>
             </nav>
           </div>
         </div>

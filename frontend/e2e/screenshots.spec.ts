@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { closeTools, connect, expand, openMain, toolWindow, toggle, tunnel } from "./helpers";
+import { choose, closeTools, connect, expand, openMain, toolWindow, toggle, tunnel } from "./helpers";
 
 // Not a check: saves screenshots of every screen when STM_E2E_SCREENSHOTS names
 // a directory.
@@ -112,6 +112,17 @@ test.describe("screenshots", () => {
       await vnc.setViewportSize({ width: 900, height: 640 });
       await expect(vnc.locator(".vnc-form")).toBeVisible();
       await shot(vnc, "37-vnc-login");
+      // The fixture announces itself as a Mac, so the toolbar offers the colour
+      // switch. Its screen is one colour, scaled to fit the window. The login is
+      // not saved, so the other theme's run starts from the same form.
+      const vncForm = vnc.locator(".vnc-form");
+      if (await vncForm.getByTestId("vnc-saved-login").count()) await choose(vnc, "vnc-saved-login", "type a login");
+      await vncForm.getByTestId("vnc-username").fill("");
+      await vncForm.getByTestId("vnc-password").fill("fixture-password");
+      await vncForm.getByTestId("vnc-save-login").uncheck();
+      await vncForm.getByRole("button", { name: "connect" }).click();
+      await expect(vnc.getByTestId("vnc-color")).toBeVisible();
+      await shot(vnc, "38-vnc-connected");
 
       await page.getByTestId("new-menu").click();
       await page.getByTestId("new-tunnel").click();

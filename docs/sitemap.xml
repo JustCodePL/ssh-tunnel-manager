@@ -59,6 +59,20 @@
   </url>
   <!-- changelog:start -->
   <url>
+    <loc>https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.8/</loc>
+    <lastmod>2026-11-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.8/" />
+    <xhtml:link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.8/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.8/" />
+  </url>
+  <url>
+    <loc>https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.8/</loc>
+    <lastmod>2026-11-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.8/" />
+    <xhtml:link rel="alternate" hreflang="pl" href="https://justcodepl.github.io/ssh-tunnel-manager/pl/changelog/v1.2.0-beta.8/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.8/" />
+  </url>
+  <url>
     <loc>https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.7/</loc>
     <lastmod>2026-11-25</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://justcodepl.github.io/ssh-tunnel-manager/changelog/v1.2.0-beta.7/" />
