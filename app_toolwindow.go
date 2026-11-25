@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/url"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -82,6 +83,17 @@ func (a *App) validateToolSpec(spec windows.Spec) error {
 	default:
 		return fmt.Errorf("unknown tool %q", spec.Tool)
 	}
+	if isRemoteDesktopID(spec.TunnelID) {
+		// A remote desktop without SSH opens only its own viewer.
+		protocol := config.ForwardProtocolRDP
+		if spec.Tool == windows.ToolVNC {
+			protocol = config.ForwardProtocolVNC
+		} else if spec.Tool != windows.ToolRDP {
+			return fmt.Errorf("%s is not available for a remote desktop without SSH", spec.Tool)
+		}
+		_, _, err := a.resolveRemoteDesktop(spec.TunnelID, ForwardTarget{RemoteHost: spec.RemoteHost, RemotePort: spec.RemotePort}, protocol)
+		return err
+	}
 	cfg, ok := a.store.GetTunnel(spec.TunnelID)
 	if !ok {
 		return &tunnelNotFoundError{spec.TunnelID}
@@ -104,6 +116,9 @@ func (a *App) validateToolSpec(spec windows.Spec) error {
 // toolNeedsConnection reports tools that run over the tunnel's own connection.
 // A terminal or file browser on the host itself opens its own.
 func (a *App) toolNeedsConnection(spec windows.Spec) bool {
+	if isRemoteDesktopID(spec.TunnelID) {
+		return false
+	}
 	switch spec.Tool {
 	case windows.ToolSettings, windows.ToolTunnelSettings, windows.ToolLogs:
 		return false
@@ -148,6 +163,8 @@ func toolTitle(spec windows.Spec) string {
 	switch {
 	case spec.TunnelID == "":
 		return names[spec.Tool]
+	case isRemoteDesktopID(spec.TunnelID):
+		return names[spec.Tool] + ": " + strings.TrimPrefix(spec.TunnelID, config.RemoteDesktopIDPrefix)
 	case spec.RemoteHost != "":
 		return fmt.Sprintf("%s: %s to %s:%d", names[spec.Tool], spec.TunnelID, spec.RemoteHost, spec.RemotePort)
 	}

@@ -5,6 +5,7 @@ export {
     ConfigFileInfo,
     LogEntry,
     PortForward,
+    RemoteDesktop,
     TunnelConfig,
     TunnelStatus
 } from "./models.js";

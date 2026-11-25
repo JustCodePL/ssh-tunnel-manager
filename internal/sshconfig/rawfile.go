@@ -64,7 +64,7 @@ func FindHostBlock(lines []string, alias string) *HostBlock {
 			start := i
 			for start > 0 {
 				prev := strings.TrimSpace(lines[start-1])
-				if strings.HasPrefix(prev, "# stm:") {
+				if strings.HasPrefix(prev, "# stm:") && !isSectionMarker(prev) && !strings.HasPrefix(prev, remoteDesktopPrefix) {
 					start--
 				} else {
 					break
@@ -76,6 +76,14 @@ func FindHostBlock(lines []string, alias string) *HostBlock {
 			for end < len(lines) {
 				t := strings.TrimSpace(lines[end])
 				if isHostDirective(t) || isMatchDirective(t) {
+					break
+				}
+				// The remote desktops section is never part of a host. The
+				// blank lines before it stay as its separator.
+				if isSectionBegin(t) {
+					for end > i+1 && strings.TrimSpace(lines[end-1]) == "" {
+						end--
+					}
 					break
 				}
 				// Also stop at stm metadata that precedes the next Host

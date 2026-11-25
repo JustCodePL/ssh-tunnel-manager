@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"ssh-tunnel-manager/internal/sshconfig"
@@ -14,6 +15,7 @@ import (
 type Store struct {
 	mu       sync.RWMutex
 	tunnels  []TunnelConfig
+	desktops []RemoteDesktop
 	filePath string
 }
 
@@ -69,6 +71,9 @@ func (s *Store) AddTunnel(t TunnelConfig) error {
 			return fmt.Errorf("tunnel %q already exists", t.ID)
 		}
 	}
+	if s.nameTaken(t.Name, "") {
+		return fmt.Errorf("the name %q is already used by a host or a remote desktop", t.Name)
+	}
 
 	targetFile := s.filePath
 	if t.SourceFile != "" {
@@ -117,6 +122,9 @@ func (s *Store) UpdateTunnel(t TunnelConfig) error {
 	}
 
 	oldTunnel := s.tunnels[idx]
+	if oldTunnel.Name != t.Name && s.nameTaken(t.Name, "") {
+		return fmt.Errorf("the name %q is already used by a host or a remote desktop", t.Name)
+	}
 	targetFile := oldTunnel.SourceFile
 	if targetFile == "" {
 		targetFile = s.filePath
@@ -205,13 +213,18 @@ func (s *Store) load() error {
 		slog.Info("ssh config file not found, starting with empty config", "path", s.filePath)
 		s.tunnels = nil
 	} else {
-		s.tunnels = make([]TunnelConfig, len(entries))
-		for i, e := range entries {
-			s.tunnels[i] = fromHostEntry(e)
+		s.tunnels = make([]TunnelConfig, 0, len(entries))
+		for _, e := range entries {
+			// The prefix names remote desktops reached without SSH.
+			if strings.HasPrefix(e.Alias, RemoteDesktopIDPrefix) {
+				slog.Warn("skipping host whose name starts with the remote desktop prefix", "host", e.Alias)
+				continue
+			}
+			s.tunnels = append(s.tunnels, fromHostEntry(e))
 		}
 		slog.Info("loaded ssh config", "path", s.filePath, "tunnels", len(s.tunnels))
 	}
-	return nil
+	return s.loadRemoteDesktops()
 }
 
 func (s *Store) ensureDirFor(path string) error {

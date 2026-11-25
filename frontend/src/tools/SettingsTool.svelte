@@ -32,7 +32,7 @@
   import { REFRESH_CHOICES, formatInterval } from "../lib/toolConnection.js";
   import { showToast } from "../stores/toast";
   import { askConfirm } from "../stores/confirm";
-  import { exportTunnels, tunnels } from "../stores/tunnels";
+  import { exportTunnels, remoteDesktops, tunnels } from "../stores/tunnels";
   import Select from "../components/Select.svelte";
   import RowLayoutEditor from "./RowLayoutEditor.svelte";
 
@@ -329,7 +329,7 @@
       <label class="check"><input type="checkbox" bind:checked={startMinimized} on:change={() => run(() => SetStartMinimized(startMinimized))} /> Start minimized on login</label>
       <h3>Tunnels</h3>
       <div class="actions start">
-        <button type="button" class="btn" data-testid="export-tunnels" disabled={$tunnels.length === 0} on:click={() => run(() => exportTunnels($tunnels.map((t) => t.id)))}>Export tunnels</button>
+        <button type="button" class="btn" data-testid="export-tunnels" disabled={$tunnels.length === 0 && $remoteDesktops.length === 0} on:click={() => run(() => exportTunnels([...$tunnels.map((t) => t.id), ...$remoteDesktops.map((d) => d.id)]))}>Export tunnels</button>
       </div>
     {:else if page === "appearance" && $appSettings}
       <h2>Appearance</h2>

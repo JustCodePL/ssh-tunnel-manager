@@ -141,7 +141,7 @@ func (r *Registry) Open(spec Spec, grouping Grouping) Opened {
 		w := r.windows[name]
 		if !spec.multiSession() {
 			for _, tab := range w.Tabs {
-				if tab.Spec == spec {
+				if sameTab(tab.Spec, spec) {
 					w.Active = tab.ID
 					return Opened{WindowName: name, TabID: tab.ID}
 				}
@@ -159,6 +159,15 @@ func (r *Registry) Open(spec Spec, grouping Grouping) Opened {
 	r.windows[name] = &Window{Name: name, Key: key, Active: tab.ID, Tabs: []Tab{tab}}
 	r.byKey[key] = name
 	return Opened{WindowName: name, TabID: tab.ID, Created: true}
+}
+
+// sameTab reports whether spec opens the tab that shows other. A target's
+// settings are one tab whatever page they were asked to open on.
+func sameTab(other, spec Spec) bool {
+	if spec.Tool == ToolTunnelSettings && other.Tool == ToolTunnelSettings {
+		other.Path, spec.Path = "", ""
+	}
+	return other == spec
 }
 
 func (r *Registry) newTab(spec Spec) Tab {

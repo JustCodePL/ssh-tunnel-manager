@@ -82,7 +82,11 @@ func (a *App) GetTunnelSettings(tunnelID string) prefs.TunnelSettings {
 
 // SetTunnelSettings validates and stores a tunnel's overrides.
 func (a *App) SetTunnelSettings(tunnelID string, s prefs.TunnelSettings) error {
-	if _, ok := a.store.GetTunnel(tunnelID); !ok {
+	if isRemoteDesktopID(tunnelID) {
+		if _, err := a.remoteDesktop(tunnelID); err != nil {
+			return err
+		}
+	} else if _, ok := a.store.GetTunnel(tunnelID); !ok {
 		return &tunnelNotFoundError{tunnelID}
 	}
 	if s.AfterDisconnect != "" {
@@ -190,6 +194,9 @@ func (a *App) GetEffectiveSettings() map[string]EffectiveSettings {
 	out := make(map[string]EffectiveSettings)
 	for _, t := range a.store.GetTunnels() {
 		out[t.ID] = a.effectiveTunnelSettings(t.ID)
+	}
+	for _, d := range a.store.GetRemoteDesktops() {
+		out[d.ID] = a.effectiveTunnelSettings(d.ID)
 	}
 	return out
 }

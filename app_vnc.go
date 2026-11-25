@@ -26,6 +26,9 @@ const (
 	vncConnected     = "connected"
 	vncLoginRequired = "login-required"
 	vncLoginFailed   = "login-failed"
+	// vncConfirmPublic asks the user to allow an unencrypted connection to an
+	// address outside private networks.
+	vncConfirmPublic = "confirm-public"
 )
 
 // vncHostAddress is where a host's own VNC server, such as macOS Screen
@@ -46,6 +49,10 @@ type VNCLogin struct {
 	// Save keeps a typed login in the credentials, or assigns the chosen saved
 	// login to the target, once the server has accepted it.
 	Save bool `json:"save"`
+	// AllowPublic connects a remote desktop without SSH to an address outside
+	// private networks this once; RememberPublic stops asking for it.
+	AllowPublic    bool `json:"allowPublic"`
+	RememberPublic bool `json:"rememberPublic"`
 }
 
 // VNCSavedLogin describes the login assigned to a target without its password.
@@ -72,6 +79,9 @@ type VNCConnection struct {
 	Apple bool `json:"apple,omitempty"`
 	// ReducedColor is true when the session shows 16-bit colour.
 	ReducedColor bool `json:"reducedColor,omitempty"`
+	// PublicAddress is the address outside private networks a "confirm-public"
+	// outcome asks about.
+	PublicAddress string `json:"publicAddress,omitempty"`
 }
 
 // probeVNC reports whether a VNC server answers on the host's port 5900. false
@@ -98,6 +108,9 @@ func (a *App) probeVNC(tunnelID string) (bool, error) {
 // host's own VNC server. Any other target must be a vnc forward configured on
 // the host, so the frontend cannot open arbitrary connections.
 func (a *App) resolveVNCTarget(tunnelID string, target ForwardTarget) (string, string, error) {
+	if isRemoteDesktopID(tunnelID) {
+		return a.resolveRemoteDesktop(tunnelID, target, config.ForwardProtocolVNC)
+	}
 	cfg, ok := a.store.GetTunnel(tunnelID)
 	if !ok {
 		return "", "", &tunnelNotFoundError{tunnelID}
@@ -150,10 +163,11 @@ func (a *App) vncCredentials(key string, login VNCLogin) (vnc.Credentials, error
 	return vnc.Credentials{Username: stored.Username, Password: stored.Password}, nil
 }
 
-// OpenVNC connects to a VNC server, the host's own or the one behind a
-// forward, and authenticates in the app, so the password never reaches the
-// webview. It then registers a bridge session for the web client. The tunnel
-// must be connected; the session uses its SSH connection.
+// OpenVNC connects to a VNC server, the host's own, the one behind a forward,
+// or a remote desktop reached without SSH, and authenticates in the app, so
+// the password never reaches the webview. It then registers a bridge session
+// for the web client. Through SSH the tunnel must be connected; the session
+// uses its SSH connection.
 func (a *App) OpenVNC(tunnelID string, target ForwardTarget, login VNCLogin) (*VNCConnection, error) {
 	key, address, err := a.resolveVNCTarget(tunnelID, target)
 	if err != nil {
@@ -166,11 +180,17 @@ func (a *App) OpenVNC(tunnelID string, target ForwardTarget, login VNCLogin) (*V
 
 	ctx, cancel := context.WithTimeout(context.Background(), vncConnectTimeout)
 	defer cancel()
+	if isRemoteDesktopID(tunnelID) {
+		if confirm, err := a.confirmPublicVNC(ctx, key, address, login); confirm != nil || err != nil {
+			return confirm, err
+		}
+	}
+	dial := a.dialTarget(tunnelID, address)
 	session, err := a.vncBridge.Open(ctx, vnc.Target{
 		Dial: func(ctx context.Context) (net.Conn, error) {
-			conn, err := a.manager.DialRemote(ctx, tunnelID, address)
+			conn, err := dial(ctx)
 			var rejected *gossh.OpenChannelError
-			if errors.As(err, &rejected) && rejected.Reason == gossh.ConnectionFailed {
+			if (errors.As(err, &rejected) && rejected.Reason == gossh.ConnectionFailed) || isConnectionRefused(err) {
 				return nil, fmt.Errorf("no VNC server accepts connections there: %w", err)
 			}
 			return conn, err
@@ -195,6 +215,30 @@ func (a *App) OpenVNC(tunnelID string, target ForwardTarget, login VNCLogin) (*V
 		Apple:        session.Apple,
 		ReducedColor: session.ReducedColor,
 	}, nil
+}
+
+// confirmPublicVNC asks before an unencrypted VNC connection without SSH goes
+// to an address outside private networks, unless the user allowed it this
+// time or for good. It returns nil when the connection may go ahead.
+func (a *App) confirmPublicVNC(ctx context.Context, key, address string, login VNCLogin) (*VNCConnection, error) {
+	if a.prefs.Get().VNCPublicConsent[key] {
+		return nil, nil
+	}
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	public, err := publicAddress(ctx, host)
+	if err != nil || public == "" {
+		return nil, err
+	}
+	if !login.AllowPublic {
+		return &VNCConnection{Status: vncConfirmPublic, PublicAddress: public}, nil
+	}
+	if login.RememberPublic {
+		a.setVNCPublicConsent(key, true)
+	}
+	return nil, nil
 }
 
 // SetVNCFullColor decides whether a target's macOS Screen Sharing sessions

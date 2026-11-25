@@ -25,6 +25,8 @@
   import RowLayoutEditor from "./RowLayoutEditor.svelte";
 
   export let tunnel: TunnelConfig;
+  /** The page to open on, such as "forwards" from the Clients tab. */
+  export let initialPage = "";
 
   const dispatch = createEventDispatcher<{ close: void }>();
   const CLIPBOARD_MODES = [["both", "Both ways"], ["to", "To remote"], ["from", "From remote"], ["off", "Off"]];
@@ -43,7 +45,7 @@
     { id: "windows", label: "Windows" },
   ];
 
-  let page = "connection";
+  let page = pages.some((item) => item.id === initialPage) ? initialPage : "connection";
   let credentialsView = "all";
   let form: TunnelForm;
   let saving = false;

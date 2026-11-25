@@ -208,15 +208,17 @@ func NewApp(store *config.Store, prefsStore *prefs.Store, startHidden bool) *App
 		app.tray.Notify("SSH port forwarding blocked", e.Message)
 	})
 	app.tray = tray.New(tray.Callbacks{
-		ShowWindow: func() { app.showWindow() },
-		Quit:       func() { app.quit() },
-		Connect:    func(id string) error { return app.ConnectTunnel(id) },
-		Disconnect: func(id string) error { return app.DisconnectTunnel(id) },
-		CopyToClip: func(text string) error { return app.copyToClipboard(text) },
-		GetTunnels: func() []config.TunnelConfig { return store.GetTunnels() },
-		OnUpdate:   func() { app.installUpdateFromTray() },
-		AttachOptions: func(id string) []tray.AttachOption { return app.trayAttachOptions(id) },
-		Attach:        func(id string, option tray.AttachOption) error { return app.trayAttach(id, option) },
+		ShowWindow:        func() { app.showWindow() },
+		Quit:              func() { app.quit() },
+		Connect:           func(id string) error { return app.ConnectTunnel(id) },
+		Disconnect:        func(id string) error { return app.DisconnectTunnel(id) },
+		CopyToClip:        func(text string) error { return app.copyToClipboard(text) },
+		GetTunnels:        func() []config.TunnelConfig { return store.GetTunnels() },
+		OnUpdate:          func() { app.installUpdateFromTray() },
+		AttachOptions:     func(id string) []tray.AttachOption { return app.trayAttachOptions(id) },
+		Attach:            func(id string, option tray.AttachOption) error { return app.trayAttach(id, option) },
+		GetRemoteDesktops: func() []config.RemoteDesktop { return store.GetRemoteDesktops() },
+		OpenRemoteDesktop: func(id string) error { return app.OpenRemoteDesktop(id) },
 	})
 	return app
 }
@@ -379,6 +381,9 @@ func (a *App) GetIncludedConfigFiles() []config.ConfigFileInfo {
 
 // AddTunnel persists a new tunnel configuration. ID is set to Name.
 func (a *App) AddTunnel(t config.TunnelConfig) error {
+	if isRemoteDesktopID(t.Name) {
+		return fmt.Errorf("a host name cannot start with %q", config.RemoteDesktopIDPrefix)
+	}
 	if err := validateRDPPort(t.RDPPort); err != nil {
 		return err
 	}
@@ -402,6 +407,9 @@ func (a *App) AddTunnel(t config.TunnelConfig) error {
 // edits (port forwards, host, portless settings, etc.) take effect without
 // the user having to toggle the tunnel manually.
 func (a *App) UpdateTunnel(t config.TunnelConfig) error {
+	if t.Name != t.ID && isRemoteDesktopID(t.Name) {
+		return fmt.Errorf("a host name cannot start with %q", config.RemoteDesktopIDPrefix)
+	}
 	if err := validateRDPPort(t.RDPPort); err != nil {
 		return err
 	}
@@ -1413,6 +1421,63 @@ func (a *App) ImportPreview(path string) ([]config.TunnelConfig, error) {
 	return tunnels, nil
 }
 
+// ImportPreviewRemoteDesktops returns the remote desktops of a file's remote
+// desktops section, and of the files it includes, without importing them.
+func (a *App) ImportPreviewRemoteDesktops(path string) ([]config.RemoteDesktop, error) {
+	entries, err := sshconfig.ParseFileRemoteDesktops(path)
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	desktops := make([]config.RemoteDesktop, 0, len(entries))
+	for _, e := range entries {
+		desktops = append(desktops, config.FromDesktopEntry(e))
+	}
+	return desktops, nil
+}
+
+// RemoteDesktopImport is the outcome of importing remote desktops.
+type RemoteDesktopImport struct {
+	Imported int `json:"imported"`
+	// Skipped names the entries left out, because a host or a remote desktop
+	// already has the name or the entry is invalid.
+	Skipped []string `json:"skipped"`
+}
+
+// ImportRemoteDesktops imports the chosen remote desktops (by name) into the
+// main config. An entry whose name is taken is skipped.
+func (a *App) ImportRemoteDesktops(path string, names []string) (RemoteDesktopImport, error) {
+	entries, err := sshconfig.ParseFileRemoteDesktops(path)
+	if err != nil {
+		return RemoteDesktopImport{}, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	wanted := make(map[string]bool, len(names))
+	for _, n := range names {
+		wanted[n] = true
+	}
+	result := RemoteDesktopImport{Skipped: []string{}}
+	for _, e := range entries {
+		if !wanted[e.Name] {
+			continue
+		}
+		d := config.FromDesktopEntry(e)
+		d.SourceFile = ""
+		if err := config.ValidateRemoteDesktop(d); err != nil {
+			result.Skipped = append(result.Skipped, e.Name)
+			continue
+		}
+		if err := a.store.AddRemoteDesktop(d); err != nil {
+			slog.Warn("import: skipping remote desktop", "name", e.Name, "error", err)
+			result.Skipped = append(result.Skipped, e.Name)
+			continue
+		}
+		result.Imported++
+	}
+	if result.Imported > 0 {
+		a.remoteDesktopsChanged()
+	}
+	return result, nil
+}
+
 // ImportTunnels imports the selected tunnels (by name) from the given file.
 func (a *App) ImportTunnels(path string, names []string) (int, error) {
 	entries, err := sshconfig.ParseFile(path)
@@ -1432,6 +1497,10 @@ func (a *App) ImportTunnels(path string, names []string) (int, error) {
 		}
 		tc := entryToTunnel(e)
 		tc.ID = tc.Name
+		if isRemoteDesktopID(tc.Name) {
+			slog.Warn("import: skipping host named like a remote desktop", "name", tc.Name)
+			continue
+		}
 		if err := a.store.AddTunnel(tc); err != nil {
 			slog.Warn("import: skipping duplicate tunnel", "name", tc.Name, "error", err)
 			continue
@@ -1446,7 +1515,9 @@ func (a *App) ImportTunnels(path string, names []string) (int, error) {
 	return imported, nil
 }
 
-// ExportTunnels writes selected tunnels (by ID) to an SSH config file.
+// ExportTunnels writes selected tunnels and remote desktops (by ID) to an SSH
+// config file. Remote desktops go into the file's remote desktops section.
+// Logins, certificates, consents and settings are not exported.
 func (a *App) ExportTunnels(path string, ids []string) error {
 	idSet := make(map[string]bool, len(ids))
 	for _, id := range ids {
@@ -1461,8 +1532,21 @@ func (a *App) ExportTunnels(path string, ids []string) error {
 		}
 		blocks = append(blocks, sshconfig.RenderHostBlock(tunnelToEntry(t)))
 	}
+	var desktops []sshconfig.RemoteDesktopEntry
+	for _, d := range a.store.GetRemoteDesktops() {
+		if idSet[d.ID] {
+			desktops = append(desktops, config.ToDesktopEntry(d))
+		}
+	}
 
 	content := strings.Join(blocks, "\n")
+	if len(desktops) > 0 {
+		lines := sshconfig.ReplaceRemoteDesktopsSection(strings.Split(strings.TrimRight(content, "\n"), "\n"), desktops)
+		if len(blocks) == 0 {
+			lines = sshconfig.RenderRemoteDesktopsSection(desktops)
+		}
+		content = strings.Join(lines, "\n") + "\n"
+	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("writing export file: %w", err)
 	}
@@ -1506,20 +1590,20 @@ func entryToTunnel(e sshconfig.HostEntry) config.TunnelConfig {
 
 func tunnelToEntry(t config.TunnelConfig) sshconfig.HostEntry {
 	e := sshconfig.HostEntry{
-		Alias:        t.Name,
-		HostName:     t.Host,
-		Port:         t.Port,
-		User:         t.User,
-		IdentityFile: t.KeyPath,
-		ProxyCommand: t.ProxyCommand,
-		ProxyJump:    t.ProxyJump,
-		Color:        t.Color,
-		Group:        t.Group,
-		AutoConnect:  t.AutoConnect,
-		Pinned:       t.Pinned,
-		RDPPort:      t.RDPPort,
+		Alias:          t.Name,
+		HostName:       t.Host,
+		Port:           t.Port,
+		User:           t.User,
+		IdentityFile:   t.KeyPath,
+		ProxyCommand:   t.ProxyCommand,
+		ProxyJump:      t.ProxyJump,
+		Color:          t.Color,
+		Group:          t.Group,
+		AutoConnect:    t.AutoConnect,
+		Pinned:         t.Pinned,
+		RDPPort:        t.RDPPort,
 		PortlessSuffix: t.PortlessSuffix,
-		SourceFile:   t.SourceFile,
+		SourceFile:     t.SourceFile,
 	}
 	for _, pf := range t.PortForwards {
 		e.PortForwards = append(e.PortForwards, sshconfig.PortForwardEntry{
@@ -1604,6 +1688,16 @@ func (a *App) RenameGroup(oldName, newName string) error {
 		t.Group = newName
 		if err := a.store.UpdateTunnel(t); err != nil {
 			return fmt.Errorf("renaming group for %s: %w", t.Name, err)
+		}
+	}
+	for _, d := range a.store.GetRemoteDesktops() {
+		if d.Group != oldName {
+			continue
+		}
+		name := d.Name
+		d.Group = newName
+		if err := a.store.UpdateRemoteDesktop(name, d); err != nil {
+			return fmt.Errorf("renaming group for %s: %w", name, err)
 		}
 	}
 	if err := a.renameSavedGroup(oldName, newName); err != nil {

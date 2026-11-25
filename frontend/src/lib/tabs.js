@@ -22,6 +22,7 @@ export function tabTitle(spec) {
     return spec.path.split("/").pop() || spec.path;
   }
   if (!spec.tunnelId) return name;
-  const target = spec.remoteHost ? `${spec.tunnelId} to ${spec.remoteHost}:${spec.remotePort}` : spec.tunnelId;
+  const id = spec.tunnelId.startsWith("rd:") ? spec.tunnelId.slice(3) : spec.tunnelId;
+  const target = spec.remoteHost ? `${id} to ${spec.remoteHost}:${spec.remotePort}` : id;
   return `${name}: ${target}`;
 }

@@ -399,7 +399,7 @@ func (a *App) saveTargetLogin(protocol, key string, login keychain.Login) error 
 // earlier versions gave them; others say their protocol, so a host's RDP and
 // VNC logins can be told apart.
 func targetLoginName(protocol, key string) string {
-	name := strings.Replace(key, ">", " to ", 1)
+	name := strings.Replace(strings.TrimPrefix(key, config.RemoteDesktopIDPrefix), ">", " to ", 1)
 	if protocol == config.ForwardProtocolRDP {
 		return name
 	}

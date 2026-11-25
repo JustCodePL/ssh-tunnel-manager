@@ -8,6 +8,8 @@ export const icons: Record<string, string> = {
   docker: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/>',
   htop: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
   rdp: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  vnc: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M7 10h2l1.5-2 3 4 1.5-2h2"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
   caret: '<path d="M6 9l6 6 6-6"/>',
   settings:
