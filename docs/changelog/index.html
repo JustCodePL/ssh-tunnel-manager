@@ -76,7 +76,8 @@
 
         <div class="changelog-layout">
           <nav class="changelog-history" aria-label="Release history">
-            <a href="../changelog/v1.2.0-beta.7/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.7</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Fixes for logins that hang: the SSH agent and ProxyCommand</span></a>
+            <a href="../changelog/v1.2.0-beta.8/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.8</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Faster screen sharing with a Mac</span></a>
+            <a href="../changelog/v1.2.0-beta.7/"><span class="changelog-history-version">v1.2.0-beta.7</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Fixes for logins that hang: the SSH agent and ProxyCommand</span></a>
             <a href="../changelog/v1.2.0-beta.6/"><span class="changelog-history-version">v1.2.0-beta.6</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Screen sharing over VNC, for a Mac behind a tunnel</span></a>
             <a href="../changelog/v1.2.0-beta.5/"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Security fixes: host keys, saved passwords and links</span></a>
             <a href="../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">The system title bar on macOS</span></a>
@@ -119,53 +120,49 @@
             <a href="../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">First public release</span></a>
           </nav>
           <div class="changelog-content">
-        <article class="changelog-entry" id="v1.2.0-beta.7">
+        <article class="changelog-entry" id="v1.2.0-beta.8">
           <header class="changelog-entry-head">
-            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.7/">v1.2.0-beta.7</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 November 2026</time></p>
-            <h3>Fixes for logins that hang: the SSH agent and ProxyCommand</h3>
-            <p>Connecting no longer wears out the SSH agent, and a connection through a ProxyCommand can no longer hang forever or leave its helper running. Nothing changes in the interface.</p>
+            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.8/">v1.2.0-beta.8</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 November 2026</time></p>
+            <h3>Faster screen sharing with a Mac</h3>
+            <p>The screen of a Mac now follows clicks and typing faster, because the Mac sends it in 16-bit colour, and the pointer no longer disappears.</p>
           </header>
-          <section class="feature-detail no-shot">
+          <section class="feature-detail">
             <div class="feature-detail-copy">
-              <h4>The SSH agent keeps answering</h4>
-              <p>Every connect and reconnect opened a connection to the SSH agent and never closed it. After enough of them the agent, on macOS the system one, stopped answering: logins in the app hung, and so did <code>ssh</code> in the terminal. The app now closes each agent connection when its request ends, and gives up on an agent that does not answer: for each request, 5 seconds to connect and 5 to list keys, 60 seconds for a signature, because an agent may ask you to confirm it. A silent agent is skipped, and the login goes on with the default key files and a saved password, if the tunnel has one. When the agent is running but holds no keys, the default key files in <code>~/.ssh</code> (<code>id_ed25519</code>, <code>id_ecdsa</code>, <code>id_rsa</code>) are now offered instead.</p>
+              <h4>16-bit colour for a Mac</h4>
+              <p>macOS Screen Sharing sends its whole Retina screen again for small changes, such as a blinking caret, so the amount of data decides how fast the screen follows input. The app now asks a Mac for 16-bit colour, which is about half the data, and converts it for the viewer. Against a Mac on macOS 13.7 over Wi-Fi through SSH, a full screen went from 1.48 MB to 0.68 MB, and the screen updated 26 times in 6 seconds instead of 12. Other VNC servers keep sending full colour. A <strong>full color</strong> button in the toolbar switches that Mac back to every colour; it reconnects, the button then reads <strong>16-bit color</strong>, and the choice is remembered for that tunnel and forward.</p>
             </div>
+            <figure class="feature-detail-shots">
+              <a href="../assets/changelog/v1.2.0-beta.8/vnc-color.png"><img src="../assets/changelog/v1.2.0-beta.8/vnc-color.png" alt="The screen sharing window connected to the test server, which presents itself as a Mac, with the full color, actual size, ctrl+alt+del and change login buttons in its toolbar" width="900" height="640" loading="lazy" /></a>
+            </figure>
           </section>
           <section class="feature-detail no-shot">
             <div class="feature-detail-copy">
-              <h4>ProxyCommand connections end cleanly</h4>
-              <p>A login through a <code>ProxyCommand</code> that failed, for example on a refused host key, could hang while closing. The SSH handshake through a ProxyCommand now has a limit of 2 minutes, enough for a command that opens its own connection or waits for a sign-in in the browser; past it the error says there was no answer. Time spent on a host key question does not count. Disconnecting stops the command together with the processes it started, such as <code>aws ssm start-session</code>, <code>ssh -W</code> or <code>cloudflared</code>, not just the shell around it. The command's error output is kept only up to its last 16 KiB.</p>
-            </div>
-          </section>
-          <section class="feature-detail no-shot">
-            <div class="feature-detail-copy">
-              <h4>Terminal and Files on a forward stay open</h4>
-              <p>Terminal and Files opened on the server behind an SSH forward closed on their own about 10 seconds after the connection renewed its keys, which happens after a lot of data, for example a large transfer, or after a set time on some servers. They now stay open.</p>
+              <h4>A pointer that stays visible</h4>
+              <p>A Mac sends the pointer's shape only once the pointer moves, and hides the pointer while you type. When the server shows no pointer, the viewer now shows a dot instead of nothing. This applies to every VNC server.</p>
             </div>
           </section>
           <div class="changelog-notes">
             <div>
               <h4>How to use it</h4>
               <ul>
-                <li>Nothing to do. If logins hung with an earlier version after many reconnects, they work again after updating.</li>
+                <li>Nothing to do: screen sharing with a Mac uses 16-bit colour by default.</li>
+                <li>To see every colour, click <strong>full color</strong> in the screen sharing toolbar. Click <strong>16-bit color</strong> to go back.</li>
               </ul>
             </div>
             <div>
               <h4>Known limits</h4>
               <ul>
-                <li>For Terminal and Files on the server behind an SSH forward, the whole login has 10 seconds, so a signature you confirm in the agent (<code>ssh-add -c</code>, a password manager) must be confirmed within that time.</li>
-                <li>A helper that detaches itself from the ProxyCommand (for example with <code>setsid</code>, or by turning into a daemon) keeps running after disconnecting.</li>
-                <li>On Windows, a process that the ProxyCommand starts before the app adds the command to its group keeps running; if the group cannot be set up, only the command itself is stopped.</li>
-                <li>These fixes were tested with automated tests, not by hand against real ProxyCommand helpers.</li>
+                <li>The app converts the screen on your computer, which takes CPU time: about 77 ms per full screen on an Intel Mac.</li>
+                <li>The screenshot comes from the test build, against the test server, which shows a single colour instead of a desktop. The speed was measured against one Mac on macOS 13.7; the button and the dot pointer were tested only against the test server.</li>
                 <li>The limits of the previous beta still apply.</li>
               </ul>
             </div>
           </div>
-          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.7" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.8" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
         </article>
             <nav class="changelog-pager" aria-label="Older and newer releases">
               <span class="changelog-pager-newer"></span>
-              <a href="../changelog/v1.2.0-beta.6/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.6</span></a>
+              <a href="../changelog/v1.2.0-beta.7/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.7</span></a>
             </nav>
           </div>
         </div>

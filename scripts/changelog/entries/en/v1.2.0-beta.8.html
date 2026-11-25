@@ -1,0 +1,40 @@
+<article class="changelog-entry" id="v1.2.0-beta.8">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.8/">v1.2.0-beta.8</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 November 2026</time></p>
+            <h3>Faster screen sharing with a Mac</h3>
+            <p>The screen of a Mac now follows clicks and typing faster, because the Mac sends it in 16-bit colour, and the pointer no longer disappears.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>16-bit colour for a Mac</h4>
+              <p>macOS Screen Sharing sends its whole Retina screen again for small changes, such as a blinking caret, so the amount of data decides how fast the screen follows input. The app now asks a Mac for 16-bit colour, which is about half the data, and converts it for the viewer. Against a Mac on macOS 13.7 over Wi-Fi through SSH, a full screen went from 1.48 MB to 0.68 MB, and the screen updated 26 times in 6 seconds instead of 12. Other VNC servers keep sending full colour. A <strong>full color</strong> button in the toolbar switches that Mac back to every colour; it reconnects, the button then reads <strong>16-bit color</strong>, and the choice is remembered for that tunnel and forward.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.8/vnc-color.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.8/vnc-color.png" alt="The screen sharing window connected to the test server, which presents itself as a Mac, with the full color, actual size, ctrl+alt+del and change login buttons in its toolbar" width="900" height="640" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>A pointer that stays visible</h4>
+              <p>A Mac sends the pointer's shape only once the pointer moves, and hides the pointer while you type. When the server shows no pointer, the viewer now shows a dot instead of nothing. This applies to every VNC server.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>How to use it</h4>
+              <ul>
+                <li>Nothing to do: screen sharing with a Mac uses 16-bit colour by default.</li>
+                <li>To see every colour, click <strong>full color</strong> in the screen sharing toolbar. Click <strong>16-bit color</strong> to go back.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Known limits</h4>
+              <ul>
+                <li>The app converts the screen on your computer, which takes CPU time: about 77 ms per full screen on an Intel Mac.</li>
+                <li>The screenshot comes from the test build, against the test server, which shows a single colour instead of a desktop. The speed was measured against one Mac on macOS 13.7; the button and the dot pointer were tested only against the test server.</li>
+                <li>The limits of the previous beta still apply.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.8" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+        </article>

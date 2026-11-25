@@ -1,0 +1,40 @@
+<article class="changelog-entry" id="v1.2.0-beta.8">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.8/">v1.2.0-beta.8</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 listopada 2026</time></p>
+            <h3>Szybsze udostępnianie ekranu Maca</h3>
+            <p>Ekran Maca szybciej nadąża za kliknięciami i pisaniem, bo Mac wysyła go w kolorze 16-bitowym, a wskaźnik myszy już nie znika.</p>
+          </header>
+          <section class="feature-detail">
+            <div class="feature-detail-copy">
+              <h4>Kolor 16-bitowy dla Maca</h4>
+              <p>Udostępnianie ekranu w macOS przy drobnych zmianach, takich jak migający kursor tekstowy, wysyła od nowa cały ekran Retina, więc o tym, jak szybko ekran nadąża za wejściem, decyduje ilość danych. Aplikacja prosi teraz Maca o kolor 16-bitowy, czyli mniej więcej połowę danych, i przekształca go dla podglądu. Z Makiem na macOS 13.7, przez Wi-Fi i SSH, pełny ekran zmalał z 1,48 MB do 0,68 MB, a ekran odświeżył się 26 razy w 6 sekund zamiast 12. Inne serwery VNC nadal wysyłają pełny kolor. Przycisk <strong>full color</strong> na pasku narzędzi przełącza tego Maca z powrotem na pełny kolor; połączenie zostaje nawiązane od nowa, przycisk zmienia się na <strong>16-bit color</strong>, a wybór jest zapamiętywany dla tego tunelu i forwardu.</p>
+            </div>
+            <figure class="feature-detail-shots">
+              <a href="@ROOT@/assets/changelog/v1.2.0-beta.8/vnc-color.png"><img src="@ROOT@/assets/changelog/v1.2.0-beta.8/vnc-color.png" alt="Okno udostępniania ekranu połączone z serwerem testowym, który przedstawia się jako Mac, z przyciskami full color, actual size, ctrl+alt+del i change login na pasku narzędzi" width="900" height="640" loading="lazy" /></a>
+            </figure>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Wskaźnik, który nie znika</h4>
+              <p>Mac wysyła kształt wskaźnika dopiero, gdy wskaźnik się poruszy, i ukrywa go podczas pisania. Gdy serwer nie pokazuje wskaźnika, podgląd pokazuje teraz kropkę zamiast niczego. Dotyczy to każdego serwera VNC.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Nic nie trzeba robić: udostępnianie ekranu Maca domyślnie używa koloru 16-bitowego.</li>
+                <li>Żeby zobaczyć pełny kolor, kliknij <strong>full color</strong> na pasku narzędzi udostępniania ekranu. <strong>16-bit color</strong> przywraca kolor 16-bitowy.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Aplikacja przekształca obraz na Twoim komputerze, co zajmuje czas procesora: około 77 ms na pełny ekran na Macu z procesorem Intel.</li>
+                <li>Zrzut ekranu pochodzi z wersji testowej i serwera testowego, który zamiast pulpitu pokazuje jeden kolor. Szybkość zmierzono z jednym Makiem na macOS 13.7; przycisk i kropkę zamiast wskaźnika sprawdzono tylko z serwerem testowym.</li>
+                <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.8" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>
