@@ -14,7 +14,7 @@ Never publish a tag or release without Artur's explicit approval of the version 
 | | Beta | Production |
 |---|---|---|
 | Tag | `vX.Y.Z-beta.N` | `vX.Y.Z` |
-| Commit | Current `beta` | Merge of the last beta into `main` |
+| Commit | Current `beta` | Merge of the last beta into `main`, or a hotfix's squash commit |
 | GitHub release | Pre-release, not Latest | Latest |
 | Who receives it | Beta channel only | Stable and beta channels |
 
@@ -45,7 +45,7 @@ Nothing else needs bumping. The app takes its version from the tag at build time
 4. **Write the notes** to `/tmp/release-notes/<version>.md`, in the format below.
 5. **Write the changelog entry** with the `changelog` skill, unless the release has no user-visible change.
 6. **Get approval.** Show the version, notes and the changelog entry (its pull request, or a local preview if he asks) to Artur, and wait.
-7. **Merge the entry to `beta`** and pull. Pages deploy on the merge, so the link in the notes works once the release is out.
+7. **Merge the entry to `beta`** with squash, like every task's pull request, and pull. Pages deploy on the merge, so the link in the notes works once the release is out.
 8. **Tag and push.** The tag must be annotated, because CI reads the release title and body from its message.
    ```
    git tag -a <version> -F /tmp/release-notes/<version>.md
@@ -62,8 +62,8 @@ Production promotes a beta that was tested: the tagged commit on `main` has the 
 2. **Check the site and docs.** The PR template requires the Features page (`docs/features/`, `docs/pl/features/`), README and comparison page to match. The site root deploys from `main`, so these go live when the promotion merges, just before the tag. Merge straight before tagging.
 3. **Write the notes** for everything since the previous production release, not since the last beta. Add a changelog entry for the version that summarizes its betas, with the `changelog` skill. End with `Tested as vX.Y.Z-beta.1 to vX.Y.Z-beta.N.` and the Full Changelog line.
 4. **Get approval.** Show the version and notes to Artur, and wait.
-5. **Promote the beta.** Merge the changelog entry to `beta`, then open a PR from `beta` to `main` and list `Fixes #N` for each issue it ships. If `beta` holds other commits after the last beta tag, create `release/<version>` at that tag instead, add the entry there and open the PR from it. Merge with a merge commit, not a squash or rebase. Check that only the entry differs: `git diff --stat <last-beta-tag> origin/main`.
-6. **Tag the merge commit on `main`.**
+5. **Promote the beta.** Merge the changelog entry to `beta` with squash, then open a PR from `beta` to `main` and list `Fixes #N` for each issue it ships. If `beta` holds other commits after the last beta tag, create `release/<version>` at that tag instead, cherry-pick the entry's squash commit from `beta` onto it, so both branches hold the same entry, and open the PR from it. Merge with a merge commit, not a squash or rebase. Check that only the entry differs: `git diff --stat <last-beta-tag> origin/main`.
+6. **Tag the tip of `main`**: the promotion's merge commit, or a hotfix's squash commit.
    ```
    git switch main && git pull --ff-only
    git tag -a <version> -F /tmp/release-notes/<version>.md
@@ -74,7 +74,13 @@ Production promotes a beta that was tested: the tagged commit on `main` has the 
 
 ## Publish a production hotfix
 
-For a fix that cannot wait for a beta, only with Artur's approval. Branch from `main`, open a PR to `main`, then follow steps 3, 4, 6, 7 and 8 above with the next patch version.
+For a fix that cannot wait for a beta, only with Artur's approval, with the next patch version:
+
+1. Branch from `main` and open a PR to `main` with the fix.
+2. Write the notes and the changelog entry as in step 3 above, without the `Tested as` line, and commit the entry to the same branch, so one squash commit carries both.
+3. Get approval as in step 4.
+4. Squash-merge the PR (`gh pr merge --squash --subject <title> --body <body>`).
+5. Follow steps 6, 7 and 8 above, tagging that squash commit.
 
 ## Notes format
 
