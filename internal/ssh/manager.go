@@ -77,6 +77,7 @@ type Manager struct {
 	getPassphrase  PassphraseFunc
 	getLogin       LoginFunc
 	checkHostKey   HostKeyFunc
+	dialAgent      AgentDialer // nil offers no agent keys
 	logEmitter     func(tunnelID, level, msg string)
 	bindErrEmit    BindErrorEmitter
 	forwardErrEmit ForwardErrorEmitter
@@ -171,6 +172,7 @@ func NewManager(emitter EventEmitter, getPassphrase PassphraseFunc) *Manager {
 		tunnels:       make(map[string]*runningTunnel),
 		emitter:       emitter,
 		getPassphrase: getPassphrase,
+		dialAgent:     dialSystemAgent,
 	}
 }
 
@@ -283,6 +285,7 @@ func (m *Manager) runWithReconnect(ctx context.Context, cancel context.CancelFun
 			GetPassphrase:  m.getPassphrase,
 			GetLogin:       getLogin,
 			CheckHostKey:   checkHostKey,
+			DialAgent:      m.dialAgent,
 			DNSRegistry:    dnsRegistry,
 			OnBindError:    bindErrEmit,
 			OnForwardError: forwardErrEmit,

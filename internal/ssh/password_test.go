@@ -13,12 +13,12 @@ import (
 	"ssh-tunnel-manager/internal/e2efixture"
 )
 
-// newPasswordServer starts the fake server without a key or agent available to
-// the client, so a connection can only succeed with the saved password.
+// newPasswordServer starts the fake server without a key available to the
+// client, which is given no agent, so a connection can only succeed with the
+// saved password.
 func newPasswordServer(t *testing.T) (*e2efixture.Server, config.TunnelConfig) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SSH_AUTH_SOCK", "")
 	setup, err := e2efixture.PrepareHome(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,12 @@ func dial(t *testing.T, cfg config.TunnelConfig, getLogin LoginFunc) error {
 
 func dialChecked(t *testing.T, cfg config.TunnelConfig, getLogin LoginFunc, check HostKeyFunc) error {
 	t.Helper()
-	clientConfig, err := buildClientConfig(cfg, nil, getLogin, check)
+	return dialWithAgent(t, cfg, getLogin, check, nil)
+}
+
+func dialWithAgent(t *testing.T, cfg config.TunnelConfig, getLogin LoginFunc, check HostKeyFunc, dialAgent AgentDialer) error {
+	t.Helper()
+	clientConfig, err := buildClientConfig(cfg, nil, getLogin, check, dialAgent)
 	if err != nil {
 		return err
 	}
@@ -169,6 +174,7 @@ func TestManagerConnectsWithASavedPassword(t *testing.T) {
 			}
 		}
 	}, nil)
+	m.dialAgent = nil // never the user's own agent
 	m.WithHostKeyCheck(trustAnyHostKey)
 	m.WithLoginProvider(staticLogin(&PasswordLogin{
 		Username: e2efixture.PasswordUser,

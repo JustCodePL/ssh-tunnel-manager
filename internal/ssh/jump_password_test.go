@@ -118,7 +118,6 @@ func serveJump(raw net.Conn, serverConfig *gossh.ServerConfig) {
 func passwordTunnelThrough(t *testing.T, jump *jumpServer) *Tunnel {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SSH_AUTH_SOCK", "")
 	setup, err := e2efixture.PrepareHome(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

@@ -558,6 +558,7 @@ type SFTPManager struct {
 	getPassphrase PassphraseFunc
 	getLogin      LoginFunc
 	checkHostKey  HostKeyFunc
+	dialAgent     AgentDialer // nil offers no agent keys
 }
 
 // WithHostKeyCheck sets how the manager decides whether to trust a server.
@@ -579,6 +580,7 @@ func NewSFTPManager(getPassphrase PassphraseFunc) *SFTPManager {
 	return &SFTPManager{
 		sessions:      make(map[string]*SFTPSession),
 		getPassphrase: getPassphrase,
+		dialAgent:     dialSystemAgent,
 	}
 }
 
@@ -595,12 +597,12 @@ func (sm *SFTPManager) OpenSessionVia(cfg config.TunnelConfig, via RemoteDialer)
 	getLogin := sm.getLogin
 	checkHostKey := sm.checkHostKey
 	sm.mu.Unlock()
-	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase, getLogin, checkHostKey)
+	sshConfig, err := buildClientConfig(cfg, sm.getPassphrase, getLogin, checkHostKey, sm.dialAgent)
 	if err != nil {
 		return "", "", fmt.Errorf("building SSH config for SFTP: %w", err)
 	}
 
-	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, GetLogin: getLogin, CheckHostKey: checkHostKey, Via: via}
+	tun := &Tunnel{Config: cfg, GetPassphrase: sm.getPassphrase, GetLogin: getLogin, CheckHostKey: checkHostKey, DialAgent: sm.dialAgent, Via: via}
 	client, err := tun.dial(context.Background(), sshConfig)
 	if err != nil {
 		return "", "", fmt.Errorf("connecting SFTP to %s: %w", cfg.Host, err)

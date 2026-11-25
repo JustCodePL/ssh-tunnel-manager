@@ -89,7 +89,6 @@ func TestCheckKnownHosts(t *testing.T) {
 func keyTunnel(t *testing.T, check HostKeyFunc) (*Tunnel, *e2efixture.Server) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SSH_AUTH_SOCK", "")
 	setup, err := e2efixture.PrepareHome(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

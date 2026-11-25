@@ -47,7 +47,14 @@ export default async function globalSetup() {
 
   const app = spawn(bin("stm-server"), [], {
     cwd: work,
-    env: { ...process.env, HOME: home, USERPROFILE: home, STM_E2E_PORT: String(APP_PORT) },
+    // An agent socket that does not exist keeps the user's own SSH agent out of the tests.
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      SSH_AUTH_SOCK: join(home, "no-agent.sock"),
+      STM_E2E_PORT: String(APP_PORT),
+    },
     stdio: process.env.STM_E2E_VERBOSE ? "inherit" : "ignore",
   });
   await waitFor(`http://127.0.0.1:${APP_PORT}/`, "app", app);
