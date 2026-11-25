@@ -1,0 +1,53 @@
+name: Smoke test published release
+
+# Checks the artifacts people actually download, after the Build workflow has
+# published them: checksum, signature, notarization, stapling and a real start of
+# the app. Build already smoke-tests the app before publishing; this catches
+# problems introduced by packaging or the upload. A release created with
+# GITHUB_TOKEN does not start other workflows, so this follows Build instead.
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to test, e.g. v1.2.0-beta.7
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke (macOS ${{ matrix.arch }})
+    # Only for Build runs of release tags that succeeded.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # GitHub no longer offers an Intel macOS runner under the labels this
+          # used (macos-13 never starts, macos-14 is unsupported), so only the
+          # arm64 DMG is tested.
+          - arch: arm64
+            runner: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run the release smoke test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[1-9][0-9]*)?$ ]]; then
+            echo "Invalid release tag: $TAG"; exit 1
+          fi
+          scripts/smoke-release.sh "$TAG" "${{ matrix.arch }}"
