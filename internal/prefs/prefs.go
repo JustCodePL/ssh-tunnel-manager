@@ -36,6 +36,10 @@ type Prefs struct {
 	// RDPCertificates pins the SHA-256 fingerprint of each host's RDP server
 	// certificate on first use, keyed by tunnel ID.
 	RDPCertificates map[string]string `json:"rdpCertificates,omitempty"`
+	// VNCFullColor lists the VNC targets, by tunnel ID or forward key, that
+	// keep 32-bit colour on macOS Screen Sharing instead of the 16-bit colour
+	// that sends half the data.
+	VNCFullColor map[string]bool `json:"vncFullColor,omitempty"`
 	// SSHHostKeys holds the SHA-256 host key fingerprints the user accepted for
 	// servers missing from known_hosts: tunnel ID, then server address.
 	SSHHostKeys map[string]map[string]string `json:"sshHostKeys,omitempty"`

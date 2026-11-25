@@ -37,16 +37,31 @@ test.describe("screen sharing", () => {
     const canvas = vnc.getByTestId("vnc-screen").locator("canvas");
     await expect(canvas).toBeVisible();
     await expect(canvas).toHaveJSProperty("width", 64);
-    // The screen is drawn in the fixture's colour.
-    await expect
-      .poll(() => canvas.evaluate((element: HTMLCanvasElement) => Array.from(element.getContext("2d")!.getImageData(10, 10, 1, 1).data)))
-      .toEqual([48, 144, 208, 255]);
+    const pixel = () => canvas.evaluate((element: HTMLCanvasElement) => Array.from(element.getContext("2d")!.getImageData(10, 10, 1, 1).data));
+    // The fixture announces itself as a Mac, so the screen comes in 16-bit
+    // colour: the fixture's colour, rounded to 5-6-5 bits.
+    const color = vnc.getByTestId("vnc-color");
+    await expect(color).toHaveText(/full color|16-bit color/);
+    // A failed earlier run may have left full colour chosen.
+    if ((await color.textContent()) === "16-bit color") await color.click();
+    await expect(color).toHaveText("full color");
+    await expect.poll(pixel).toEqual([49, 146, 206, 255]);
+    // Full colour reconnects and shows the fixture's colour exactly.
+    await color.click();
+    await expect(color).toHaveText("16-bit color");
+    await expect.poll(pixel).toEqual([48, 144, 208, 255]);
     await tool.close();
 
-    // The saved login connects at once next time.
+    // The saved login connects at once next time, and the target keeps full
+    // colour.
     tool = await toolWindow(context, () => forward.getByRole("button", { name: "Attach" }).click());
-    await expect(tool.getByTestId("vnc").locator(".vnc-title")).toContainText("fixture-mac");
-    await expect(tool.getByTestId("vnc").locator(".vnc-form")).toHaveCount(0);
+    const again = tool.getByTestId("vnc");
+    await expect(again.locator(".vnc-title")).toContainText("fixture-mac");
+    await expect(again.locator(".vnc-form")).toHaveCount(0);
+    await expect(again.getByTestId("vnc-color")).toHaveText("16-bit color");
+    // Back to 16-bit colour, which later runs expect.
+    await again.getByTestId("vnc-color").click();
+    await expect(again.getByTestId("vnc-color")).toHaveText("full color");
   });
 
   test("the host's own screen sharing is offered only when found", async ({ page }) => {

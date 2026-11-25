@@ -163,9 +163,16 @@ func parseVersion(banner []byte) (Version, error) {
 	return Version33, nil
 }
 
+// appleMinorVersion is the minor protocol version macOS Screen Sharing
+// announces (RFB 003.889).
+const appleMinorVersion = "889"
+
 // HandshakeResult describes a finished handshake.
 type HandshakeResult struct {
 	Version Version
+	// Apple is true for macOS Screen Sharing, recognised by its protocol
+	// version.
+	Apple bool
 	// Authenticated is true when the server checked the login. A server that
 	// needs none accepts any, so a login it never checked must not be saved.
 	Authenticated bool
@@ -175,22 +182,29 @@ type HandshakeResult struct {
 // including the security result, so the next message is the client's
 // ClientInit.
 func Handshake(conn io.ReadWriter, login Credentials) (HandshakeResult, error) {
-	version, security, err := negotiate(conn, login)
+	version, security, apple, err := negotiate(conn, login)
 	if err != nil {
 		return HandshakeResult{}, err
 	}
-	return HandshakeResult{Version: version, Authenticated: security != securityNone}, nil
+	return HandshakeResult{Version: version, Apple: apple, Authenticated: security != securityNone}, nil
 }
 
-func negotiate(conn io.ReadWriter, login Credentials) (Version, byte, error) {
+func negotiate(conn io.ReadWriter, login Credentials) (Version, byte, bool, error) {
 	banner := make([]byte, versionLength)
 	if _, err := io.ReadFull(conn, banner); err != nil {
-		return 0, 0, fmt.Errorf("reading the server's protocol version: %w", notVNCOnEOF(err))
+		return 0, 0, false, fmt.Errorf("reading the server's protocol version: %w", notVNCOnEOF(err))
 	}
 	version, err := parseVersion(banner)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, false, err
 	}
+	apple := string(banner[4:11]) == "003."+appleMinorVersion
+	version, security, err := negotiateSecurity(conn, login, version)
+	return version, security, apple, err
+}
+
+func negotiateSecurity(conn io.ReadWriter, login Credentials, version Version) (Version, byte, error) {
+	var err error
 	if _, err := conn.Write(version.banner()); err != nil {
 		return 0, 0, fmt.Errorf("sending the protocol version: %w", err)
 	}

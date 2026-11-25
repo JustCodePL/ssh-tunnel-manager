@@ -907,6 +907,14 @@ export function SetUpdateChannel(value: string): $CancellablePromise<void> {
 }
 
 /**
+ * SetVNCFullColor decides whether a target's macOS Screen Sharing sessions
+ * keep 32-bit colour. It applies from the next connection.
+ */
+export function SetVNCFullColor(tunnelID: string, target: $models.ForwardTarget, full: boolean): $CancellablePromise<void> {
+    return $Call.ByID(267061344, tunnelID, target, full);
+}
+
+/**
  * SubmitPassphrase is called by the frontend to provide a passphrase
  * for an encrypted SSH key.
  */

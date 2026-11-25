@@ -24,7 +24,7 @@ Built with Go + [Wails 3](https://wails.io) + Svelte. Ships as a single binary (
 - **Per-tunnel settings** — what a row shows, refresh intervals, clipboard and what happens after a disconnect can each be overridden on one tunnel
 - **Command palette** — `⌘K` or `Ctrl+K` finds tunnels and runs actions; the list works from the keyboard
 - **Built-in remote desktop** — RDP is detected on connected hosts and opens in the app, through the SSH connection, with no external client (no remote audio). Only the default port, 3389, is checked unless you set another one under the host's advanced options
-- **Built-in screen sharing** — a Mac's screen (macOS Screen Sharing) or another VNC server opens in the app through the SSH connection, in a pinned noVNC viewer. A VNC server on the host's port 5900 is detected after connecting. A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication), other servers a VNC password or none. The app signs in itself, so the password never reaches the viewer. Text clipboard, fit to window or real size
+- **Built-in screen sharing** — a Mac's screen (macOS Screen Sharing) or another VNC server opens in the app through the SSH connection, in a pinned noVNC viewer. A VNC server on the host's port 5900 is detected after connecting. A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication), other servers a VNC password or none. The app signs in itself, so the password never reaches the viewer. A Mac sends 16-bit colour, about half the data, so the screen follows input faster; full colour is one button away and remembered per Mac. Text clipboard, fit to window or real size
 - **Actions on forwards** — a forward can be typed `rdp`, `vnc` or `ssh`, inferred from ports 3389, 5900 and 22, which adds a remote desktop, screen sharing, terminal or file browser button that opens on the forward's target, for example a machine behind a bastion
 - **Groups** — organise tunnels into named groups with Connect All / Disconnect All
 - **Import from SSH config** — parse `~/.ssh/config` and import selected hosts in one step
@@ -154,7 +154,7 @@ The app uses public-key authentication. It tries, in order: the key in the *Key 
 - Local port forwarding only: no SOCKS (`-D`) and no remote forwards (`-R`) yet.
 - Password and keyboard-interactive logins are not supported.
 - `IdentityAgent` from `~/.ssh/config` is not read yet; the agent is found through `SSH_AUTH_SOCK` or the platform default.
-- Screen sharing: VNC servers that require encryption (VeNCrypt, TLS, RA2) are not supported, and only port 5900 is detected on a host; use a forward typed `vnc` for another port. It has been checked against a test server, not yet against a real Mac.
+- Screen sharing: VNC servers that require encryption (VeNCrypt, TLS, RA2) are not supported, and only port 5900 is detected on a host; use a forward typed `vnc` for another port. It has been checked against a test server and the Screen Sharing of macOS 13. macOS sends the full Retina resolution and redraws large parts of the screen for small changes, so on a slow connection the screen still lags behind input.
 
 ### Auto-Update
 

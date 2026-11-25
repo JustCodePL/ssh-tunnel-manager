@@ -67,6 +67,11 @@ type VNCConnection struct {
 	NeedsUsername bool   `json:"needsUsername,omitempty"`
 	SessionID     string `json:"sessionId,omitempty"`
 	ProxyAddress  string `json:"proxyAddress,omitempty"`
+	// Apple is true for macOS Screen Sharing, whose colour depth the viewer
+	// can switch.
+	Apple bool `json:"apple,omitempty"`
+	// ReducedColor is true when the session shows 16-bit colour.
+	ReducedColor bool `json:"reducedColor,omitempty"`
 }
 
 // probeVNC reports whether a VNC server answers on the host's port 5900. false
@@ -171,6 +176,7 @@ func (a *App) OpenVNC(tunnelID string, target ForwardTarget, login VNCLogin) (*V
 			return conn, err
 		},
 		Credentials: credentials,
+		FullColor:   a.prefs.Get().VNCFullColor[key],
 	})
 	if err != nil {
 		return vncLoginOutcome(err, credentials, address)
@@ -186,7 +192,41 @@ func (a *App) OpenVNC(tunnelID string, target ForwardTarget, login VNCLogin) (*V
 		Status:       vncConnected,
 		SessionID:    session.ID,
 		ProxyAddress: session.ProxyAddress,
+		Apple:        session.Apple,
+		ReducedColor: session.ReducedColor,
 	}, nil
+}
+
+// SetVNCFullColor decides whether a target's macOS Screen Sharing sessions
+// keep 32-bit colour. It applies from the next connection.
+func (a *App) SetVNCFullColor(tunnelID string, target ForwardTarget, full bool) error {
+	key, _, err := a.resolveVNCTarget(tunnelID, target)
+	if err != nil {
+		return err
+	}
+	a.rdpMu.Lock()
+	defer a.rdpMu.Unlock()
+	p := a.prefs.Get()
+	p.VNCFullColor = withFlag(p.VNCFullColor, key, full)
+	if err := a.prefs.Set(p); err != nil {
+		return fmt.Errorf("saving the colour choice for %s: %w", key, err)
+	}
+	return nil
+}
+
+// withFlag returns a copy of flags with one key set or, for false, removed, so
+// the map shared with the prefs store is never mutated.
+func withFlag(flags map[string]bool, key string, on bool) map[string]bool {
+	updated := make(map[string]bool, len(flags)+1)
+	for k, v := range flags {
+		updated[k] = v
+	}
+	if on {
+		updated[key] = true
+	} else {
+		delete(updated, key)
+	}
+	return updated
 }
 
 // vncLoginOutcome turns a failed handshake into a request for a login when the
