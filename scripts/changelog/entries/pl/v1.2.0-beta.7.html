@@ -1,0 +1,44 @@
+<article class="changelog-entry" id="v1.2.0-beta.7">
+          <header class="changelog-entry-head">
+            <p class="changelog-meta"><a href="@HOME@/changelog/v1.2.0-beta.7/">v1.2.0-beta.7</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 listopada 2026</time></p>
+            <h3>Poprawki zawieszających się logowań: agent SSH i ProxyCommand</h3>
+            <p>Łączenie nie zapycha już agenta SSH, a połączenie przez ProxyCommand nie może już zawisnąć na zawsze ani zostawić działającego pomocnika. W interfejsie nic się nie zmienia.</p>
+          </header>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Agent SSH dalej odpowiada</h4>
+              <p>Każde połączenie i ponowne połączenie otwierało nowe połączenie z agentem SSH i nigdy go nie zamykało. Po odpowiednio wielu takich połączeniach agent (na macOS systemowy) przestawał odpowiadać: logowanie w aplikacji wisiało, a razem z nim <code>ssh</code> w terminalu. Aplikacja zamyka teraz każde połączenie z agentem po zakończeniu zapytania i rezygnuje z agenta, który nie odpowiada: przy każdym zapytaniu 5 sekund na połączenie i 5 na listę kluczy, 60 sekund na podpis, bo agent może prosić o potwierdzenie. Milczący agent jest pomijany, a logowanie idzie dalej domyślnymi plikami kluczy i zapisanym hasłem, jeśli tunel je ma. Gdy agent działa, ale nie ma kluczy, oferowane są teraz domyślne pliki kluczy z <code>~/.ssh</code> (<code>id_ed25519</code>, <code>id_ecdsa</code>, <code>id_rsa</code>).</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Połączenia przez ProxyCommand kończą się czysto</h4>
+              <p>Nieudane logowanie przez <code>ProxyCommand</code>, na przykład po odrzuceniu klucza hosta, mogło zawisnąć przy zamykaniu. Uzgadnianie SSH przez ProxyCommand ma teraz limit 2 minut, wystarczający dla polecenia, które samo otwiera połączenie albo czeka na logowanie w przeglądarce; po nim błąd mówi, że nie było odpowiedzi. Czas na pytanie o klucz hosta się nie liczy. Rozłączenie zatrzymuje polecenie razem z uruchomionymi przez nie procesami, jak <code>aws ssm start-session</code>, <code>ssh -W</code> czy <code>cloudflared</code>, a nie tylko otaczającą je powłokę. Z wyjścia błędów polecenia zostaje tylko ostatnie 16 KiB.</p>
+            </div>
+          </section>
+          <section class="feature-detail no-shot">
+            <div class="feature-detail-copy">
+              <h4>Terminal i Pliki na forwardzie nie zamykają się same</h4>
+              <p>Terminal i Pliki otwarte na serwerze za forwardem SSH zamykały się same około 10 sekund po tym, jak połączenie odnowiło klucze, co dzieje się po przesłaniu dużej ilości danych, na przykład przy dużym transferze, albo na niektórych serwerach po określonym czasie. Teraz zostają otwarte.</p>
+            </div>
+          </section>
+          <div class="changelog-notes">
+            <div>
+              <h4>Jak z tego korzystać</h4>
+              <ul>
+                <li>Nic nie trzeba robić. Jeśli w starszej wersji logowanie wisiało po wielu ponownych połączeniach, po aktualizacji znów działa.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Znane ograniczenia</h4>
+              <ul>
+                <li>Terminal i Pliki na serwerze za forwardem SSH mają na całe logowanie 10 sekund, więc podpis potwierdzany w agencie (<code>ssh-add -c</code>, menedżer haseł) trzeba potwierdzić w tym czasie.</li>
+                <li>Pomocnik, który sam odłącza się od ProxyCommand (na przykład przez <code>setsid</code> albo przechodząc w tryb demona), działa dalej po rozłączeniu.</li>
+                <li>Na Windows proces, który ProxyCommand uruchomi, zanim aplikacja doda polecenie do grupy, działa dalej; jeśli grupy nie da się utworzyć, zatrzymywane jest tylko samo polecenie.</li>
+                <li>Poprawki sprawdzono testami automatycznymi, a nie ręcznie z prawdziwymi pomocnikami ProxyCommand.</li>
+                <li>Ograniczenia poprzedniej bety nadal obowiązują.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.7" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Wydanie na GitHubie</a></p>
+        </article>
