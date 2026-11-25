@@ -3,6 +3,11 @@
   import Titlebar from "./components/Titlebar.svelte";
   import { isMac } from "./lib/platform";
   import TunnelList from "./components/TunnelList.svelte";
+  import ClientsList from "./components/ClientsList.svelte";
+  import WebList from "./components/WebList.svelte";
+  import RemoteDesktopForm from "./components/RemoteDesktopForm.svelte";
+  import ExportDialog from "./components/ExportDialog.svelte";
+  import type { RemoteDesktop } from "./types";
   import TunnelForm from "./components/TunnelForm.svelte";
   import ImportDialog from "./components/ImportDialog.svelte";
   import PassphraseDialog from "./components/PassphraseDialog.svelte";
@@ -16,8 +21,6 @@
   import {
     loadTunnels,
     initEventListeners,
-    tunnels,
-    exportTunnels,
     disconnectAll,
     disconnectTunnel,
     connectTunnel,
@@ -26,7 +29,7 @@
   } from "./stores/tunnels";
   import { initSettings } from "./stores/settings";
   import { loadSavedCapabilities } from "./stores/capabilities";
-  import { CopyToClipboard, GetPendingHostKey, ReportWindowReady } from "../bindings/ssh-tunnel-manager/app";
+  import { CopyToClipboard, GetMainTab, GetPendingHostKey, ReportWindowReady, SetMainTab } from "../bindings/ssh-tunnel-manager/app";
   import type { HostKeyPrompt } from "../bindings/ssh-tunnel-manager/models";
   import { EventsOn } from "./lib/runtime";
   import { openTool } from "./lib/openTool";
@@ -43,9 +46,37 @@
   let updateAvailable = false;
   let query = "";
   let filter = "all";
+  let showExport = false;
+  // The remote desktop form: null when closed, "new" or the desktop to edit.
+  let desktopForm: RemoteDesktop | "new" | null = null;
+  let desktopGroup = "";
+
+  const TABS = [
+    { id: "tunnels", label: "Tunnels", search: "Find a tunnel" },
+    { id: "clients", label: "Clients", search: "Find a client" },
+    { id: "web", label: "Web", search: "Find a web page" },
+  ];
+  let tab = "tunnels";
+  $: currentTab = TABS.find((item) => item.id === tab) ?? TABS[0];
+
+  function selectTab(id: string) {
+    if (id === tab) return;
+    tab = id;
+    query = "";
+    SetMainTab(id).catch((e) => console.warn("saving the tab failed:", e));
+  }
+
+  function openDesktopForm(group = "") {
+    showMenu = false;
+    desktopGroup = group;
+    desktopForm = "new";
+  }
 
   onMount(() => {
     void ReportWindowReady("main");
+    void GetMainTab().then((saved) => {
+      if (TABS.some((item) => item.id === saved)) tab = saved;
+    });
     initEventListeners();
     void loadTunnels();
     void initSettings();
@@ -71,14 +102,8 @@
     });
   });
 
-  async function handleExport() {
-    const ids = $tunnels.map((t) => t.id);
-    if (ids.length === 0) return;
-    try {
-      await exportTunnels(ids);
-    } catch (e) {
-      console.error("export failed:", e);
-    }
+  function handleExport() {
+    showExport = true;
   }
 
   function openNew(group: string) {
@@ -134,11 +159,16 @@
   {#if !isMac}<Titlebar />{/if}
 
   <div class="top">
+    <div class="segmented main-tabs" role="tablist" aria-label="Views">
+      {#each TABS as item}
+        <button type="button" role="tab" aria-selected={tab === item.id} class:on={tab === item.id} data-testid={`main-tab-${item.id}`} on:click={() => selectTab(item.id)}>{item.label}</button>
+      {/each}
+    </div>
     <input
       class="field-control search"
       type="search"
-      placeholder="Find a tunnel"
-      aria-label="Find a tunnel"
+      placeholder={currentTab.search}
+      aria-label={currentTab.search}
       data-testid="search"
       bind:value={query}
     />
@@ -161,7 +191,8 @@
       {#if showMenu}
         <div class="menu" role="menu">
           <button type="button" class="menu-item" role="menuitem" data-testid="new-tunnel" on:click={() => openNew("")}>Tunnel</button>
-          <button type="button" class="menu-item" role="menuitem" data-testid="new-group" on:click={() => { showMenu = false; creatingGroup = true; }}>Group</button>
+          <button type="button" class="menu-item" role="menuitem" data-testid="new-desktop" on:click={() => openDesktopForm("")}>Remote desktop</button>
+          <button type="button" class="menu-item" role="menuitem" data-testid="new-group" on:click={() => { showMenu = false; tab = "tunnels"; creatingGroup = true; }}>Group</button>
           <div class="menu-sep"></div>
           <button type="button" class="menu-item" role="menuitem" data-testid="import-tunnels" on:click={() => { showMenu = false; showImport = true; }}>Import from SSH config</button>
         </div>
@@ -183,13 +214,23 @@
   <main class="app-main">
     {#if showImport}
       <ImportDialog on:close={() => (showImport = false)} />
+    {:else if tab === "clients"}
+      <ClientsList {query} on:add={(e) => openDesktopForm(e.detail)} on:edit={(e) => (desktopForm = e.detail)} />
+    {:else if tab === "web"}
+      <WebList {query} />
     {:else}
-      <TunnelList bind:filter bind:creatingGroup {query} paused={showPalette || showNew} on:new={(e) => openNew(e.detail)} />
+      <TunnelList bind:filter bind:creatingGroup {query} paused={showPalette || showNew || desktopForm !== null} on:new={(e) => openNew(e.detail)} />
     {/if}
   </main>
 
   {#if showNew}
     <TunnelForm tunnel={null} initialGroup={newGroup} on:close={() => (showNew = false)} />
+  {/if}
+  {#if desktopForm}
+    <RemoteDesktopForm desktop={desktopForm === "new" ? null : desktopForm} initialGroup={desktopGroup} on:close={() => (desktopForm = null)} />
+  {/if}
+  {#if showExport}
+    <ExportDialog on:close={() => (showExport = false)} />
   {/if}
   {#if showPalette}
     <CommandPalette on:close={() => (showPalette = false)} on:run={(e) => runAction(e.detail)} />
@@ -226,6 +267,13 @@
     padding: 7px 10px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+  }
+  .main-tabs {
+    flex: none;
+  }
+  .main-tabs button {
+    font-size: 12.5px;
+    padding: 3px 10px;
   }
   .search {
     flex: 1;

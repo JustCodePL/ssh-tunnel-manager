@@ -161,6 +161,7 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	var pendingFwdProtocol string
 	var pendingFwdSSHUser string
 	inMatch := false
+	inSection := false
 
 	resetPendingForward := func() {
 		pendingFwdPortless = false
@@ -175,6 +176,36 @@ func Parse(scanner *bufio.Scanner) ([]HostEntry, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
+
+		// The remote desktops section ends any Host block before it, and its
+		// lines never belong to a host.
+		if isSectionBegin(trimmed) {
+			if current != nil {
+				entries = appendIfValid(entries, current)
+				current = nil
+			}
+			inSection = true
+			inMatch = false
+			metaGroup = ""
+			metaColor = ""
+			metaAutoConnect = false
+			metaPinned = false
+			metaRDPPort = 0
+			metaPortlessSuffix = ""
+			resetPendingForward()
+			continue
+		}
+		if inSection {
+			if isSectionEnd(trimmed) {
+				inSection = false
+				continue
+			}
+			if inSectionLine(trimmed) {
+				continue
+			}
+			// The end marker is missing: the section ends here.
+			inSection = false
+		}
 
 		// Collect stm metadata comments
 		if strings.HasPrefix(trimmed, "# stm:") {

@@ -164,3 +164,12 @@ func TestVisibleOn(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsOpenedOnAPageReuseTheTab(t *testing.T) {
+	r := NewRegistry()
+	first := r.Open(Spec{Tool: ToolTunnelSettings, TunnelID: "jump"}, GroupToolTarget)
+	again := r.Open(Spec{Tool: ToolTunnelSettings, TunnelID: "jump", Path: "forwards"}, GroupToolTarget)
+	if again.WindowName != first.WindowName || again.TabID != first.TabID {
+		t.Fatalf("first = %+v, again = %+v", first, again)
+	}
+}

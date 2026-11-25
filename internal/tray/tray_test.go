@@ -154,3 +154,35 @@ func TestStatusEventRedrawsSurface(t *testing.T) {
 		t.Fatalf("destroys = %d", s.destroys)
 	}
 }
+
+func TestRemoteDesktopsJoinTheirGroups(t *testing.T) {
+	var opened string
+	tr := New(Callbacks{
+		GetRemoteDesktops: func() []config.RemoteDesktop {
+			return []config.RemoteDesktop{
+				{ID: "rd:laptop", Name: "laptop", Protocol: "rdp", Address: "10.0.0.5", Group: "Office"},
+				{ID: "rd:mac", Name: "mac", Protocol: "vnc", Address: "10.0.0.6"},
+				{ID: "rd:pc", Name: "pc", Protocol: "rdp", Address: "10.0.0.7", Group: "Home"},
+			}
+		},
+		OpenRemoteDesktop: func(id string) error { opened = id; return nil },
+	})
+	nodes := tr.BuildMenu([]config.TunnelConfig{{ID: "a", Name: "a", Group: "Office"}}, nil, "")
+	got := strings.Join(labels(nodes), "|")
+	want := "SSH Tunnel Manager|mac — VNC|Office (0/1)|Home|Show Window|Quit"
+	if got != want {
+		t.Fatalf("menu = %q, want %q", got, want)
+	}
+	office := find(t, nodes, "Office (0/1)")
+	if strings.Join(labels(office.Children), "|") != "Connect All|○ a|laptop — RDP" {
+		t.Fatalf("office = %v", labels(office.Children))
+	}
+	laptop := find(t, office.Children, "laptop — RDP")
+	if laptop.Icon != nil {
+		t.Error("a remote desktop without SSH has a status dot")
+	}
+	laptop.OnClick()
+	if opened != "rd:laptop" {
+		t.Fatalf("opened = %q", opened)
+	}
+}

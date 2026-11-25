@@ -8,6 +8,8 @@ export async function dropConnections() {
 
 export async function openMain(page: Page) {
   await page.goto("/");
+  // The window opens on the tab used last, which another test may have changed.
+  await page.getByTestId("main-tab-tunnels").click();
   await expect(page.getByTestId("tunnel-list")).toBeVisible();
   await expect(tunnel(page, "prod-web")).toBeVisible();
 }
@@ -62,5 +64,30 @@ export async function closeTools(context: BrowserContext, keep: Page) {
     if (page === keep) continue;
     await page.evaluate(() => (window as any).stmCloseWindow?.()).catch(() => {});
     await page.close();
+  }
+}
+
+/** The servers the fixture runs without SSH. */
+export async function directServers(): Promise<{ vnc: number; rdp: number; rdpFingerprint: string }> {
+  const response = await fetch(`http://127.0.0.1:${CONTROL_PORT}/direct`);
+  return response.json();
+}
+
+export function client(page: Page, name: string) {
+  return page.locator(`[data-testid="client"][data-name="${name}"]`);
+}
+
+/** Opens the Clients tab and removes a desktop a failed earlier run left. */
+export async function openClients(page: Page, ...leftovers: string[]) {
+  await openMain(page);
+  await page.getByTestId("main-tab-clients").click();
+  await expect(page.getByTestId("client-list")).toBeVisible();
+  for (const name of leftovers) {
+    const row = client(page, name);
+    if (!(await row.count())) continue;
+    await row.getByTestId("client-menu").click();
+    await page.getByTestId("client-actions").getByRole("menuitem", { name: "Delete" }).click();
+    await page.getByTestId("confirm-yes").click();
+    await expect(row).toHaveCount(0);
   }
 }

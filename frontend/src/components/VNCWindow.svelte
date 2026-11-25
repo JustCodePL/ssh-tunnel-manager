@@ -6,7 +6,7 @@
   import { loadNoVnc } from "../lib/novnc";
   import { showToast } from "../stores/toast";
   import { createVncClipboard } from "../lib/vncClipboard.js";
-  import type { PortForward, TunnelConfig } from "../types";
+  import { isRemoteDesktopId, type PortForward, type TunnelConfig } from "../types";
 
   export let tunnel: TunnelConfig;
   // The forward to open a screen on. Without one, the host's own VNC server.
@@ -15,13 +15,20 @@
   export let clipboardMode = "both";
   export let visible = true;
 
-  type View = "connecting" | "connected" | "login" | "ended";
-  type Login = { username: string; password: string; credentialId: string; save: boolean };
+  type View = "connecting" | "connected" | "login" | "ended" | "public";
+  type Login = { username: string; password: string; credentialId: string; save: boolean; allowPublic?: boolean; rememberPublic?: boolean };
 
   const target = forward
     ? { remoteHost: forward.remoteHost, remotePort: forward.remotePort }
     : { remoteHost: "", remotePort: 0 };
   const targetLabel = forward ? `${tunnel.name} → ${forward.remoteHost}:${forward.remotePort}` : tunnel.name;
+  // A remote desktop reached without SSH, whose traffic VNC leaves unencrypted.
+  const direct = isRemoteDesktopId(tunnel.id);
+  let publicAddress = "";
+  let rememberPublic = false;
+  // Allowed once in this window for this address, so a reconnect does not
+  // ask again, but an edited address does.
+  let allowedFor = "";
 
   let view: View = "connecting";
   let message = "";
@@ -102,9 +109,14 @@
       // The client loads first, so a failure there leaves no session open.
       const RFB = await loadNoVnc();
       if (current !== attempt) return;
-      const result = await OpenVNC(tunnel.id, target as any, login as any);
+      const result = await OpenVNC(tunnel.id, target as any, { ...login, allowPublic: allowedFor !== "" && allowedFor === `${tunnel.host}:${tunnel.port}`, rememberPublic } as any);
       if (current !== attempt) {
         if (result?.sessionId) CloseVNC(result.sessionId).catch(() => {});
+        return;
+      }
+      if (result?.status === "confirm-public") {
+        publicAddress = result.publicAddress ?? "";
+        view = "public";
         return;
       }
       if (!result || result.status !== "connected") {
@@ -198,6 +210,11 @@
     start();
   }
 
+  function allowPublic() {
+    allowedFor = `${tunnel.host}:${tunnel.port}`;
+    start();
+  }
+
   function changeLogin() {
     dispose();
     message = "";
@@ -214,7 +231,7 @@
       username = saved.username;
       // The tunnel's SSH login is offered first only for the host itself, so it
       // does not go to a machine behind a forward unless chosen.
-      selectedLogin = saved.credentialId || (forward ? "" : await GetCredentialBinding("ssh", tunnel.id, { remoteHost: "", remotePort: 0 } as any)) || "";
+      selectedLogin = saved.credentialId || (forward || direct ? "" : await GetCredentialBinding("ssh", tunnel.id, { remoteHost: "", remotePort: 0 } as any)) || "";
     } catch (e) {
       console.warn("reading stored VNC login failed:", e);
     }
@@ -276,6 +293,16 @@
         <label class="vnc-check"><input type="checkbox" data-testid="vnc-save-login" bind:checked={saveLogin} /> {chosenLogin ? "use this login here next time" : "save in credentials"}</label>
         <button class="vnc-primary" type="submit">connect</button>
       </form>
+    {:else if view === "public"}
+      <div class="vnc-panel" data-testid="vnc-public">
+        <div class="vnc-error">VNC does not encrypt the connection.</div>
+        <p>{targetLabel} is at {publicAddress}, outside private networks, so others on the way could see the screen and what you type. Connect only through a network you trust, or reach it through an SSH tunnel instead.</p>
+        <label class="vnc-check"><input type="checkbox" data-testid="vnc-public-remember" bind:checked={rememberPublic} /> don't ask again for this desktop</label>
+        <div class="vnc-panel-actions">
+          <button class="vnc-primary" data-testid="vnc-public-connect" on:click={allowPublic}>connect anyway</button>
+          <button class="vnc-text-btn" on:click={() => end("Not connected.")}>cancel</button>
+        </div>
+      </div>
     {:else if view === "ended"}
       <div class="vnc-panel">
         <div class="vnc-status" data-testid="vnc-message">{message || "The session ended."}</div>
@@ -307,7 +334,8 @@
   .vnc-field :global(.select) { display: flex; }
   .vnc-form input:not([type="checkbox"]) { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; font: inherit; border-radius: 2px; }
   .vnc-form input:focus { outline: none; border-color: var(--accent); }
-  .vnc-form label.vnc-check { flex-direction: row; align-items: center; gap: 6px; }
+  .vnc-form label.vnc-check, .vnc-panel label.vnc-check { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--muted); }
+  .vnc-panel p { margin: 0; color: var(--muted); line-height: 1.5; }
   .vnc-primary, .vnc-text-btn { background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer; border-radius: 2px; font: inherit; font-size: 12px; padding: 4px 8px; }
   .vnc-primary { color: var(--accent); border-color: var(--accent); }
   .vnc-primary:hover { background: var(--accent-soft); }

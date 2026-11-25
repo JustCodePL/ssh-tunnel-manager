@@ -145,6 +145,61 @@ export class PortForward {
 }
 
 /**
+ * RemoteDesktop is an RDP or VNC server reached directly, with no SSH server in
+ * between. It lives in a comment-only section of an SSH config file.
+ */
+export class RemoteDesktop {
+    /**
+     * ID is RemoteDesktopIDPrefix followed by Name.
+     */
+    "id": string;
+    "name": string;
+    "address": string;
+    "port": number;
+    "protocol": string;
+    "group": string;
+    "color"?: string;
+    "pinned": boolean;
+    "sourceFile"?: string;
+    "sourceFileLabel"?: string;
+
+    /** Creates a new RemoteDesktop instance. */
+    constructor($$source: Partial<RemoteDesktop> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("address" in $$source)) {
+            this["address"] = "";
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+        if (!("protocol" in $$source)) {
+            this["protocol"] = "";
+        }
+        if (!("group" in $$source)) {
+            this["group"] = "";
+        }
+        if (!("pinned" in $$source)) {
+            this["pinned"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RemoteDesktop instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RemoteDesktop {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RemoteDesktop($$parsedSource as Partial<RemoteDesktop>);
+    }
+}
+
+/**
  * TunnelConfig holds the persistent configuration for a single SSH tunnel.
  */
 export class TunnelConfig {

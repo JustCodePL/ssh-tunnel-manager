@@ -71,6 +71,7 @@ const FEATURE_SECTIONS = [
   "command-palette",
   "credentials",
   "screen-sharing",
+  "direct-desktops",
   "tunnel-settings",
   "resources",
   "docker",

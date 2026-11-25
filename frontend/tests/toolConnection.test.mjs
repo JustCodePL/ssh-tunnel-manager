@@ -45,3 +45,9 @@ test("intervals read naturally", () => {
   assert.equal(formatInterval(3), "3 s");
   assert.equal(formatInterval(60), "1 min");
 });
+
+test("a remote desktop without SSH never waits for a tunnel", () => {
+  assert.equal(needsTunnel({ tool: "rdp", tunnelId: "rd:laptop" }), false);
+  assert.equal(needsTunnel({ tool: "vnc", tunnelId: "rd:mac" }), false);
+  assert.equal(needsTunnel({ tool: "rdp", tunnelId: "laptop" }), true);
+});

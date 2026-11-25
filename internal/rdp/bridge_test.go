@@ -317,6 +317,24 @@ func TestBridgeRefusesChangedCertificate(t *testing.T) {
 	}
 }
 
+// A first certificate the user has not confirmed yet stops the session the same
+// way, before anything is sent to the server.
+func TestBridgeRefusesUnconfirmedCertificate(t *testing.T) {
+	cert, fingerprint := testCertificate(t)
+	address := startFakeServer(t, confirmTLS, cert)
+	var seen string
+	_, session := openBridge(t, targetFor(address, func(got string) error {
+		seen = got
+		return ErrCertificateUnconfirmed
+	}))
+	if code := handshakeError(t, session); code != errCodeCertChanged {
+		t.Fatalf("code = %d", code)
+	}
+	if seen != fingerprint {
+		t.Fatalf("fingerprint = %q, want %q", seen, fingerprint)
+	}
+}
+
 func TestBridgeReportsNegotiationFailure(t *testing.T) {
 	cert, _ := testCertificate(t)
 	address := startFakeServer(t, confirmFailure, cert)

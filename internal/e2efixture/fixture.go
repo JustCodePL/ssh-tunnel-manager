@@ -620,9 +620,13 @@ func SSHConfig(port, closedPort int, keyPath string) string {
 		host(nil, "laptop", port)
 }
 
-// ControlHandler serves the test controls.
-func ControlHandler(s *Server) http.Handler {
+// ControlHandler serves the test controls. direct, when set, reports the
+// servers reached without SSH.
+func ControlHandler(s *Server, direct *Direct) http.Handler {
 	mux := http.NewServeMux()
+	if direct != nil {
+		mux.HandleFunc("/direct", direct.Handler)
+	}
 	mux.HandleFunc("/drop", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "%d", s.DropConnections())
 	})

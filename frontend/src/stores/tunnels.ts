@@ -1,5 +1,6 @@
 import { get, writable, derived } from "svelte/store";
-import type { TunnelConfig, TunnelStatus, StatusEvent, ConfigFileInfo } from "../types";
+import type { TunnelConfig, TunnelStatus, StatusEvent, ConfigFileInfo, RemoteDesktop } from "../types";
+import { AddRemoteDesktop, CheckRemoteDesktops, DeleteRemoteDesktop, DuplicateRemoteDesktop, GetRemoteDesktops, UpdateRemoteDesktop, ImportPreviewRemoteDesktops, ImportRemoteDesktops } from "../../bindings/ssh-tunnel-manager/app";
 import { AddGroup, GetGroups, RemoveGroup, GetTunnels, GetTunnelStatuses, AddTunnel, UpdateTunnel, DeleteTunnel, ConnectTunnel, DisconnectTunnel, SelectFile, ImportPreview, ImportTunnels, SelectSaveFile, ExportTunnels, SetTunnelPinned, ConnectGroup, DisconnectGroup, RenameGroup, GetIncludedConfigFiles } from "../../bindings/ssh-tunnel-manager/app";
 import { EventsOn } from "../lib/runtime";
 import { showToast } from "./toast";
@@ -10,17 +11,23 @@ export const loading = writable(true);
 /** Groups created by hand. Others exist because a tunnel names them. */
 export const groups = writable<string[]>([]);
 export const includedConfigFiles = writable<ConfigFileInfo[]>([]);
+/** Remote desktops reached without SSH. */
+export const remoteDesktops = writable<RemoteDesktop[]>([]);
+/** Result of the last reachability check, by remote desktop ID. */
+export const reachability = writable<Record<string, "checking" | "up" | "down">>({});
 
 export async function loadTunnels() {
   loading.set(true);
   try {
-    const [cfgs, sts, includes, saved] = await Promise.all([
+    const [cfgs, sts, includes, saved, desktops] = await Promise.all([
       GetTunnels(),
       GetTunnelStatuses(),
       GetIncludedConfigFiles(),
       GetGroups(),
+      GetRemoteDesktops(),
     ]);
     groups.set(saved ?? []);
+    remoteDesktops.set((desktops || []) as unknown as RemoteDesktop[]);
     tunnels.set((cfgs || []) as unknown as TunnelConfig[]);
     statuses.set((sts || {}) as unknown as Record<string, StatusEvent>);
     includedConfigFiles.set((includes || []) as unknown as ConfigFileInfo[]);
@@ -42,6 +49,58 @@ export async function updateTunnel(t: TunnelConfig): Promise<void> {
 export async function deleteTunnel(id: string): Promise<void> {
   await DeleteTunnel(id);
   await loadTunnels();
+}
+
+export async function addRemoteDesktop(d: RemoteDesktop): Promise<void> {
+  await AddRemoteDesktop(d as any);
+  await loadTunnels();
+}
+
+export async function updateRemoteDesktop(oldName: string, d: RemoteDesktop): Promise<void> {
+  await UpdateRemoteDesktop(oldName, d as any);
+  await loadTunnels();
+}
+
+export async function deleteRemoteDesktop(name: string): Promise<void> {
+  await DeleteRemoteDesktop(name);
+  await loadTunnels();
+}
+
+export async function duplicateRemoteDesktop(name: string): Promise<RemoteDesktop> {
+  const copy = await DuplicateRemoteDesktop(name);
+  await loadTunnels();
+  return copy as unknown as RemoteDesktop;
+}
+
+/** Tries a TCP connection to each remote desktop and records which answered. */
+export async function checkRemoteDesktops(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  reachability.update((current) => {
+    const next = { ...current };
+    for (const id of ids) next[id] = "checking";
+    return next;
+  });
+  let result: Record<string, boolean> = {};
+  try {
+    result = ((await CheckRemoteDesktops(ids)) ?? {}) as Record<string, boolean>;
+  } catch (e) {
+    console.error("checking remote desktops failed:", e);
+  }
+  reachability.update((current) => {
+    const next = { ...current };
+    for (const id of ids) next[id] = result[id] ? "up" : "down";
+    return next;
+  });
+}
+
+export async function previewImportDesktops(path: string): Promise<RemoteDesktop[]> {
+  return ((await ImportPreviewRemoteDesktops(path)) || []) as unknown as RemoteDesktop[];
+}
+
+export async function importDesktops(path: string, names: string[]): Promise<{ imported: number; skipped: string[] }> {
+  const result = await ImportRemoteDesktops(path, names);
+  await loadTunnels();
+  return { imported: result.imported, skipped: result.skipped ?? [] };
 }
 
 export async function connectTunnel(id: string): Promise<void> {
@@ -108,10 +167,12 @@ export async function importTunnels(path: string, names: string[]): Promise<numb
   return count;
 }
 
-export async function exportTunnels(ids: string[]): Promise<void> {
+/** Exports hosts and remote desktops (by ID). Returns false when cancelled. */
+export async function exportTunnels(ids: string[]): Promise<boolean> {
   const path = await SelectSaveFile("tunnels-export");
-  if (!path) return;
+  if (!path) return false;
   await ExportTunnels(path, ids);
+  return true;
 }
 
 /** Tool windows pass notify=false: the main window already reports errors. */

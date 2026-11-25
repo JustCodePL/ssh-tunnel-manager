@@ -30,6 +30,8 @@ export function shouldRestart(previous, next, mode) {
 
 /** Whether the tool needs the tunnel's own connection. */
 export function needsTunnel(spec) {
+  // A remote desktop reached without SSH has no tunnel to wait for.
+  if (spec.tunnelId?.startsWith("rd:")) return false;
   switch (spec.tool) {
     case "settings":
     case "tunnel-settings":

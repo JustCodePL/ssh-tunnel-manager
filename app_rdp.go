@@ -78,6 +78,9 @@ type RDPCertificateChange struct {
 	StateKey string `json:"stateKey"`
 	Expected string `json:"expected"`
 	Actual   string `json:"actual"`
+	// FirstUse is true for the first connection to a remote desktop reached
+	// without SSH, whose certificate the user confirms before it is trusted.
+	FirstUse bool `json:"firstUse"`
 }
 
 // probeRDP reports whether an RDP server answers on the host. false with a nil
@@ -105,6 +108,9 @@ func (a *App) probeRDP(tunnelID string) (bool, error) {
 // target means the host's own RDP server. Any other target must be a forward
 // configured on the host, so the frontend cannot open arbitrary connections.
 func (a *App) resolveRDPTarget(tunnelID string, target ForwardTarget) (string, string, error) {
+	if isRemoteDesktopID(tunnelID) {
+		return a.resolveRemoteDesktop(tunnelID, target, config.ForwardProtocolRDP)
+	}
 	cfg, ok := a.store.GetTunnel(tunnelID)
 	if !ok {
 		return "", "", &tunnelNotFoundError{tunnelID}
@@ -169,9 +175,10 @@ func (a *App) ForgetRDPLogin(tunnelID string, target ForwardTarget) error {
 	return a.setBinding(bindingKey(config.ForwardProtocolRDP, key), "")
 }
 
-// OpenRDP registers a bridge session to an RDP server: the host's own, or the
-// one behind a forward. The tunnel must be connected, and the session uses its
-// SSH connection, so a forward's target is reached from the host.
+// OpenRDP registers a bridge session to an RDP server: the host's own, the
+// one behind a forward, or a remote desktop reached without SSH. Through SSH
+// the tunnel must be connected, and the session uses its SSH connection, so a
+// forward's target is reached from the host.
 func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*RDPSession, error) {
 	key, address, err := a.resolveRDPTarget(tunnelID, target)
 	if err != nil {
@@ -187,9 +194,7 @@ func (a *App) OpenRDP(tunnelID string, target ForwardTarget, login RDPLogin) (*R
 
 	session, err := a.rdpBridge.Open(rdp.Target{
 		Address: address,
-		Dial: func(ctx context.Context) (net.Conn, error) {
-			return a.manager.DialRemote(ctx, tunnelID, address)
-		},
+		Dial:    a.dialTarget(tunnelID, address),
 		CheckCertificate: func(fingerprint string) error {
 			return a.checkRDPCertificate(key, fingerprint)
 		},
@@ -226,15 +231,23 @@ func (a *App) TrustRDPCertificate(tunnelID string, target ForwardTarget, fingerp
 }
 
 // checkRDPCertificate trusts a host's certificate on first use, and refuses a
-// different one afterwards until the user accepts it.
+// different one afterwards until the user accepts it. A remote desktop reached
+// without SSH has no SSH host key behind it, so even its first certificate
+// waits for the user to compare the fingerprint.
 func (a *App) checkRDPCertificate(stateKey, fingerprint string) error {
 	a.rdpMu.Lock()
 	defer a.rdpMu.Unlock()
 	pinned := a.prefs.Get().RDPCertificates[stateKey]
-	switch pinned {
-	case fingerprint:
+	switch {
+	case pinned == fingerprint:
 		return nil
-	case "":
+	case pinned == "" && isRemoteDesktopID(stateKey):
+		slog.Info("RDP certificate awaits confirmation", "target", stateKey, "sha256", fingerprint)
+		if a.ctx != nil {
+			a.emit(eventRDPCertificateChanged, RDPCertificateChange{StateKey: stateKey, Actual: fingerprint, FirstUse: true})
+		}
+		return rdp.ErrCertificateUnconfirmed
+	case pinned == "":
 		slog.Info("pinning RDP certificate on first use", "target", stateKey, "sha256", fingerprint)
 		return a.pinRDPCertificate(stateKey, fingerprint)
 	}
@@ -294,6 +307,9 @@ func (a *App) moveRDPState(oldID, newID string, forwards []config.PortForward) {
 		if p.VNCFullColor[from] {
 			p.VNCFullColor = withFlag(withFlag(p.VNCFullColor, from, false), to, true)
 		}
+		if p.VNCPublicConsent[from] {
+			p.VNCPublicConsent = withFlag(withFlag(p.VNCPublicConsent, from, false), to, true)
+		}
 	}
 	if tools, ok := p.HostTools[oldID]; ok {
 		p.HostTools = cloneHostTools(p.HostTools)
@@ -341,6 +357,10 @@ func (a *App) removeRDPState(tunnelID string, forwards []config.PortForward) {
 		}
 		if p.VNCFullColor[key] {
 			p.VNCFullColor = withFlag(p.VNCFullColor, key, false)
+			changed = true
+		}
+		if p.VNCPublicConsent[key] {
+			p.VNCPublicConsent = withFlag(p.VNCPublicConsent, key, false)
 			changed = true
 		}
 	}

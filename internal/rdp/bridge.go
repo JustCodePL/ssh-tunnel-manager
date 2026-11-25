@@ -37,6 +37,10 @@ const (
 // server presents a certificate other than the one trusted earlier.
 var ErrCertificateChanged = errors.New("RDP server certificate changed")
 
+// ErrCertificateUnconfirmed is returned by a Target's CheckCertificate when the
+// user has not yet confirmed the first certificate of a server.
+var ErrCertificateUnconfirmed = errors.New("RDP server certificate not confirmed yet")
+
 // Target describes where a session connects. The client cannot override it.
 type Target struct {
 	// Address is reported to the client as the server address.
@@ -312,7 +316,7 @@ func connectServer(ctx context.Context, request []byte, target Target, conn *web
 	sum := sha256.Sum256(peers[0].Raw)
 	if err := target.CheckCertificate(hex.EncodeToString(sum[:])); err != nil {
 		code := errCodeTLSHandshake
-		if errors.Is(err, ErrCertificateChanged) {
+		if errors.Is(err, ErrCertificateChanged) || errors.Is(err, ErrCertificateUnconfirmed) {
 			code = errCodeCertChanged
 		}
 		sendCleanPathError(conn, code, nil)

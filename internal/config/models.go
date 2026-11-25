@@ -115,3 +115,28 @@ type ConfigFileInfo struct {
 	Path  string `json:"path"`
 	Label string `json:"label"`
 }
+
+// RemoteDesktopIDPrefix starts the ID of a remote desktop reached without SSH,
+// and the key of everything stored for it: logins, certificate, settings.
+const RemoteDesktopIDPrefix = "rd:"
+
+// RemoteDesktop is an RDP or VNC server reached directly, with no SSH server in
+// between. It lives in a comment-only section of an SSH config file.
+type RemoteDesktop struct {
+	// ID is RemoteDesktopIDPrefix followed by Name.
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Address         string `json:"address"`
+	Port            int    `json:"port"`
+	Protocol        string `json:"protocol"`
+	Group           string `json:"group"`
+	Color           string `json:"color,omitempty"`
+	Pinned          bool   `json:"pinned"`
+	SourceFile      string `json:"sourceFile,omitempty"`
+	SourceFileLabel string `json:"sourceFileLabel,omitempty"`
+}
+
+// RemoteDesktopID returns the ID of the remote desktop with the given name.
+func RemoteDesktopID(name string) string {
+	return RemoteDesktopIDPrefix + name
+}

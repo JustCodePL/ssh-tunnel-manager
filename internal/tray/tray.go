@@ -6,6 +6,7 @@ package tray
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 
 	"ssh-tunnel-manager/internal/config"
@@ -26,6 +27,10 @@ type Callbacks struct {
 	AttachOptions func(id string) []AttachOption
 	// Attach opens the chosen session.
 	Attach func(id string, option AttachOption) error
+	// GetRemoteDesktops lists the remote desktops reached without SSH.
+	GetRemoteDesktops func() []config.RemoteDesktop
+	// OpenRemoteDesktop opens the viewer of one, by ID.
+	OpenRemoteDesktop func(id string) error
 }
 
 // AttachOption is one way to attach to a tunnel or to a target behind it.
@@ -229,22 +234,39 @@ func (t *Tray) BuildMenu(tunnels []config.TunnelConfig, statuses map[string]ssh.
 	}
 	nodes := []Node{{Label: header, Disabled: true}, {Separator: true}}
 
+	var desktops []config.RemoteDesktop
+	if t.cb.GetRemoteDesktops != nil {
+		desktops = t.cb.GetRemoteDesktops()
+	}
 	var groupOrder []string
 	groups := make(map[string][]config.TunnelConfig)
+	groupDesktops := make(map[string][]config.RemoteDesktop)
+	addGroup := func(name string) {
+		if _, seen := groups[name]; !seen {
+			groupOrder = append(groupOrder, name)
+			groups[name] = nil
+		}
+	}
 	for _, tc := range tunnels {
 		if tc.Group == "" {
 			nodes = append(nodes, t.tunnelNode(tc, statuses[tc.ID]))
 			continue
 		}
-		if _, seen := groups[tc.Group]; !seen {
-			groupOrder = append(groupOrder, tc.Group)
-		}
+		addGroup(tc.Group)
 		groups[tc.Group] = append(groups[tc.Group], tc)
 	}
-	for _, g := range groupOrder {
-		nodes = append(nodes, t.groupNode(g, groups[g], statuses))
+	for _, d := range desktops {
+		if d.Group == "" {
+			nodes = append(nodes, t.desktopNode(d))
+			continue
+		}
+		addGroup(d.Group)
+		groupDesktops[d.Group] = append(groupDesktops[d.Group], d)
 	}
-	if len(tunnels) == 0 {
+	for _, g := range groupOrder {
+		nodes = append(nodes, t.groupNode(g, groups[g], groupDesktops[g], statuses))
+	}
+	if len(tunnels) == 0 && len(desktops) == 0 {
 		nodes = append(nodes, Node{Label: "No tunnels configured", Disabled: true})
 	}
 	nodes = append(nodes, Node{Separator: true})
@@ -279,7 +301,7 @@ func (t *Tray) BuildMenu(tunnels []config.TunnelConfig, statuses map[string]ssh.
 	return nodes
 }
 
-func (t *Tray) groupNode(group string, members []config.TunnelConfig, statuses map[string]ssh.StatusEvent) Node {
+func (t *Tray) groupNode(group string, members []config.TunnelConfig, desktops []config.RemoteDesktop, statuses map[string]ssh.StatusEvent) Node {
 	ids := make([]string, len(members))
 	var connected int
 	for i, tc := range members {
@@ -308,7 +330,29 @@ func (t *Tray) groupNode(group string, members []config.TunnelConfig, statuses m
 	for _, tc := range members {
 		children = append(children, t.tunnelNode(tc, statuses[tc.ID]))
 	}
+	for _, d := range desktops {
+		children = append(children, t.desktopNode(d))
+	}
+	// Remote desktops without SSH have no connection, so they are not counted.
+	if len(members) == 0 {
+		return Node{Label: group, Children: children}
+	}
 	return Node{Label: fmt.Sprintf("%s (%d/%d)", group, connected, len(members)), Children: children}
+}
+
+// desktopNode opens the viewer of a remote desktop reached without SSH. It
+// has no status dot: nothing is checked from the tray.
+func (t *Tray) desktopNode(d config.RemoteDesktop) Node {
+	id, name := d.ID, d.Name
+	label := fmt.Sprintf("%s — %s", name, strings.ToUpper(d.Protocol))
+	return Node{Label: label, Tooltip: "Open " + d.Address, OnClick: func() {
+		if t.cb.OpenRemoteDesktop == nil {
+			return
+		}
+		if err := t.cb.OpenRemoteDesktop(id); err != nil {
+			slog.Error("tray: opening remote desktop failed", "desktop", name, "error", err)
+		}
+	}}
 }
 
 // isActive returns true for connected, connecting and reconnecting.

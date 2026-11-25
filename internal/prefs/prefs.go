@@ -40,6 +40,12 @@ type Prefs struct {
 	// keep 32-bit colour on macOS Screen Sharing instead of the 16-bit colour
 	// that sends half the data.
 	VNCFullColor map[string]bool `json:"vncFullColor,omitempty"`
+	// VNCPublicConsent lists the remote desktops, by "rd:<name>", whose
+	// unencrypted VNC connection to an address outside private networks the
+	// user allowed without asking again.
+	VNCPublicConsent map[string]bool `json:"vncPublicConsent,omitempty"`
+	// MainTab is the main window's last tab: "tunnels", "clients" or "web".
+	MainTab string `json:"mainTab,omitempty"`
 	// SSHHostKeys holds the SHA-256 host key fingerprints the user accepted for
 	// servers missing from known_hosts: tunnel ID, then server address.
 	SSHHostKeys map[string]map[string]string `json:"sshHostKeys,omitempty"`

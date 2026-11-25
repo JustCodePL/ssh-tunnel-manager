@@ -59,3 +59,24 @@ export interface ConfigFileInfo {
   path: string;
   label: string;
 }
+
+export interface RemoteDesktop {
+  /** "rd:" followed by the name. */
+  id: string;
+  name: string;
+  address: string;
+  port: number;
+  protocol: "rdp" | "vnc";
+  group: string;
+  color?: string;
+  pinned: boolean;
+  sourceFile?: string;
+  sourceFileLabel?: string;
+}
+
+/** The prefix of a remote desktop's ID, which tool windows take as the tunnel ID. */
+export const REMOTE_DESKTOP_PREFIX = "rd:";
+
+export function isRemoteDesktopId(id: string | undefined): boolean {
+  return !!id && id.startsWith(REMOTE_DESKTOP_PREFIX);
+}

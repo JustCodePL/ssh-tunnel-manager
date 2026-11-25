@@ -9,7 +9,7 @@
   import { createMacKeyMapper } from "../lib/macKeyMapper.js";
   import { bytesToBase64, createClipboardShim, installClipboardShim } from "../lib/clipboardBridge.js";
   import { showToast } from "../stores/toast";
-  import type { PortForward, TunnelConfig } from "../types";
+  import { isRemoteDesktopId, type PortForward, type TunnelConfig } from "../types";
 
   export let tunnel: TunnelConfig;
   // The forward to open a desktop on. Without one, the host's own RDP server.
@@ -30,6 +30,9 @@
     ? { remoteHost: forward.remoteHost, remotePort: forward.remotePort }
     : { remoteHost: "", remotePort: 0 };
   const targetLabel = forward ? `${tunnel.name} → ${forward.remoteHost}:${forward.remotePort}` : tunnel.name;
+  // A remote desktop reached without SSH: its first certificate waits for the
+  // user, and no SSH login is offered for it.
+  const direct = isRemoteDesktopId(tunnel.id);
   let stateKey = "";
 
   let view: View = "loading";
@@ -42,7 +45,7 @@
   let password = "";
   let saveLogin = true;
 
-  let certificateChange: { expected: string; actual: string } | null = null;
+  let certificateChange: { expected: string; actual: string; firstUse: boolean } | null = null;
 
   // Kept for the lifetime of this window, so a session paused by hiding the
   // window can resume without asking again.
@@ -146,6 +149,15 @@
     mapMacKey = createMacKeyMapper();
   }
 
+  // The built-in client signs in with NTLM, which local and domain accounts
+  // support. A Microsoft Entra ID account, written as user@domain or with the
+  // AzureAD domain, needs a sign-in it does not have.
+  const ENTRA_MESSAGE = "The server rejected this login. If the computer requires Microsoft Entra ID sign-in, the built-in viewer does not support it: use a local or domain account.";
+  function entraLogin(login: { username: string; domain: string } | null): boolean {
+    if (!login) return false;
+    return login.username.includes("@") || login.domain.trim().toLowerCase() === "azuread";
+  }
+
   function describeError(e: any): { kind: number; text: string } {
     if (typeof e?.kind === "function") {
       let detail = "";
@@ -168,7 +180,7 @@
       return;
     }
     if (kind === ERROR_WRONG_PASSWORD || kind === ERROR_LOGON_FAILURE) {
-      message = "The server rejected this login.";
+      message = entraLogin(activeLogin) ? ENTRA_MESSAGE : "The server rejected this login.";
       activeLogin = null;
       password = "";
       view = "login";
@@ -177,7 +189,7 @@
     if (kind === ERROR_ACCESS_DENIED) {
       message = "This account has no remote desktop access.";
     } else if (kind === ERROR_NEGOTIATION) {
-      message = "The server does not accept the security settings this client offers.";
+      message = entraLogin(activeLogin) ? ENTRA_MESSAGE : "The server does not accept the security settings this client offers.";
     } else if (kind === ERROR_RDCLEANPATH) {
       message = `Could not connect to the RDP server of ${targetLabel}.`;
     } else {
@@ -327,7 +339,9 @@
 
   const offCertificateChanged = EventsOn("rdp:certificate-changed", (change: any) => {
     if (change.stateKey === stateKey) {
-      certificateChange = { expected: change.expected, actual: change.actual };
+      certificateChange = { expected: change.expected ?? "", actual: change.actual, firstUse: !!change.firstUse };
+      // The failure may have arrived first.
+      if (view === "ended") view = "certificate";
     }
   });
 
@@ -342,7 +356,7 @@
       const saved = await GetRDPLogin(tunnel.id, target as any);
       if (saved.username) username = saved.username;
       domain = saved.domain ?? "";
-      selectedLogin = saved.credentialId || (await GetCredentialBinding("ssh", tunnel.id, target as any)) || "";
+      selectedLogin = saved.credentialId || (direct ? "" : await GetCredentialBinding("ssh", tunnel.id, target as any)) || "";
       if (saved.hasPassword) {
         // An empty password makes the backend use the stored login.
         activeLogin = { username, domain, password: "" };
@@ -429,6 +443,16 @@
         <div class="rdp-panel-actions">
           {#if activeLogin}<button class="rdp-primary" on:click={start}>reconnect</button>{/if}
           <button class="rdp-text-btn" on:click={changeLogin}>change login</button>
+        </div>
+      </div>
+    {:else if view === "certificate" && certificateChange?.firstUse}
+      <div class="rdp-panel" data-testid="rdp-first-certificate">
+        <div class="rdp-form-title">first connection to {targetLabel}</div>
+        <p>Check that this is the right computer before sending your password. Compare this SHA-256 fingerprint with the one the computer shows; the Features page gives the PowerShell command that prints it on Windows.</p>
+        <div class="rdp-fingerprint" data-testid="rdp-certificate-fingerprint">{certificateChange.actual}</div>
+        <div class="rdp-panel-actions">
+          <button class="rdp-primary" data-testid="rdp-trust-certificate" on:click={trustCertificate}>trust and connect</button>
+          <button class="rdp-text-btn" on:click={() => { certificateChange = null; message = "The certificate was not trusted."; view = "ended"; }}>cancel</button>
         </div>
       </div>
     {:else if view === "certificate" && certificateChange}

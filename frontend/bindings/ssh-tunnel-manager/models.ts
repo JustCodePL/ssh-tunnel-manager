@@ -668,6 +668,43 @@ export class RDPSession {
 }
 
 /**
+ * RemoteDesktopImport is the outcome of importing remote desktops.
+ */
+export class RemoteDesktopImport {
+    "imported": number;
+
+    /**
+     * Skipped names the entries left out, because a host or a remote desktop
+     * already has the name or the entry is invalid.
+     */
+    "skipped": string[];
+
+    /** Creates a new RemoteDesktopImport instance. */
+    constructor($$source: Partial<RemoteDesktopImport> = {}) {
+        if (!("imported" in $$source)) {
+            this["imported"] = 0;
+        }
+        if (!("skipped" in $$source)) {
+            this["skipped"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RemoteDesktopImport instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RemoteDesktopImport {
+        const $$createField1_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("skipped" in $$parsedSource) {
+            $$parsedSource["skipped"] = $$createField1_0($$parsedSource["skipped"]);
+        }
+        return new RemoteDesktopImport($$parsedSource as Partial<RemoteDesktopImport>);
+    }
+}
+
+/**
  * SFTPOpenResult is returned from OpenSFTP with the session ID and the
  * initial directory (remote home) to start browsing from.
  */
@@ -859,6 +896,12 @@ export class VNCConnection {
      */
     "reducedColor"?: boolean;
 
+    /**
+     * PublicAddress is the address outside private networks a "confirm-public"
+     * outcome asks about.
+     */
+    "publicAddress"?: string;
+
     /** Creates a new VNCConnection instance. */
     constructor($$source: Partial<VNCConnection> = {}) {
         if (!("status" in $$source)) {
@@ -896,6 +939,13 @@ export class VNCLogin {
      */
     "save": boolean;
 
+    /**
+     * AllowPublic connects a remote desktop without SSH to an address outside
+     * private networks this once; RememberPublic stops asking for it.
+     */
+    "allowPublic": boolean;
+    "rememberPublic": boolean;
+
     /** Creates a new VNCLogin instance. */
     constructor($$source: Partial<VNCLogin> = {}) {
         if (!("username" in $$source)) {
@@ -909,6 +959,12 @@ export class VNCLogin {
         }
         if (!("save" in $$source)) {
             this["save"] = false;
+        }
+        if (!("allowPublic" in $$source)) {
+            this["allowPublic"] = false;
+        }
+        if (!("rememberPublic" in $$source)) {
+            this["rememberPublic"] = false;
         }
 
         Object.assign(this, $$source);

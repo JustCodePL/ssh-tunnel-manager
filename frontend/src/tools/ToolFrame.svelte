@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { tunnels, statuses, getStatus, connectTunnel } from "../stores/tunnels";
+  import { tunnels, statuses, getStatus, connectTunnel, remoteDesktops } from "../stores/tunnels";
+  import { isRemoteDesktopId, type RemoteDesktop, type TunnelConfig } from "../types";
   import { effective, settingsFor } from "../stores/settings";
   import { needsTunnel, toolState, shouldRestart } from "../lib/toolConnection.js";
   import { shortError } from "../lib/rowLayout.js";
@@ -28,7 +29,14 @@
   let ended = false;
   let busy = false;
 
-  $: tunnel = $tunnels.find((t) => t.id === spec.tunnelId);
+  // A remote desktop without SSH stands in for a tunnel: the viewers need only
+  // its ID and name.
+  function desktopAsTunnel(d: RemoteDesktop): TunnelConfig {
+    return { id: d.id, name: d.name, host: d.address, port: d.port, user: "", keyPath: "", portForwards: [], group: d.group, autoConnect: false };
+  }
+  $: direct = isRemoteDesktopId(spec.tunnelId);
+  $: desktop = direct ? $remoteDesktops.find((d) => d.id === spec.tunnelId) : undefined;
+  $: tunnel = direct ? (desktop ? desktopAsTunnel(desktop) : undefined) : $tunnels.find((t) => t.id === spec.tunnelId);
   $: forward = spec.remoteHost
     ? tunnel?.portForwards?.find((pf) => pf.remoteHost === spec.remoteHost && pf.remotePort === spec.remotePort) ?? null
     : null;
@@ -72,9 +80,9 @@
   {#if spec.tool === "settings"}
     <SettingsTool />
   {:else if !tunnel}
-    <p class="message">This tunnel no longer exists.</p>
+    <p class="message">{direct ? "This remote desktop no longer exists." : "This tunnel no longer exists."}</p>
   {:else if spec.tool === "tunnel-settings"}
-    <TunnelSettingsTool {tunnel} on:close={() => dispatch("close")} />
+    <TunnelSettingsTool {tunnel} initialPage={spec.path ?? ""} on:close={() => dispatch("close")} />
   {:else if spec.tool === "logs"}
     <TunnelLogs tunnelId={tunnel.id} tunnelName={tunnel.name} />
   {:else}

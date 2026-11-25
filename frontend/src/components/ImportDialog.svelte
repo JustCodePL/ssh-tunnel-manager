@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { TunnelConfig } from "../types";
-  import { selectImportFile, previewImport, importTunnels } from "../stores/tunnels";
+  import type { RemoteDesktop, TunnelConfig } from "../types";
+  import { selectImportFile, previewImport, importTunnels, previewImportDesktops, importDesktops } from "../stores/tunnels";
+  import Icon from "./Icon.svelte";
   import { createEventDispatcher } from "svelte";
 
   const dispatch = createEventDispatcher<{ close: void }>();
@@ -8,7 +9,11 @@
   let step: "pick" | "preview" | "done" = "pick";
   let filePath = "";
   let previewed: TunnelConfig[] = [];
+  let desktops: RemoteDesktop[] = [];
   let selected: Record<string, boolean> = {};
+  let selectedDesktops: Record<string, boolean> = {};
+  let skipped: string[] = [];
+  let importedDesktops = 0;
   let importing = false;
   let error = "";
   let importedCount = 0;
@@ -19,14 +24,18 @@
       const path = await selectImportFile();
       if (!path) return;
       filePath = path;
-      previewed = await previewImport(path);
-      if (previewed.length === 0) {
-        error = "no host entries found in the selected file";
+      [previewed, desktops] = await Promise.all([previewImport(path), previewImportDesktops(path)]);
+      if (previewed.length === 0 && desktops.length === 0) {
+        error = "no host entries or remote desktops found in the selected file";
         return;
       }
       selected = {};
       for (const t of previewed) {
         selected[t.name] = true;
+      }
+      selectedDesktops = {};
+      for (const d of desktops) {
+        selectedDesktops[d.name] = true;
       }
       step = "preview";
     } catch (e: any) {
@@ -41,19 +50,35 @@
     selected = selected;
   }
 
-  $: selectedCount = Object.values(selected).filter(Boolean).length;
-  $: allSelected = selectedCount === previewed.length;
+  function toggleAllDesktops(checked: boolean) {
+    for (const d of desktops) {
+      selectedDesktops[d.name] = checked;
+    }
+    selectedDesktops = selectedDesktops;
+  }
+
+  $: selectedTunnelCount = Object.values(selected).filter(Boolean).length;
+  $: selectedDesktopCount = Object.values(selectedDesktops).filter(Boolean).length;
+  $: selectedCount = selectedTunnelCount + selectedDesktopCount;
+  $: allSelected = selectedTunnelCount === previewed.length;
+  $: allDesktopsSelected = selectedDesktopCount === desktops.length;
 
   async function handleImport() {
     const names = Object.entries(selected)
       .filter(([, v]) => v)
       .map(([k]) => k);
-    if (names.length === 0) return;
+    const desktopNames = Object.entries(selectedDesktops)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    if (names.length === 0 && desktopNames.length === 0) return;
 
     importing = true;
     error = "";
     try {
-      importedCount = await importTunnels(filePath, names);
+      importedCount = names.length ? await importTunnels(filePath, names) : 0;
+      const result = desktopNames.length ? await importDesktops(filePath, desktopNames) : { imported: 0, skipped: [] };
+      importedDesktops = result.imported;
+      skipped = result.skipped;
       step = "done";
     } catch (e: any) {
       error = e?.message ?? String(e);
@@ -83,7 +108,7 @@
 
     {:else if step === "preview"}
       <div class="preview-info">
-        <span class="preview-count">{previewed.length} host{previewed.length !== 1 ? "s" : ""} found</span>
+        <span class="preview-count">{previewed.length} host{previewed.length !== 1 ? "s" : ""}{desktops.length ? `, ${desktops.length} remote desktop${desktops.length !== 1 ? "s" : ""}` : ""} found</span>
         <span class="preview-path">{filePath}</span>
       </div>
 
@@ -120,13 +145,40 @@
         </table>
       </div>
 
+      {#if desktops.length}
+        <div class="table-wrapper" data-testid="import-desktops">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th class="th-check">
+                  <input type="checkbox" checked={allDesktopsSelected} on:change={(e) => toggleAllDesktops(e.currentTarget.checked)} />
+                </th>
+                <th>remote desktop</th>
+                <th>address</th>
+                <th>group</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each desktops as d}
+                <tr>
+                  <td class="td-check"><input type="checkbox" bind:checked={selectedDesktops[d.name]} /></td>
+                  <td class="td-name"><span class="proto" title={d.protocol.toUpperCase()}><Icon name={d.protocol === "vnc" ? "vnc" : "rdp"} size={13} /></span>{d.name}</td>
+                  <td class="td-muted">{d.address}:{d.port}</td>
+                  <td class="td-muted">{d.group || "—"}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+
       <div class="import-actions">
         <button
           class="action-btn accent"
           disabled={selectedCount === 0 || importing}
           on:click={handleImport}
         >
-          {importing ? "Importing..." : `[ import ${selectedCount} tunnel${selectedCount !== 1 ? "s" : ""} ]`}
+          {importing ? "Importing..." : `[ import ${selectedCount} entr${selectedCount !== 1 ? "ies" : "y"} ]`}
         </button>
         <button class="action-btn" on:click={() => dispatch("close")}>Cancel</button>
       </div>
@@ -134,8 +186,11 @@
     {:else if step === "done"}
       <div class="done-msg">
         <span class="accent-text">✓</span>
-        imported {importedCount} tunnel{importedCount !== 1 ? "s" : ""} successfully
+        imported {importedCount} tunnel{importedCount !== 1 ? "s" : ""}{importedDesktops ? ` and ${importedDesktops} remote desktop${importedDesktops !== 1 ? "s" : ""}` : ""} successfully
       </div>
+      {#if skipped.length}
+        <div class="warn-text" data-testid="import-skipped">! skipped {skipped.join(", ")}: the name is already used by a host or a remote desktop</div>
+      {/if}
       <div class="import-actions">
         <button class="action-btn accent" on:click={() => dispatch("close")}>Done</button>
       </div>
@@ -144,6 +199,18 @@
 </div>
 
 <style>
+  .proto {
+    display: inline-flex;
+    vertical-align: -2px;
+    margin-right: 6px;
+    color: var(--muted);
+  }
+
+  .warn-text {
+    color: var(--warning);
+    font-size: 12px;
+  }
+
   .import-container {
     background: var(--surface);
     border: 1px solid var(--border);

@@ -23,6 +23,7 @@ export {
     RDPLogin,
     RDPSavedLogin,
     RDPSession,
+    RemoteDesktopImport,
     SFTPOpenResult,
     SFTPUploadPick,
     SFTPWriteResult,
