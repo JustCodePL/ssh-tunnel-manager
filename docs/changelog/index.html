@@ -76,7 +76,8 @@
 
         <div class="changelog-layout">
           <nav class="changelog-history" aria-label="Release history">
-            <a href="../changelog/v1.2.0-beta.6/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.6</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Screen sharing over VNC, for a Mac behind a tunnel</span></a>
+            <a href="../changelog/v1.2.0-beta.7/" aria-current="page"><span class="changelog-history-version">v1.2.0-beta.7</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Fixes for logins that hang: the SSH agent and ProxyCommand</span></a>
+            <a href="../changelog/v1.2.0-beta.6/"><span class="changelog-history-version">v1.2.0-beta.6</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Screen sharing over VNC, for a Mac behind a tunnel</span></a>
             <a href="../changelog/v1.2.0-beta.5/"><span class="changelog-history-version">v1.2.0-beta.5</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Security fixes: host keys, saved passwords and links</span></a>
             <a href="../changelog/v1.2.0-beta.4/"><span class="changelog-history-version">v1.2.0-beta.4</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">The system title bar on macOS</span></a>
             <a href="../changelog/v1.2.0-beta.3/"><span class="changelog-history-version">v1.2.0-beta.3</span> <span class="release-badge beta">BETA</span> <span class="changelog-history-title">Separate tool windows and a new tunnel list</span></a>
@@ -118,65 +119,53 @@
             <a href="../changelog/v1.0.0/"><span class="changelog-history-version">v1.0.0</span> <span class="release-badge">STABLE</span> <span class="changelog-history-title">First public release</span></a>
           </nav>
           <div class="changelog-content">
-        <article class="changelog-entry" id="v1.2.0-beta.6">
+        <article class="changelog-entry" id="v1.2.0-beta.7">
           <header class="changelog-entry-head">
-            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.6/">v1.2.0-beta.6</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-24">24 November 2026</time></p>
-            <h3>Screen sharing over VNC, for a Mac behind a tunnel</h3>
-            <p>The screen of a Mac (macOS Screen Sharing) or of another VNC server now opens in a window of the app, through the SSH tunnel, like the built-in remote desktop.</p>
+            <p class="changelog-meta"><a href="../changelog/v1.2.0-beta.7/">v1.2.0-beta.7</a> <span class="release-badge beta">BETA</span> <time datetime="2026-11-25">25 November 2026</time></p>
+            <h3>Fixes for logins that hang: the SSH agent and ProxyCommand</h3>
+            <p>Connecting no longer wears out the SSH agent, and a connection through a ProxyCommand can no longer hang forever or leave its helper running. Nothing changes in the interface.</p>
           </header>
-          <section class="feature-detail">
+          <section class="feature-detail no-shot">
             <div class="feature-detail-copy">
-              <h4>VNC forwards and detection</h4>
-              <p>A forward to port 5900, or one whose type is set to <code>vnc</code>, gets a VNC tag and an <strong>Attach</strong> button that opens the screen behind it. After connecting, the app also looks for a VNC server on the host's own port 5900; when it finds one, <strong>Screen sharing (VNC)</strong> appears under Attach, in the tray menu and in the command palette, and <kbd>V</kbd> opens it from the list.</p>
+              <h4>The SSH agent keeps answering</h4>
+              <p>Every connect and reconnect opened a connection to the SSH agent and never closed it. After enough of them the agent, on macOS the system one, stopped answering: logins in the app hung, and so did <code>ssh</code> in the terminal. The app now closes each agent connection when its request ends, and gives up on an agent that does not answer: for each request, 5 seconds to connect and 5 to list keys, 60 seconds for a signature, because an agent may ask you to confirm it. A silent agent is skipped, and the login goes on with the default key files and a saved password, if the tunnel has one. When the agent is running but holds no keys, the default key files in <code>~/.ssh</code> (<code>id_ed25519</code>, <code>id_ecdsa</code>, <code>id_rsa</code>) are now offered instead.</p>
             </div>
-            <figure class="feature-detail-shots">
-              <a href="../assets/changelog/v1.2.0-beta.6/vnc-forward.png"><img src="../assets/changelog/v1.2.0-beta.6/vnc-forward.png" alt="An expanded tunnel whose forwards include one to port 5900 with a VNC tag and an Attach button" width="1100" height="760" loading="lazy" /></a>
-            </figure>
           </section>
-          <section class="feature-detail">
+          <section class="feature-detail no-shot">
             <div class="feature-detail-copy">
-              <h4>Signing in to a Mac</h4>
-              <p>A Mac takes the user name and password of an account on it (Apple Remote Desktop authentication). Other servers take a VNC password, or nothing. The app signs in itself and gives the viewer a session that needs no password, so a saved password never reaches the viewer. A login that worked can be saved in the system keychain, and the form offers every saved login. A rejected login says so, with the server's reason when it gives one, and a server that only accepts encryption the app does not support is named as such. The screen fits the window or shows at its real size, and the shared clipboard carries text in the direction set for the tunnel.</p>
+              <h4>ProxyCommand connections end cleanly</h4>
+              <p>A login through a <code>ProxyCommand</code> that failed, for example on a refused host key, could hang while closing. The SSH handshake through a ProxyCommand now has a limit of 2 minutes, enough for a command that opens its own connection or waits for a sign-in in the browser; past it the error says there was no answer. Time spent on a host key question does not count. Disconnecting stops the command together with the processes it started, such as <code>aws ssm start-session</code>, <code>ssh -W</code> or <code>cloudflared</code>, not just the shell around it. The command's error output is kept only up to its last 16 KiB.</p>
             </div>
-            <figure class="feature-detail-shots">
-              <a href="../assets/changelog/v1.2.0-beta.6/vnc-login.png"><img src="../assets/changelog/v1.2.0-beta.6/vnc-login.png" alt="The screen sharing login form with a saved login choice, a user name and a password" width="900" height="640" loading="lazy" /></a>
-            </figure>
           </section>
-          <section class="feature-detail">
+          <section class="feature-detail no-shot">
             <div class="feature-detail-copy">
-              <h4>VNC in the tunnel's settings</h4>
-              <p>The Credentials page of a tunnel has a VNC section: screen sharing on the host can be turned on or off whatever the detection found, and each target can have its own saved login. A login saved from a remote desktop or screen sharing window no longer overwrites a login the tunnel also uses for SSH; a new one is saved instead.</p>
+              <h4>Terminal and Files on a forward stay open</h4>
+              <p>Terminal and Files opened on the server behind an SSH forward closed on their own about 10 seconds after the connection renewed its keys, which happens after a lot of data, for example a large transfer, or after a set time on some servers. They now stay open.</p>
             </div>
-            <figure class="feature-detail-shots">
-              <a href="../assets/changelog/v1.2.0-beta.6/vnc-settings.png"><img src="../assets/changelog/v1.2.0-beta.6/vnc-settings.png" alt="Tunnel settings, Credentials page, with the SSH, RDP and VNC sections" width="900" height="860" loading="lazy" /></a>
-            </figure>
           </section>
           <div class="changelog-notes">
             <div>
               <h4>How to use it</h4>
               <ul>
-                <li>On the Mac, turn on <strong>Screen Sharing</strong> in System Settings → General → Sharing, and allow your account.</li>
-                <li>Connect the tunnel to that Mac, then choose <strong>Attach</strong> → <strong>Screen sharing (VNC)</strong>. For a Mac behind a bastion, add a forward to its port 5900 and use the forward's <strong>Attach</strong>.</li>
-                <li>Sign in with the Mac's account name and password. For a server with only a VNC password, leave the user empty.</li>
-                <li>Use <strong>actual size</strong> or <strong>fit to window</strong> in the window's bar to change the scale.</li>
+                <li>Nothing to do. If logins hung with an earlier version after many reconnects, they work again after updating.</li>
               </ul>
             </div>
             <div>
               <h4>Known limits</h4>
               <ul>
-                <li>Not yet tested against a real Mac with Screen Sharing. It was tested only against a test VNC server in the automated tests: the login, the password check and the picture. The Mac login, the keyboard (⌘, ⌥ and Polish letters), the clipboard and loading the viewer in the macOS desktop window are waiting for a manual test.</li>
-                <li>Servers that require encryption (VeNCrypt, TLS, RA2) are not supported.</li>
-                <li>Only port 5900 is checked on the host itself. A server on another port needs a forward of type <code>vnc</code>.</li>
-                <li>The screenshots come from the test build in a browser, not from the desktop window.</li>
+                <li>For Terminal and Files on the server behind an SSH forward, the whole login has 10 seconds, so a signature you confirm in the agent (<code>ssh-add -c</code>, a password manager) must be confirmed within that time.</li>
+                <li>A helper that detaches itself from the ProxyCommand (for example with <code>setsid</code>, or by turning into a daemon) keeps running after disconnecting.</li>
+                <li>On Windows, a process that the ProxyCommand starts before the app adds the command to its group keeps running; if the group cannot be set up, only the command itself is stopped.</li>
+                <li>These fixes were tested with automated tests, not by hand against real ProxyCommand helpers.</li>
                 <li>The limits of the previous beta still apply.</li>
               </ul>
             </div>
           </div>
-          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.6" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
+          <p class="changelog-release"><a href="https://github.com/JustCodePL/ssh-tunnel-manager/releases/tag/v1.2.0-beta.7" data-umami-event="github-click" data-umami-event-location="changelog" target="_blank" rel="noopener">Release on GitHub</a></p>
         </article>
             <nav class="changelog-pager" aria-label="Older and newer releases">
               <span class="changelog-pager-newer"></span>
-              <a href="../changelog/v1.2.0-beta.5/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.5</span></a>
+              <a href="../changelog/v1.2.0-beta.6/" class="changelog-pager-older"><span class="changelog-pager-label">Previous</span><span class="changelog-pager-version">v1.2.0-beta.6</span></a>
             </nav>
           </div>
         </div>
